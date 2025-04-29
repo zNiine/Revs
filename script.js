@@ -60,55 +60,54 @@ function initColumnKeys(sample) {
 // ─────────────────────────────────────────────────────────────────
 // 2) Fetch & parse all CSVs in /data/, trim keys/values, parse dates
 async function fetchAllCSVs() {
-  // 1) If we already loaded once, return the cache immediately
   if (allData.length) return allData;
 
-  // 2) Load the manifest of CSV filenames
   const files = await fetch('data/files.json')
-                      .then(r => {
-                        if (!r.ok) throw new Error(`Cannot load manifest: ${r.status}`);
-                        return r.json();
-                      });
+    .then(r => {
+      if (!r.ok) throw new Error(`Cannot load manifest: ${r.status}`);
+      return r.json();
+    });
 
   const year = new Date().getFullYear();
   let rows = [];
 
-  // 3) For each filename in the manifest...
   for (const f of files) {
-    // 3a) Fetch the raw CSV text
     const txt = await fetch(`data/${f}`)
-                      .then(r => {
-                        if (!r.ok) throw new Error(`Failed to fetch CSV ${f}: ${r.status}`);
-                        return r.text();
-                      });
+      .then(r => {
+        if (!r.ok) throw new Error(`Failed to fetch ${f}: ${r.status}`);
+        return r.text();
+      });
 
-    // 3b) Parse into objects
-    const parsed = Papa.parse(txt, {
-      header: true,
-      skipEmptyLines: true
-    }).data;
+    const parsed = Papa.parse(txt, { header: true, skipEmptyLines: true }).data;
 
-    // 3c) Trim keys & values, and attach a Date from the filename
     parsed.forEach(r => {
-      Object.keys(r).forEach(k => {
-        const tk = k.trim(), v = r[k];
-        delete r[k];
+      Object.keys(r).forEach(origKey => {
+        // 1) Trim whitespace
+        let tk = origKey.trim();
+
+        // 2) Simplify LAUNCH ANGLE headers → keep only first two words
+        const parts = tk.split(/\s+/);
+        if (parts[0].toLowerCase() === 'launch' && parts[1].toLowerCase() === 'angle') {
+          tk = parts.slice(0,2).join(' ');  // "Launch Angle"
+        }
+
+        // 3) Move & re-assign the value
+        const v = r[origKey];
+        delete r[origKey];
         r[tk] = typeof v === 'string' ? v.trim() : v;
       });
+
+      // 4) Tag with game date
       const m = f.match(/^(\d{2})-(\d{2})/);
       r.__gameDate = m
         ? new Date(year, +m[1] - 1, +m[2])
         : null;
     });
 
-    // 3d) Accumulate all rows
     rows.push(...parsed);
   }
 
-  // 4) Initialize column mappings on the very first row
   if (rows.length) initColumnKeys(rows[0]);
-
-  // 5) Cache and return
   allData = rows;
   return allData;
 }
@@ -369,7 +368,6 @@ async function startLeaderboards() {
   bf.addEventListener('change', renderLeaderboards);
   renderLeaderboards();
 }
-
 function renderLeaderboards() {
   const selected = document.getElementById('leaderBatterFilter').value;
   const data = selected
@@ -388,6 +386,7 @@ function renderLeaderboards() {
   const avgEV = Object.entries(evStats)
     .map(([b,s]) => ({ batter: b, avg: s.sum / s.count }))
     .sort((a,b) => b.avg - a.avg);
+
   let htmlAvg = `<thead><tr><th>Batter</th><th>Avg Exit Vel (mph)</th></tr></thead><tbody>`;
   avgEV.forEach(r => {
     htmlAvg += `<tr><td>${r.batter}</td><td>${r.avg.toFixed(1)}</td></tr>`;
@@ -408,19 +407,32 @@ function renderLeaderboards() {
     }))
     .sort((a,b) => b.exitVel - a.exitVel)
     .slice(0,10);
-  let html = `<thead><tr><th>Batter</th><th>Exit Vel (mph)</th><th>Distance (ft)</th>
-    <th>Pitcher</th><th>Pitch Type</th><th>Result</th></tr></thead><tbody>`;
+
+  let htmlHard = `<thead><tr>
+    <th>Batter</th><th>Exit Vel (mph)</th><th>Distance (ft)</th>
+    <th>Pitcher</th><th>Pitch Type</th><th>Result</th>
+  </tr></thead><tbody>`;
   hardHits.forEach(r => {
-    html += `<tr><td>${r.batter}</td><td>${r.exitVel.toFixed(1)}</td>
-      <td>${isNaN(r.distance)?'':r.distance.toFixed(1)}</td><td>${r.pitcher}</td>
-      <td>${r.pitchType}</td><td>${r.result}</td></tr>`;
+    htmlHard += `<tr>
+      <td>${r.batter}</td>
+      <td>${r.exitVel.toFixed(1)}</td>
+      <td>${isNaN(r.distance)?'':r.distance.toFixed(1)}</td>
+      <td>${r.pitcher}</td>
+      <td>${r.pitchType}</td>
+      <td>${r.result}</td>
+    </tr>`;
   });
-  html += `</tbody>`;
-  document.getElementById('leaderboard-hardest').innerHTML = html;
+  htmlHard += `</tbody>`;
+  document.getElementById('leaderboard-hardest').innerHTML = htmlHard;
 
   // ── Longest Home Runs ──
-  const hrHits = data
-    .filter(d => (d[COL.result]||'').toLowerCase().includes('home run'))
+  const hrRaw = data.filter(d =>
+    (d[COL.result] || '').toLowerCase().includes('home run')
+  );
+  console.log("🔍 hrRaw (home-run rows):", hrRaw);
+  if (hrRaw.length) console.log("🔑 hrRaw keys:", Object.keys(hrRaw[0]));
+
+  const hrHits = hrRaw
     .map(d => ({
       batter:    d[COL.batter],
       distance:  parseNum(d[COL.distance]),
@@ -430,19 +442,30 @@ function renderLeaderboards() {
       pitchType: d[COL.pitchType],
       result:    d[COL.result]
     }))
-    .filter(r => !isNaN(r.distance))
+    .filter(r => !isNaN(r.distance));
+  console.log("📊 hrHits after mapping:", hrHits);
+
+  const topHR = hrHits
     .sort((a,b) => b.distance - a.distance)
     .slice(0,10);
-  html = `<thead><tr><th>Batter</th><th>Distance (ft)</th><th>Exit Vel (mph)</th>
-    <th>Launch Ang (°)</th><th>Pitcher</th><th>Pitch Type</th><th>Result</th></tr></thead><tbody>`;
-  hrHits.forEach(r => {
-    html += `<tr><td>${r.batter}</td><td>${r.distance.toFixed(1)}</td>
+
+  let htmlHR = `<thead><tr>
+    <th>Batter</th><th>Distance (ft)</th><th>Exit Vel (mph)</th>
+    <th>Launch Ang (°)</th><th>Pitcher</th><th>Pitch Type</th><th>Result</th>
+  </tr></thead><tbody>`;
+  topHR.forEach(r => {
+    htmlHR += `<tr>
+      <td>${r.batter}</td>
+      <td>${r.distance.toFixed(1)}</td>
       <td>${isNaN(r.exitVel)?'':r.exitVel.toFixed(1)}</td>
       <td>${isNaN(r.launchAng)?'':r.launchAng.toFixed(1)}</td>
-      <td>${r.pitcher}</td><td>${r.pitchType}</td><td>${r.result}</td></tr>`;
+      <td>${r.pitcher}</td>
+      <td>${r.pitchType}</td>
+      <td>${r.result}</td>
+    </tr>`;
   });
-  html += `</tbody>`;
-  document.getElementById('leaderboard-hr').innerHTML = html;
+  htmlHR += `</tbody>`;
+  document.getElementById('leaderboard-hr').innerHTML = htmlHR;
 
   // ── Lowest Chase Rate ──
   const zone = { L:-0.708, R:0.708, bottom:1.5, top:3.5 };
@@ -450,24 +473,32 @@ function renderLeaderboards() {
   allData.forEach(d => {
     const x = parseNum(d[COL.locX]), y = parseNum(d[COL.locY]);
     if (isNaN(x)||isNaN(y)) return;
-    if (x<zone.L||x>zone.R||y<zone.bottom||y>zone.top) {
+    if (x < zone.L || x > zone.R || y < zone.bottom || y > zone.top) {
       const b = d[COL.batter];
-      stats[b] = stats[b]||{ out:0, ch:0 };
+      stats[b] = stats[b] || { out: 0, ch: 0 };
       stats[b].out++;
-      const pit = (d[COL.pitch]||'').toLowerCase();
-      if (pit==='swinging strike' || pit==='foul') stats[b].ch++;
+      const pit = (d[COL.pitch] || '').toLowerCase();
+      if (pit === 'swinging strike' || pit === 'foul') stats[b].ch++;
     }
   });
+
   const arrChase = Object.entries(stats)
-    .filter(([b,s]) => s.out>=10)
-    .map(([b,s])=>({ player:b, rate:s.ch/s.out, outside:s.out }))
-    .sort((a,b)=>a.rate - b.rate);
-  html = `<thead><tr><th>Player</th><th>Chase Rate (%)</th><th>Outside Pitches</th></tr></thead><tbody>`;
+    .filter(([b,s]) => s.out >= 10)
+    .map(([b,s]) => ({ player: b, rate: s.ch/s.out, outside: s.out }))
+    .sort((a,b) => a.rate - b.rate);
+
+  let htmlChase = `<thead><tr>
+    <th>Player</th><th>Chase Rate (%)</th><th>Outside Pitches</th>
+  </tr></thead><tbody>`;
   arrChase.forEach(r => {
-    html += `<tr><td>${r.player}</td><td>${(r.rate*100).toFixed(1)}</td><td>${r.outside}</td></tr>`;
+    htmlChase += `<tr>
+      <td>${r.player}</td>
+      <td>${(r.rate*100).toFixed(1)}</td>
+      <td>${r.outside}</td>
+    </tr>`;
   });
-  html += `</tbody>`;
-  document.getElementById('leaderboard-chase').innerHTML = html;
+  htmlChase += `</tbody>`;
+  document.getElementById('leaderboard-chase').innerHTML = htmlChase;
 }
 
 // ─────────────────────────────────────────────────────────────────
