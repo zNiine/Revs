@@ -60,39 +60,58 @@ function initColumnKeys(sample) {
 // ─────────────────────────────────────────────────────────────────
 // 2) Fetch & parse all CSVs in /data/, trim keys/values, parse dates
 async function fetchAllCSVs() {
-  if (allData.length) return allData;  // cache
+  // 1) Return cached data if already loaded
+  if (allData.length) return allData;
 
-  const idxResp = await fetch('data/'),
-        idxHtml = await idxResp.text(),
-        files   = [...idxHtml.matchAll(/href="([^"]+\.csv)"/g)].map(m => m[1]);
+  // 2) Fetch the manifest of CSV filenames
+  const files = await fetch('data/files.json')
+                     .then(r => r.json());
+
   const year = new Date().getFullYear();
   let rows = [];
 
+  // 3) Loop over each filename, fetch & parse
   for (const f of files) {
-    const txt    = await (await fetch(`data/${f}`)).text(),
-          parsed = Papa.parse(txt, { header: true, skipEmptyLines: true }).data;
+    // 3a) Fetch raw CSV text
+    const txt = await fetch(`data/${f}`)
+                      .then(r => {
+                        if (!r.ok) throw new Error(`Failed to load ${f}`);
+                        return r.text();
+                      });
 
+    // 3b) Parse into array of objects
+    const parsed = Papa.parse(txt, {
+      header: true,
+      skipEmptyLines: true
+    }).data;
+
+    // 3c) Clean up each row, trim keys & values, and tag with __gameDate
     parsed.forEach(r => {
-      // Trim keys & values
       Object.keys(r).forEach(k => {
-        const tk = k.trim(), v = r[k];
+        const tk = k.trim();
+        const v  = r[k];
         delete r[k];
         r[tk] = typeof v === 'string' ? v.trim() : v;
       });
-      // Parse MM-DD from filename → Date
+      // extract MM-DD from filename → Date
       const m = f.match(/^(\d{2})-(\d{2})/);
       r.__gameDate = m
         ? new Date(year, +m[1] - 1, +m[2])
         : null;
     });
 
+    // 3d) Accumulate
     rows.push(...parsed);
   }
 
+  // 4) Initialize column mappings based on the first row
   if (rows.length) initColumnKeys(rows[0]);
+
+  // 5) Cache and return
   allData = rows;
   return allData;
 }
+
 
 // ─────────────────────────────────────────────────────────────────
 // INDEX PAGE FUNCTIONS
