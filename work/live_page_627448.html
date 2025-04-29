@@ -1,0 +1,168 @@
+import time
+import re
+import requests
+import pandas as pd
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import traceback
+
+# --------------------------------------------------
+# Shared utility functions
+# --------------------------------------------------
+
+def extract_batter_and_remaining(segment):
+    segment = segment.lstrip("#").strip()
+    tokens = segment.split()
+    if not tokens:
+        return "", ""
+    tokens = tokens[1:]  # drop jersey number
+    batter_tokens = []
+    start_index = len(tokens)
+    pitch_keywords = ("ball", "called", "swinging", "foul", "advances", "scores", "pickoff")
+    for i, token in enumerate(tokens):
+        if i >= 1 and (any(token.lower().startswith(k) for k in pitch_keywords) or re.search(r'\d', token)):
+            start_index = i
+            break
+        batter_tokens.append(token)
+    batter = " ".join(batter_tokens)
+    remaining = " ".join(tokens[start_index:]) if start_index < len(tokens) else ""
+    return batter, remaining
+
+
+def update_count(count, token):
+    balls, strikes = count
+    t = token.lower().strip()
+    if t == "ball": return (balls + 1, strikes)
+    if t in ("called strike", "swinging strike"): return (balls, strikes + 1)
+    if t == "foul": return (balls, min(strikes + 1, 2))
+    return count
+
+
+def process_advancement_token(token, state):
+    tl = token.lower()
+    # similar logic, omitted for brevity
+    return None
+
+
+def process_plate_appearance(tokens, state):
+    # stub: replicate your logic here
+    return []
+
+# --------------------------------------------------
+# Debuggable live-page scraper
+# --------------------------------------------------
+
+def process_live_game(url, headless=True):
+    print(f"[DEBUG] Starting live scraper for URL: {url}")
+    opts = Options()
+    if headless: opts.add_argument("--headless")
+    driver = webdriver.Firefox(options=opts)
+    try:
+        print("[DEBUG] Browser launched, navigating...")
+        driver.get(url)
+        print("[DEBUG] Page requested, waiting for #play-by-play...")
+        WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "#play-by-play"))
+        )
+        print("[DEBUG] #play-by-play found, sleeping to allow JS render...")
+        time.sleep(10)
+        html = driver.page_source
+        print("[DEBUG] HTML fetched, parsing with BeautifulSoup...")
+    except Exception as e:
+        print(f"[ERROR] Exception during page load: {e}")
+        traceback.print_exc()
+        driver.quit()
+        return None
+    finally:
+        # ensure we always quit browser
+        try:
+            driver.quit()
+            print("[DEBUG] Browser closed.")
+        except:
+            pass
+
+    soup = BeautifulSoup(html, "html.parser")
+    pbp_div = soup.find("div", id="play-by-play")
+    if not pbp_div:
+        print("[ERROR] play-by-play div not found in HTML.")
+        return None
+    table = pbp_div.find("table")
+    if not table:
+        print("[ERROR] Table not found within play-by-play.")
+        return None
+
+    rows = table.find_all("tr")
+    print(f"[DEBUG] Found {len(rows)} <tr> rows in play-by-play table.")
+
+    # Initialize state for debugging
+    state = {
+        'inning': 0,
+        'half': None,
+        'outs': 0,
+        'baserunners': {'1B': None, '2B': None, '3B': None},
+        'away_score': 0,
+        'home_score': 0,
+        'current_batter': None
+    }
+    all_data = []
+
+    for idx, row in enumerate(rows):
+        cls = row.get('class', [])
+        if 'play-headings' in cls and any(c.startswith('inning_') for c in cls):
+            text = row.get_text(strip=True)
+            print(f"[DEBUG] Row {idx}: Inning header text='{text}'")
+            m = re.match(r"(Top|Bottom) of the (\d+)", text)
+            if m:
+                state['half'], state['inning'] = m.group(1), int(m.group(2))
+                state['outs'] = 0
+                state['baserunners'] = {'1B':None,'2B':None,'3B':None}
+            continue
+
+        patt = f"inning_{state['inning']}"
+        # identify play rows by class pattern
+        if any(c.startswith(patt) and 'pbp-bottom-border' in c for c in cls):
+            cells = row.find_all('td')
+            if len(cells) < 2:
+                print(f"[WARN] Unexpected td count in row {idx}: {len(cells)}")
+                continue
+            strong = cells[1].find('strong')
+            if not strong:
+                print(f"[WARN] No <strong> batter in row {idx}.")
+                continue
+            batter_label = strong.get_text(strip=True)
+            print(f"[DEBUG] Row {idx}: Batter found: '{batter_label}'")
+            state['current_batter'] = batter_label
+            # get raw text after <br>
+            parts = cells[1].get_text(separator="\n").split("\n", 1)
+            if len(parts) < 2:
+                print(f"[WARN] No tokens after batter in row {idx}.")
+                continue
+            raw = parts[1]
+            tokens = [t.strip() for t in raw.split(',') if t.strip()]
+            print(f"[DEBUG] Row {idx}: Tokens: {tokens}")
+            pa_rows = process_plate_appearance(tokens, state)
+            all_data.extend(pa_rows)
+
+    print(f"[DEBUG] Extracted {len(all_data)} play-by-appearance rows.")
+    df = pd.DataFrame(all_data)
+    return df
+
+# --------------------------------------------------
+# Example usage
+def main():
+    LIVE_FILE = 'file:///mnt/data/live_page_627448.html'
+    df = process_live_game(LIVE_FILE)
+    if df is None:
+        print("[ERROR] No data extracted.")
+    else:
+        print(df.head())
+        df.to_csv('live_data_debug.csv', index=False)
+        print("Data saved to live_data_debug.csv")
+
+if __name__ == '__main__':
+    main()
+```
