@@ -1,4 +1,5 @@
 // script.js
+console.log('🔥 UPDATED script.js loaded at', new Date().toISOString());
 
 // ─────────────────────────────────────────────────────────────────
 // Helper: parse number strings (strip non-digits except . and -)
@@ -7,97 +8,91 @@ function parseNum(str) {
   return parseFloat(String(str).replace(/[^\d.\-]/g, ''));
 }
 
-// Global state
+
 let allData = [];
-let playerName = "";
-const COL = {};      // dynamic column map
-let COLOR_MAP = {};  // per-pitch-type colors
+let playerName = '';
+const COL = {};      // will hold our dynamic column names
+let COLOR_MAP = {};  // pitch-type → HSL color
 
 // ─────────────────────────────────────────────────────────────────
-// 1) Detect actual CSV headers from first row
+// 1) Map columns by cleaning the very first row’s headers
 function initColumnKeys(sample) {
   const keys = Object.keys(sample);
+  console.log('🧐 headers seen:', keys);
 
-  COL.batter    = keys.find(k => /batter/i.test(k) && !/name/i.test(k));
-  COL.pitcher   = keys.find(k => /pitcher/i.test(k) && !/count/i.test(k));
-  COL.pitch     = keys.find(k => /^pitch$/i.test(k));
-  COL.result    = keys.find(k => /result/i.test(k));
-  COL.pitchType = keys.find(k => /pitch\s*type/i.test(k));
+  // Normalize a header: remove diacritics, strip punctuation, collapse spaces, lowercase
+  const clean = k => k
+    .normalize('NFKD')           // decompose diacritics
+    .replace(/[^\w ]/g, ' ')     // keep only letters, digits, underscore, space
+    .replace(/\s+/g, ' ')        // collapse multiple spaces
+    .trim()
+    .toLowerCase();
 
-  COL.runner1 = keys.find(k => /runner[_ ]?1b/i.test(k));
-  COL.runner2 = keys.find(k => /runner[_ ]?2b/i.test(k));
-  COL.runner3 = keys.find(k => /runner[_ ]?3b/i.test(k));
+  COL.batter    = keys.find(k => clean(k).startsWith('batter'));
+  COL.pitcher   = keys.find(k => clean(k).startsWith('pitcher'));
+  COL.pitch     = keys.find(k => clean(k) === 'pitch');
+  COL.result    = keys.find(k => clean(k).startsWith('result'));
+  COL.pitchType = keys.find(k => clean(k).includes('pitch type'));
 
-  COL.hand = keys.find(k => /handedness/i.test(k) || /pitcher_throw/i.test(k));
+  COL.runner1   = keys.find(k => clean(k).startsWith('runner 1b'));
+  COL.runner2   = keys.find(k => clean(k).startsWith('runner 2b'));
+  COL.runner3   = keys.find(k => clean(k).startsWith('runner 3b'));
 
-  COL.exitVel = keys.find(k => /exit\s*velocity/i.test(k));
+  COL.hand      = keys.find(k => clean(k).includes('handedness') || clean(k).includes('pitcher throw'));
 
-  // SUPER-ROBUST launch-angle detection:
-  const norm = k => k.replace(/[^\w]/g, '').toLowerCase();
-  COL.launchAng =
-    keys.find(k => norm(k).includes('launchangle')) ||
-    keys.find(k => /launch.*angle/i.test(k)) ||
-    keys.find(k => /launch/i.test(k));
+  COL.exitVel   = keys.find(k => clean(k).includes('exit velocity'));
+  COL.launchAng = keys.find(k => clean(k).startsWith('launch angle'));
 
-  COL.hitType  = keys.find(k => /hit\s*type/i.test(k));
-  COL.distance = keys.find(k => /distance/i.test(k));
+  COL.hitType   = keys.find(k => clean(k).includes('hit type'));
+  COL.distance  = keys.find(k => clean(k).startsWith('distance'));
 
-  COL.locX = keys.find(k => /location.*side/i.test(k));
-  COL.locY = keys.find(k => /location.*height/i.test(k));
+  // THIS is critical: direction & bearing must map correctly
+  COL.direction = keys.find(k => clean(k).startsWith('direction'));
+  COL.bearing   = keys.find(k => clean(k).startsWith('bearing'));
 
-  COL.relX     = keys.find(k => /release.*side/i.test(k));
-  COL.relY     = keys.find(k => /release.*height/i.test(k));
-  COL.sumHoriz = keys.find(k => /movement.*horizontal/i.test(k));
-  COL.sumVert  = keys.find(k => /induced.*vertical/i.test(k));
+  COL.locX      = keys.find(k => clean(k).includes('location side'));
+  COL.locY      = keys.find(k => clean(k).includes('location height'));
 
-  // Fallback exact names
-  if (!COL.relX && keys.includes('Release Side (ft)'))       COL.relX = 'Release Side (ft)';
-  if (!COL.relY && keys.includes('Release Height (ft)'))     COL.relY = 'Release Height (ft)';
+  COL.relX      = keys.find(k => clean(k).includes('release side'));
+  COL.relY      = keys.find(k => clean(k).includes('release height'));
+  COL.sumHoriz  = keys.find(k => clean(k).includes('horizontal break') || clean(k).includes('movement horizontal'));
+  COL.sumVert   = keys.find(k => clean(k).includes('vertical') || clean(k).includes('induced virtual break'));
 
-  console.log('Mapped columns:', COL);
+  console.log('→ mapped COL keys:', COL);
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 2) Fetch & parse all CSVs in /data/, trim keys/values, parse dates
+// 2) Load all CSVs via a manifest, clean keys & cache rows
 async function fetchAllCSVs() {
   if (allData.length) return allData;
 
+  // 2a) get the list of filenames
   const files = await fetch('data/files.json')
-    .then(r => {
-      if (!r.ok) throw new Error(`Cannot load manifest: ${r.status}`);
-      return r.json();
-    });
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
   const year = new Date().getFullYear();
   let rows = [];
 
   for (const f of files) {
-    const txt = await fetch(`data/${f}`)
-      .then(r => {
-        if (!r.ok) throw new Error(`Failed to fetch ${f}: ${r.status}`);
-        return r.text();
-      });
-
+    // 2b) fetch & parse each CSV
+    const txt    = await fetch(`data/${f}`).then(r => {
+      if (!r.ok) throw new Error(`Failed ${f}: ${r.status}`);
+      return r.text();
+    });
     const parsed = Papa.parse(txt, { header: true, skipEmptyLines: true }).data;
 
+    // 2c) trim & clean each row’s keys
     parsed.forEach(r => {
       Object.keys(r).forEach(origKey => {
-        // 1) Trim whitespace
-        let tk = origKey.trim();
-
-        // 2) Simplify LAUNCH ANGLE headers → keep only first two words
-        const parts = tk.split(/\s+/);
-        if (parts[0].toLowerCase() === 'launch' && parts[1].toLowerCase() === 'angle') {
-          tk = parts.slice(0,2).join(' ');  // "Launch Angle"
-        }
-
-        // 3) Move & re-assign the value
         const v = r[origKey];
         delete r[origKey];
+        let tk = origKey.trim()
+          .replace(/[^\w ]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
         r[tk] = typeof v === 'string' ? v.trim() : v;
       });
-
-      // 4) Tag with game date
+      // 2d) annotate with parsed date from filename
       const m = f.match(/^(\d{2})-(\d{2})/);
       r.__gameDate = m
         ? new Date(year, +m[1] - 1, +m[2])
@@ -109,8 +104,112 @@ async function fetchAllCSVs() {
 
   if (rows.length) initColumnKeys(rows[0]);
   allData = rows;
+  console.log('fetchAllCSVs → total rows:', allData.length);
   return allData;
 }
+
+
+function plotSprayChart(rows) {
+  console.group("🗺️ sprayChart (numbered to table)");
+
+  // 1) Only keep rows with valid direction (or bearing) + distance
+  const hits = rows.filter(d => {
+    const dirRaw  = d[COL.direction] ?? d[COL.bearing];
+    const distRaw = d[COL.distance];
+    const dir  = parseNum(dirRaw);
+    const dist = parseNum(distRaw);
+    console.log(
+      `#${d.__hitNumber}: dir='${dirRaw}'→${dir}, dist='${distRaw}'→${dist}`
+    );
+    return !isNaN(dir) && !isNaN(dist);
+  });
+
+  if (!hits.length) {
+    document.getElementById('sprayChart').innerHTML = '<em>No hits to plot</em>';
+    console.groupEnd();
+    return;
+  }
+
+  // 2) Convert polar → Cartesian, carry over __hitNumber
+  const pts = hits.map(d => {
+    const dist = parseNum(d[COL.distance]);
+    const dir  = parseNum(d[COL.direction] ?? d[COL.bearing]);
+    const θ    = (90 - dir) * Math.PI / 180;  // 0° straight up
+    return {
+      num:      d.__hitNumber,
+      x:        Math.cos(θ) * dist,
+      y:        Math.sin(θ) * dist,
+      ev:       parseNum(d[COL.exitVel]),
+      la:       parseNum(d[COL.launchAng]),
+      type:     d[COL.hitType],
+      distance: dist
+    };
+  });
+  console.log("→ plotting pts:", pts);
+
+  // 3) Determine field radius (min 400ft)
+  const maxD = Math.max(...pts.map(p => p.distance), 400);
+  const F    = maxD * 1.05;
+
+  // 4) Optional small offset to align image perfectly
+  const xFudge = -0.02 * F;
+  const yFudge = -0.01 * F;
+
+  // 5) Build marker+text trace
+  const trace = {
+    x: pts.map(p => p.x),
+    y: pts.map(p => p.y),
+    mode: 'markers+text',
+    marker: {
+      size:  pts.map(p => isNaN(p.ev) ? 10 : Math.min(p.ev / 2, 20)),
+      color: pts.map(p => COLOR_MAP[p.type] || 'gray'),
+      line:  { width: 1, color: '#333' },
+      opacity: 0.8
+    },
+    text:          pts.map(p => p.num),
+    textposition: 'middle center',
+    textfont:     { size: 12, color: '#000' },
+    hoverinfo:    'text',
+    hovertext:    pts.map(p =>
+      `#${p.num} ${p.type}<br>` +
+      `EV: ${p.ev}<br>` +
+      `LA: ${p.la}<br>` +
+      `Dist: ${p.distance} ft`
+    )
+  };
+
+  // 6) Render with background image anchored at (xFudge,yFudge)
+  Plotly.newPlot('sprayChart', [trace], {
+    images: [{
+      source: 'assets/trackman-bg.png',
+      xref:   'x', yref: 'y',
+      x:      xFudge, y: yFudge,
+      xanchor:'center', yanchor:'bottom',
+      sizex:  2 * F, sizey: F,
+      sizing: 'stretch',
+      layer:  'below',
+      opacity: 0.8
+    }],
+    xaxis: {
+      range:      [-F, F],
+      zeroline:   false,
+      showgrid:   false,
+      fixedrange: true,
+    },
+    yaxis: {
+      range:       [0, F],
+      zeroline:    false,
+      showgrid:    false,
+      fixedrange:  true,
+      scaleanchor: 'x',
+      scaleratio:  1,
+    },
+    margin: { t:20, b:20, l:20, r:20 }
+  });
+
+  console.groupEnd();
+}
+
 
 
 // ─────────────────────────────────────────────────────────────────
@@ -162,6 +261,7 @@ async function startDashboard() {
   }
 
   applyFilters();
+
 }
 
 function setupFilters() {
@@ -206,6 +306,34 @@ function applyFilters() {
   if (ptVal) f = f.filter(d => d[COL.pitchType] === ptVal);
 
   plotPlate(f);
+// ─────────────────────────────────────────────────────────────────
+// 1) Take every EV+LA row → this is exactly your batted‐ball table
+const tableRows = f
+  .filter(d => {
+    const ev = parseNum(d[COL.exitVel]);
+    const la = parseNum(d[COL.launchAng]);
+    return !isNaN(ev) && !isNaN(la);
+  });
+
+// 2) Number them in table order
+tableRows.forEach((row, idx) => {
+  row.__hitNumber = idx + 1;
+});
+
+// 3) Render the table from that numbered array
+renderTable(tableRows);
+
+// ─────────────────────────────────────────────────────────────────
+// 4) Now build the array you’ll actually plot on the spray chart:
+//    start from your numbered tableRows, but drop groundballs & bunts
+const chartRows = tableRows.filter(d => {
+  const ht = (d[COL.hitType]||'').toLowerCase();
+  return ht !== 'groundball' && ht !== 'bunt';
+});
+
+// 5) Finally pass that into your spray‐chart function
+plotSprayChart(chartRows);
+
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -304,30 +432,58 @@ function renderLegends(types) {
 }
 
 function renderTable(data) {
-  const rows = data.filter(d => d.__hitNumber)
-                   .sort((a,b) => a.__hitNumber - b.__hitNumber);
+  // 1) Grab only the numbered rows and sort by hit number
+  const rows = data
+    .filter(d => d.__hitNumber)
+    .sort((a, b) => a.__hitNumber - b.__hitNumber);
+
   const div = document.getElementById('battedBallTable');
   if (!rows.length) {
     div.innerHTML = '<em>No batted-ball data</em>';
     return;
   }
-  let html = `<table><thead><tr>
-    <th>#</th><th>${COL.hitType}</th><th>${COL.exitVel}</th>
-    <th>${COL.launchAng}</th><th>${COL.distance}</th><th>${COL.result}</th>
-  </tr></thead><tbody>`;
+
+  // 2) Build the table header
+  let html = `<table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Date</th>
+        <th>Pitcher</th>
+        <th>Inning</th>
+        <th>${COL.hitType}</th>
+        <th>${COL.exitVel}</th>
+        <th>${COL.launchAng}</th>
+        <th>${COL.distance}</th>
+        <th>${COL.result}</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  // 3) Populate each row, using `d` not `r`
   rows.forEach(d => {
+    // format the date
+    const dateStr = d.__gameDate
+      ? d.__gameDate.toLocaleDateString()
+      : (d[COL.gameDate] || '');
+
     html += `<tr>
       <td>${d.__hitNumber}</td>
+      <td>${dateStr}</td>
+      <td>${d[COL.pitcher] || ''}</td>
+      <td>${d.inning || ''}</td>
       <td>${d[COL.hitType]  || ''}</td>
-      <td>${parseNum(d[COL.exitVel])}</td>
-      <td>${parseNum(d[COL.launchAng])}</td>
-      <td>${parseNum(d[COL.distance]) || ''}</td>
+      <td>${!isNaN(parseNum(d[COL.exitVel])) ? parseNum(d[COL.exitVel]).toFixed(1) : ''}</td>
+      <td>${!isNaN(parseNum(d[COL.launchAng])) ? parseNum(d[COL.launchAng]).toFixed(1) : ''}</td>
+      <td>${!isNaN(parseNum(d[COL.distance])) ? parseNum(d[COL.distance]).toFixed(1) : ''}</td>
       <td>${d[COL.result]   || ''}</td>
     </tr>`;
   });
-  html += '</tbody></table>';
+
+  html += `</tbody></table>`;
   div.innerHTML = html;
 }
+
 
 function plotTrajectory(d) {
   const fr = 50,
