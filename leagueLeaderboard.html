@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>League Leaderboard</title>
+
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 1rem;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem 0.75rem;
+      text-align: center;
+    }
+    thead {
+      background-color: #f5f5f5;
+    }
+    caption {
+      margin-bottom: 0.5rem;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>League Leaderboard – Farthest Home Runs</h1>
+  <div id="leagueTable"><em>Loading...</em></div>
+
+  <script>
+    // helper to parse numbers out of strings
+    function parseNum(str) {
+      if (!str) return NaN;
+      return parseFloat(String(str).replace(/[^\d.\-]/g, ''));
+    }
+
+    document.addEventListener('DOMContentLoaded', loadLeague);
+
+    async function loadLeague() {
+      try {
+        const txt = await fetch('./data/homeruns.csv').then(r => {
+          if (!r.ok) throw new Error(r.statusText);
+          return r.text();
+        });
+        const { data } = Papa.parse(txt, { header: true, skipEmptyLines: true });
+
+        // sort descending by Distance
+        const sorted = data
+          .filter(r => !isNaN(parseNum(r['Distance (ft)'])))
+          .sort((a,b) => parseNum(b['Distance (ft)']) - parseNum(a['Distance (ft)']))
+          .slice(0, 10);  // top 10
+
+        // build HTML table
+        let html = `<table>
+          <caption>Top 10 Home Runs (by Distance)</caption>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Batter Name</th>
+              <th>Exit Velocity (mph)</th>
+              <th>Launch Angle (°)</th>
+              <th>Distance (ft)</th>
+              <th>Hit Time</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+        sorted.forEach((r, i) => {
+          html += `<tr>
+            <td>${i + 1}</td>
+            <td>${r['Batter Name']}</td>
+            <td>${parseNum(r['Exit Velocity (mph)']).toFixed(1)}</td>
+            <td>${parseNum(r['Launch Angle (°)']).toFixed(1)}</td>
+            <td>${parseNum(r['Distance (ft)']).toFixed(1)}</td>
+            <td>${r['Hit Time']}</td>
+          </tr>`;
+        });
+
+        html += `</tbody></table>`;
+        document.getElementById('leagueTable').innerHTML = html;
+      } catch (err) {
+        document.getElementById('leagueTable').innerHTML =
+          `<em>Error loading leaderboard: ${err.message}</em>`;
+      }
+    }
+  </script>
+
+</body>
+</html>
