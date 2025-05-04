@@ -53,8 +53,9 @@ function initColumnKeys(sample) {
   COL.runner2   = keys.find(k => clean(k).startsWith('runner 2b'));
   COL.runner3   = keys.find(k => clean(k).startsWith('runner 3b'));
 
-  COL.hand      = keys.find(k => clean(k).includes('handedness') || clean(k).includes('pitcher throw'));
-
+  COL.hand = keys.find(k =>
+    clean(k).includes('pitcher_throw')
+  )
   COL.exitVel   = keys.find(k => clean(k).includes('exit velocity'));
   COL.launchAng = keys.find(k => clean(k).startsWith('launch angle'));
 
