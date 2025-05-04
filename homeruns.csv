@@ -1,4 +1,4 @@
-﻿Hit Type,Exit Velocity (mph),Launch Angle (°),Batter Name,Hit Time,Direction (°),Bearing (°),Distance (ft)
+Hit Type,Exit Velocity (mph),Launch Angle (°),Batter Name,Hit Time,Direction (°),Bearing (°),Distance (ft)
 FlyBall,90.78,28.84,Max Viera,4/25/2025 20:58,–27.67,–34.92,357.39
 FlyBall,92.42,27.58,Pablo Sandoval,5/1/2025 19:27,–29.90,–41.37,354.43
 FlyBall,93.35,39.83,Seth Beer,4/29/2025 20:12,–27.03,–33.30,343.76
@@ -78,3 +78,4 @@ FlyBall,108.34,22.68,Seth Beer,5/2/2025 21:13,–12.98,–22.47,392.24
 FlyBall,108.92,27.6,Nick Lucky,4/26/2025 18:37,21.75,22.07,413.3
 FlyBall,109.45,24.87,Joe Campagna,5/1/2025 11:20,–34.30,–45.22,383.4
 FlyBall,111.77,25.05,Alex Isola,4/25/2025 19:56,–29.81,–41.33,404.2
+FlyBall,102.38,33.92,Osvaldo Abreu,5/3/2025/ 16:18,-7.6,-4.24,425.18
