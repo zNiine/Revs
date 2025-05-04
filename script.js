@@ -1,12 +1,27 @@
 // script.js
 console.log('🔥 UPDATED script.js loaded at', new Date().toISOString());
 
-// ─────────────────────────────────────────────────────────────────
-// Helper: parse number strings (strip non-digits except . and -)
 function parseNum(str) {
   if (str == null) return NaN;
-  return parseFloat(String(str).replace(/[^\d.\-]/g, ''));
+  let s = String(str).trim();
+  if (!s) return NaN;
+
+  // Check first character
+  const first = s[0];
+  const negative = !/[0-9.]/.test(first);
+
+  // Extract only digits and dots
+  const clean = s.replace(/[^\d.]/g, '');
+
+  const n = parseFloat(clean);
+  return negative ? -n : n;
 }
+
+// Quick sanity check:
+console.log(parseNum('-12.3'),   // -12.3
+            parseNum('–12.3'),  // -12.3
+            parseNum('?45.6'),  // -45.6
+            parseNum('12.3'));  //  12.3
 
 
 let allData = [];
@@ -110,52 +125,51 @@ async function fetchAllCSVs() {
 
 
 function plotSprayChart(rows) {
-  console.group("🗺️ sprayChart (numbered to table)");
+  console.group("🗺️ sprayChart (with horizontal exaggeration)");
 
-  // 1) Only keep rows with valid direction (or bearing) + distance
+  // Tunable: exaggerate how far left/right points sit 
+  const HORIZ_EXAGGERATION = 2.0;  // try 1.2 → 2.0
+
+  // 1) Filter rows with valid angle+distance
   const hits = rows.filter(d => {
-    const dirRaw  = d[COL.direction] ?? d[COL.bearing];
-    const distRaw = d[COL.distance];
-    const dir  = parseNum(dirRaw);
-    const dist = parseNum(distRaw);
-    console.log(
-      `#${d.__hitNumber}: dir='${dirRaw}'→${dir}, dist='${distRaw}'→${dist}`
-    );
+    const dir  = parseNum(d[COL.direction] ?? d[COL.bearing]);
+    const dist = parseNum(d[COL.distance]);
     return !isNaN(dir) && !isNaN(dist);
   });
-
   if (!hits.length) {
     document.getElementById('sprayChart').innerHTML = '<em>No hits to plot</em>';
     console.groupEnd();
     return;
   }
 
-  // 2) Convert polar → Cartesian, carry over __hitNumber
+  // 2) Convert each to (x,y), applying horizontal exaggeration
   const pts = hits.map(d => {
-    const dist = parseNum(d[COL.distance]);
-    const dir  = parseNum(d[COL.direction] ?? d[COL.bearing]);
-    const θ    = (90 - dir) * Math.PI / 180;  // 0° straight up
+    const dist   = parseNum(d[COL.distance]);
+    const dir    = parseNum(d[COL.direction] ?? d[COL.bearing]);
+    const dirRad = dir * Math.PI / 180;
+
+    const x = Math.sin(dirRad) * dist * HORIZ_EXAGGERATION;
+    const y = Math.cos(dirRad) * dist;
+
+    console.log(
+      `#${d.__hitNumber}: dir=${dir}°, dist=${dist} → x=${x.toFixed(1)}, y=${y.toFixed(1)}`
+    );
+
     return {
       num:      d.__hitNumber,
-      x:        Math.cos(θ) * dist,
-      y:        Math.sin(θ) * dist,
+      x, y,
       ev:       parseNum(d[COL.exitVel]),
       la:       parseNum(d[COL.launchAng]),
       type:     d[COL.hitType],
       distance: dist
     };
   });
-  console.log("→ plotting pts:", pts);
 
-  // 3) Determine field radius (min 400ft)
+  // 3) Determine field radius (at least 400ft)
   const maxD = Math.max(...pts.map(p => p.distance), 400);
   const F    = maxD * 1.05;
 
-  // 4) Optional small offset to align image perfectly
-  const xFudge = -0.02 * F;
-  const yFudge = -0.01 * F;
-
-  // 5) Build marker+text trace
+  // 4) Build the marker+text trace
   const trace = {
     x: pts.map(p => p.x),
     y: pts.map(p => p.y),
@@ -178,12 +192,12 @@ function plotSprayChart(rows) {
     )
   };
 
-  // 6) Render with background image anchored at (xFudge,yFudge)
+  // 5) Render with your Trackman‐style background
   Plotly.newPlot('sprayChart', [trace], {
     images: [{
       source: 'assets/trackman-bg.png',
       xref:   'x', yref: 'y',
-      x:      xFudge, y: yFudge,
+      x:      0,   y: 0,
       xanchor:'center', yanchor:'bottom',
       sizex:  2 * F, sizey: F,
       sizing: 'stretch',
@@ -195,6 +209,7 @@ function plotSprayChart(rows) {
       zeroline:   false,
       showgrid:   false,
       fixedrange: true,
+      title:      'Left Field ←   → Right Field'
     },
     yaxis: {
       range:       [0, F],
@@ -203,12 +218,15 @@ function plotSprayChart(rows) {
       fixedrange:  true,
       scaleanchor: 'x',
       scaleratio:  1,
+      title:       'Distance from Home Plate (ft)'
     },
     margin: { t:20, b:20, l:20, r:20 }
   });
 
   console.groupEnd();
 }
+
+
 
 
 
