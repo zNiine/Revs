@@ -6,7 +6,9 @@
 
   <!-- PapaParse for CSV parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-
+  <script>
+    document.write('<script src="script.js?ts=' + Date.now() + '"><\/script>');
+  </script>
   <style>
     body { font-family: Arial, sans-serif; padding:1rem; }
     h1 { text-align:center; margin-bottom:0.5rem; }
@@ -20,6 +22,7 @@
   </style>
 </head>
 <body>
+  <button onclick="window.location.href='index.html'">Home</button>
 
   <h1>League Leaderboard – Farthest Home Runs</h1>
 

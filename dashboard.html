@@ -8,8 +8,9 @@
   <script src="libs/plotly.min.js"></script>
   <script src="libs/papaparse.min.js"></script>
   <!-- Your main logic -->
-  <script src="script.js"></script>
-</head>
+  <script>
+    document.write('<script src="script.js?ts=' + Date.now() + '"><\/script>');
+  </script></head>
 <body>
   <div class="sidebar">
     <button id="homeButton" onclick="window.location.href='index.html'">Home</button>

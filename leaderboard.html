@@ -5,8 +5,9 @@
   <title>Leaderboards</title>
   <link rel="stylesheet" href="style.css"/>
   <script src="libs/papaparse.min.js"></script>
-  <script src="script.js"></script>
-
+  <script>
+    document.write('<script src="script.js?ts=' + Date.now() + '"><\/script>');
+  </script>
   <style>
     .leaderboard-table {
       border-collapse: collapse;

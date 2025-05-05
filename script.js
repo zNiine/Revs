@@ -49,9 +49,10 @@ function initColumnKeys(sample) {
   COL.result    = keys.find(k => clean(k).startsWith('result'));
   COL.pitchType = keys.find(k => clean(k).includes('pitch type'));
 
-  COL.runner1   = keys.find(k => clean(k).startsWith('runner 1b'));
-  COL.runner2   = keys.find(k => clean(k).startsWith('runner 2b'));
-  COL.runner3   = keys.find(k => clean(k).startsWith('runner 3b'));
+  COL.runner1   = keys.find(k => clean(k).startsWith('runner_1b'));
+  COL.runner2   = keys.find(k => clean(k).startsWith('runner_2b'));
+  COL.runner3   = keys.find(k => clean(k).startsWith('runner_3b'));
+  console.log('→ runner cols mapped to:', COL.runner1, COL.runner2, COL.runner3);
 
   COL.hand = keys.find(k =>
     clean(k).includes('pitcher_throw')
@@ -319,7 +320,7 @@ function applyFilters() {
 
   const runVal = document.getElementById('runnersFilter').value;
   if (runVal === 'true') {
-    f = f.filter(d => d[COL.runner1] === '1' || d[COL.runner2] === '1' || d[COL.runner3] === '1');
+    f = f.filter(d => d[COL.runner1] === 'TRUE' || d[COL.runner2] === 'TRUE' || d[COL.runner3] === 'TRUE');
   }
 
   const pit = document.getElementById('pitcherFilter').value;
