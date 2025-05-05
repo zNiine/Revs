@@ -61,12 +61,16 @@ function initColumnKeys(sample) {
 
   COL.hitType   = keys.find(k => clean(k).includes('hit type'));
   COL.distance  = keys.find(k => clean(k).startsWith('distance'));
+  
 
   // THIS is critical: direction & bearing must map correctly
   COL.direction = keys.find(k => clean(k).startsWith('direction'));
+  COL.time = keys.find(k => clean(k) === 'hit time');
+
   COL.bearing   = keys.find(k => clean(k).startsWith('bearing'));
 
   COL.locX      = keys.find(k => clean(k).includes('location side'));
+  COL.locY      = keys.find(k => clean(k).includes('location height'));
   COL.locY      = keys.find(k => clean(k).includes('location height'));
 
   COL.relX      = keys.find(k => clean(k).includes('release side'));
@@ -198,7 +202,7 @@ function plotSprayChart(rows) {
     images: [{
       source: 'assets/trackman-bg.png',
       xref:   'x', yref: 'y',
-      x:      0,   y: 0,
+      x:      0,   y: 2,
       xanchor:'center', yanchor:'bottom',
       sizex:  2 * F, sizey: F,
       sizing: 'stretch',
@@ -543,33 +547,38 @@ async function startLeaderboards() {
   bf.addEventListener('change', renderLeaderboards);
   renderLeaderboards();
 }
+
 function renderLeaderboards() {
   const selected = document.getElementById('leaderBatterFilter').value;
   const data = selected
     ? allData.filter(d => d[COL.batter] === selected)
     : allData;
 
-  // ── Average Exit Velocity ──
+  // ── Average Exit Velocity ──────────────────────────────
   const evStats = {};
   allData.forEach(d => {
-    const b = d[COL.batter], ev = parseNum(d[COL.exitVel]);
+    const b  = d[COL.batter];
+    const ev = parseNum(d[COL.exitVel]);
     if (!b || isNaN(ev)) return;
-    evStats[b] = evStats[b] || { sum: 0, count: 0 };
+    if (!evStats[b]) evStats[b] = { sum: 0, count: 0 };
     evStats[b].sum   += ev;
     evStats[b].count += 1;
   });
   const avgEV = Object.entries(evStats)
-    .map(([b,s]) => ({ batter: b, avg: s.sum / s.count }))
-    .sort((a,b) => b.avg - a.avg);
+    .map(([b, s]) => ({ batter: b, avg: s.sum / s.count }))
+    .sort((a, b) => b.avg - a.avg);
 
   let htmlAvg = `<thead><tr><th>Batter</th><th>Avg Exit Vel (mph)</th></tr></thead><tbody>`;
   avgEV.forEach(r => {
-    htmlAvg += `<tr><td>${r.batter}</td><td>${r.avg.toFixed(1)}</td></tr>`;
+    htmlAvg += `<tr>
+      <td>${r.batter}</td>
+      <td>${r.avg.toFixed(1)}</td>
+    </tr>`;
   });
   htmlAvg += `</tbody>`;
   document.getElementById('leaderboard-avgexit').innerHTML = htmlAvg;
 
-  // ── Hardest-Hit Balls ──
+  // ── Hardest-Hit Balls ─────────────────────────────────
   const hardHits = data
     .filter(d => !isNaN(parseNum(d[COL.exitVel])))
     .map(d => ({
@@ -578,34 +587,34 @@ function renderLeaderboards() {
       distance:  parseNum(d[COL.distance]),
       pitcher:   d[COL.pitcher],
       pitchType: d[COL.pitchType],
-      result:    d[COL.result]
+      result:    d[COL.result],
+      time:      d[COL.time]
     }))
-    .sort((a,b) => b.exitVel - a.exitVel)
-    .slice(0,10);
+    .sort((a, b) => b.exitVel - a.exitVel)
+    .slice(0, 10);
 
   let htmlHard = `<thead><tr>
     <th>Batter</th><th>Exit Vel (mph)</th><th>Distance (ft)</th>
-    <th>Pitcher</th><th>Pitch Type</th><th>Result</th>
+    <th>Pitcher</th><th>Pitch Type</th><th>Result</th><th>Hit Time</th>
   </tr></thead><tbody>`;
   hardHits.forEach(r => {
     htmlHard += `<tr>
       <td>${r.batter}</td>
       <td>${r.exitVel.toFixed(1)}</td>
-      <td>${isNaN(r.distance)?'':r.distance.toFixed(1)}</td>
+      <td>${isNaN(r.distance)? '' : r.distance.toFixed(1)}</td>
       <td>${r.pitcher}</td>
       <td>${r.pitchType}</td>
       <td>${r.result}</td>
+      <td>${r.time || ''}</td>
     </tr>`;
   });
   htmlHard += `</tbody>`;
   document.getElementById('leaderboard-hardest').innerHTML = htmlHard;
 
-  // ── Longest Home Runs ──
+  // ── Longest Home Runs ──────────────────────────────────
   const hrRaw = data.filter(d =>
     (d[COL.result] || '').toLowerCase().includes('home run')
   );
-  console.log("🔍 hrRaw (home-run rows):", hrRaw);
-  if (hrRaw.length) console.log("🔑 hrRaw keys:", Object.keys(hrRaw[0]));
 
   const hrHits = hrRaw
     .map(d => ({
@@ -615,42 +624,42 @@ function renderLeaderboards() {
       launchAng: parseNum(d[COL.launchAng]),
       pitcher:   d[COL.pitcher],
       pitchType: d[COL.pitchType],
-      result:    d[COL.result]
+      result:    d[COL.result],
+      time:      d[COL.time]
     }))
-    .filter(r => !isNaN(r.distance));
-  console.log("📊 hrHits after mapping:", hrHits);
-
-  const topHR = hrHits
-    .sort((a,b) => b.distance - a.distance)
-    .slice(0,10);
+    .filter(r => !isNaN(r.distance))
+    .sort((a, b) => b.distance - a.distance)
+    .slice(0, 10);
 
   let htmlHR = `<thead><tr>
     <th>Batter</th><th>Distance (ft)</th><th>Exit Vel (mph)</th>
-    <th>Launch Ang (°)</th><th>Pitcher</th><th>Pitch Type</th><th>Result</th>
+    <th>Launch Ang (°)</th><th>Pitcher</th><th>Pitch Type</th>
+    <th>Result</th><th>Hit Time</th>
   </tr></thead><tbody>`;
-  topHR.forEach(r => {
+  hrHits.forEach(r => {
     htmlHR += `<tr>
       <td>${r.batter}</td>
       <td>${r.distance.toFixed(1)}</td>
-      <td>${isNaN(r.exitVel)?'':r.exitVel.toFixed(1)}</td>
-      <td>${isNaN(r.launchAng)?'':r.launchAng.toFixed(1)}</td>
+      <td>${isNaN(r.exitVel)? '' : r.exitVel.toFixed(1)}</td>
+      <td>${isNaN(r.launchAng)? '' : r.launchAng.toFixed(1)}</td>
       <td>${r.pitcher}</td>
       <td>${r.pitchType}</td>
       <td>${r.result}</td>
+      <td>${r.time || ''}</td>
     </tr>`;
   });
   htmlHR += `</tbody>`;
   document.getElementById('leaderboard-hr').innerHTML = htmlHR;
 
-  // ── Lowest Chase Rate ──
-  const zone = { L:-0.708, R:0.708, bottom:1.5, top:3.5 };
+  // ── Lowest Chase Rate ──────────────────────────────────
+  const zone = { L: -0.708, R: 0.708, bottom: 1.5, top: 3.5 };
   const stats = {};
   allData.forEach(d => {
     const x = parseNum(d[COL.locX]), y = parseNum(d[COL.locY]);
-    if (isNaN(x)||isNaN(y)) return;
+    if (isNaN(x) || isNaN(y)) return;
     if (x < zone.L || x > zone.R || y < zone.bottom || y > zone.top) {
       const b = d[COL.batter];
-      stats[b] = stats[b] || { out: 0, ch: 0 };
+      if (!stats[b]) stats[b] = { out: 0, ch: 0 };
       stats[b].out++;
       const pit = (d[COL.pitch] || '').toLowerCase();
       if (pit === 'swinging strike' || pit === 'foul') stats[b].ch++;
@@ -658,9 +667,13 @@ function renderLeaderboards() {
   });
 
   const arrChase = Object.entries(stats)
-    .filter(([b,s]) => s.out >= 10)
-    .map(([b,s]) => ({ player: b, rate: s.ch/s.out, outside: s.out }))
-    .sort((a,b) => a.rate - b.rate);
+    .filter(([_, s]) => s.out >= 10)
+    .map(([b, s]) => ({
+      player:  b,
+      rate:    s.ch / s.out,
+      outside: s.out
+    }))
+    .sort((a, b) => a.rate - b.rate);
 
   let htmlChase = `<thead><tr>
     <th>Player</th><th>Chase Rate (%)</th><th>Outside Pitches</th>
@@ -668,7 +681,7 @@ function renderLeaderboards() {
   arrChase.forEach(r => {
     htmlChase += `<tr>
       <td>${r.player}</td>
-      <td>${(r.rate*100).toFixed(1)}</td>
+      <td>${(r.rate * 100).toFixed(1)}</td>
       <td>${r.outside}</td>
     </tr>`;
   });

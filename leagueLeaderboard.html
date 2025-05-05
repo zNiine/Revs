@@ -14,17 +14,27 @@
     }
     h1 {
       text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    #controls {
+      text-align: center;
       margin-bottom: 1rem;
+    }
+    #controls select,
+    #controls input {
+      margin: 0 0.5rem;
+      padding: 0.4rem;
+      font-size: 1rem;
     }
     table {
       border-collapse: collapse;
       width: 100%;
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
     }
     th, td {
       border: 1px solid #ccc;
-      padding: 0.5rem 0.75rem;
+      padding: 0.5rem;
       text-align: center;
     }
     thead {
@@ -37,65 +47,140 @@
   </style>
 </head>
 <body>
+  <button onclick="window.location.href='index.html'">Home</button>
 
   <h1>League Leaderboard – Farthest Home Runs</h1>
+
+  <div id="controls">
+    <label>
+      Team:
+      <select id="teamFilter">
+        <option value="">All Teams</option>
+      </select>
+    </label>
+    <label>
+      Batter:
+      <input list="batters" id="batterInput" placeholder="Type name…" autocomplete="off"/>
+      <datalist id="batters"></datalist>
+    </label>
+  </div>
+
   <div id="leagueTable"><em>Loading...</em></div>
 
   <script>
-    // helper to parse numbers out of strings
+    // parseNum helper
     function parseNum(str) {
       if (!str) return NaN;
       return parseFloat(String(str).replace(/[^\d.\-]/g, ''));
     }
 
-    document.addEventListener('DOMContentLoaded', loadLeague);
+    let rosterMap = {};
+    let allHomeRuns = [];
 
-    async function loadLeague() {
-      try {
-        const txt = await fetch('./homeruns.csv').then(r => {
-          if (!r.ok) throw new Error(r.statusText);
-          return r.text();
+    document.addEventListener('DOMContentLoaded', initLeague);
+
+    async function initLeague() {
+      // 1) load roster → rosterMap[player] = team
+      {
+        const rtxt = await fetch('rosters_25.csv').then(r => r.text());
+        const { data: rdata } = Papa.parse(rtxt, { header: true, skipEmptyLines: true });
+        rdata.forEach(r => {
+          const p = r['Player']?.trim();
+          const t = r['Team']?.trim();
+          if (p) rosterMap[p] = t || '';
         });
-        const { data } = Papa.parse(txt, { header: true, skipEmptyLines: true });
-
-        // sort descending by Distance
-        const sorted = data
-          .filter(r => !isNaN(parseNum(r['Distance (ft)'])))
-          .sort((a,b) => parseNum(b['Distance (ft)']) - parseNum(a['Distance (ft)']))
-          .slice(0, 10);  // top 10
-
-        // build HTML table
-        let html = `<table>
-          <caption>Top 10 Home Runs (by Distance)</caption>
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Batter Name</th>
-              <th>Exit Velocity (mph)</th>
-              <th>Launch Angle (°)</th>
-              <th>Distance (ft)</th>
-              <th>Hit Time</th>
-            </tr>
-          </thead>
-          <tbody>`;
-
-        sorted.forEach((r, i) => {
-          html += `<tr>
-            <td>${i + 1}</td>
-            <td>${r['Batter Name']}</td>
-            <td>${parseNum(r['Exit Velocity (mph)']).toFixed(1)}</td>
-            <td>${parseNum(r['Launch Angle (°)']).toFixed(1)}</td>
-            <td>${parseNum(r['Distance (ft)']).toFixed(1)}</td>
-            <td>${r['Hit Time']}</td>
-          </tr>`;
-        });
-
-        html += `</tbody></table>`;
-        document.getElementById('leagueTable').innerHTML = html;
-      } catch (err) {
-        document.getElementById('leagueTable').innerHTML =
-          `<em>Error loading leaderboard: ${err.message}</em>`;
       }
+
+      // 2) load home runs
+      {
+        const htxt = await fetch('homeruns.csv').then(r => r.text());
+        const { data: hdata } = Papa.parse(htxt, { header: true, skipEmptyLines: true });
+
+        allHomeRuns = hdata
+          .filter(r => !isNaN(parseNum(r['Distance (ft)'])))
+          .map(r => ({
+            team: rosterMap[r['Batter Name']] || '',
+            name: r['Batter Name'] || '',
+            ev:   parseNum(r['Exit Velocity (mph)']),
+            la:   parseNum(r['Launch Angle (°)']),
+            dist: parseNum(r['Distance (ft)']),
+            time: r['Hit Time'] || ''
+          }))
+          .sort((a, b) => b.dist - a.dist);
+      }
+
+      populateTeamFilter();
+      populateBatterList();
+      renderTable(allHomeRuns.slice(0,10));
+
+      document.getElementById('teamFilter')
+        .addEventListener('change', applyFilters);
+      document.getElementById('batterInput')
+        .addEventListener('input', applyFilters);
+    }
+
+    function populateTeamFilter() {
+      const sel = document.getElementById('teamFilter');
+      const teams = [...new Set(allHomeRuns.map(r => r.team))].sort();
+      teams.forEach(t => sel.append(new Option(t, t)));
+    }
+
+    function populateBatterList() {
+      const dl = document.getElementById('batters');
+      const names = [...new Set(allHomeRuns.map(r => r.name))].sort();
+      names.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        dl.append(opt);
+      });
+    }
+
+    function applyFilters() {
+      const teamVal   = document.getElementById('teamFilter').value;
+      const batterVal = document.getElementById('batterInput').value.trim().toLowerCase();
+
+      let filtered = allHomeRuns;
+      if (teamVal)   filtered = filtered.filter(r => r.team === teamVal);
+      if (batterVal) filtered = filtered.filter(r => r.name.toLowerCase().includes(batterVal));
+
+      renderTable(filtered.slice(0,10));
+    }
+
+    function renderTable(rows) {
+      if (!rows.length) {
+        document.getElementById('leagueTable').innerHTML = '<em>No home runs found</em>';
+        return;
+      }
+
+      let html = `<table>
+        <caption>Top ${rows.length} Home Runs${document.getElementById('batterInput').value ? ' – ' + document.getElementById('batterInput').value : ''}</caption>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Team</th>
+            <th>Batter Name</th>
+            <th>Exit Velocity (mph)</th>
+            <th>Launch Angle (°)</th>
+            <th>Distance (ft)</th>
+            <th>Hit Time</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      rows.forEach((r, i) => {
+        html += `<tr>
+          <td>${i+1}</td>
+          <td>${r.team}</td>
+          <td>${r.name}</td>
+          <td>${r.ev.toFixed(1)}</td>
+          <td>${r.la.toFixed(1)}</td>
+          <td>${r.dist.toFixed(1)}</td>
+          <td>${r.time}</td>
+        </tr>`;
+      });
+
+      html += `</tbody></table>`;
+      document.getElementById('leagueTable').innerHTML = html;
     }
   </script>
 
