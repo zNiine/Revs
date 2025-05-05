@@ -8,60 +8,40 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 1rem;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 0.5rem;
-    }
-    #controls {
-      text-align: center;
-      margin-bottom: 1rem;
-    }
+    body { font-family: Arial, sans-serif; padding:1rem; }
+    h1 { text-align:center; margin-bottom:0.5rem; }
+    #controls { text-align:center; margin-bottom:1rem; }
     #controls select,
-    #controls input {
-      margin: 0 0.5rem;
-      padding: 0.4rem;
-      font-size: 1rem;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 0.5rem;
-      text-align: center;
-    }
-    thead {
-      background-color: #f5f5f5;
-    }
-    caption {
-      margin-bottom: 0.5rem;
-      font-style: italic;
-    }
+    #controls input { margin:0 0.5rem; padding:0.4rem; font-size:1rem; }
+    table { border-collapse:collapse; width:100%; max-width:900px; margin:0 auto; }
+    th, td { border:1px solid #ccc; padding:0.5rem; text-align:center; }
+    thead { background:#f5f5f5; }
+    caption { margin-bottom:0.5rem; font-style:italic; }
   </style>
 </head>
 <body>
-  <button onclick="window.location.href='index.html'">Home</button>
 
   <h1>League Leaderboard – Farthest Home Runs</h1>
 
   <div id="controls">
     <label>
       Team:
-      <select id="teamFilter">
-        <option value="">All Teams</option>
-      </select>
+      <select id="teamFilter"><option value="">All Teams</option></select>
     </label>
     <label>
       Batter:
       <input list="batters" id="batterInput" placeholder="Type name…" autocomplete="off"/>
       <datalist id="batters"></datalist>
+    </label>
+    <label>
+      Date Range:
+      <select id="dateFilter">
+        <option value="all">All</option>
+        <option value="last3">Last 3 Days</option>
+        <option value="last7">Last 7 Days</option>
+        <option value="apr">April</option>
+        <option value="may">May</option>
+      </select>
     </label>
   </div>
 
@@ -71,63 +51,57 @@
     // parseNum helper
     function parseNum(str) {
       if (!str) return NaN;
-      return parseFloat(String(str).replace(/[^\d.\-]/g, ''));
+      return parseFloat(String(str).replace(/[^\d.\-]/g,''));
     }
 
-    let rosterMap = {};
-    let allHomeRuns = [];
+    let rosterMap = {}, allHomeRuns = [];
 
     document.addEventListener('DOMContentLoaded', initLeague);
 
     async function initLeague() {
-      // 1) load roster → rosterMap[player] = team
-      {
-        const rtxt = await fetch('rosters_25.csv').then(r => r.text());
-        const { data: rdata } = Papa.parse(rtxt, { header: true, skipEmptyLines: true });
-        rdata.forEach(r => {
-          const p = r['Player']?.trim();
-          const t = r['Team']?.trim();
+      // 1) load rosters_25.csv → rosterMap[player] = team
+      const rtxt = await fetch('rosters_25.csv').then(r=>r.text());
+      Papa.parse(rtxt, { header:true, skipEmptyLines:true,
+        complete: res => res.data.forEach(r=>{
+          const p = r['Player']?.trim(),
+                t = r['Team']?.trim();
           if (p) rosterMap[p] = t || '';
-        });
-      }
+        })
+      });
 
-      // 2) load home runs
-      {
-        const htxt = await fetch('homeruns.csv').then(r => r.text());
-        const { data: hdata } = Papa.parse(htxt, { header: true, skipEmptyLines: true });
-
-        allHomeRuns = hdata
-          .filter(r => !isNaN(parseNum(r['Distance (ft)'])))
-          .map(r => ({
-            team: rosterMap[r['Batter Name']] || '',
-            name: r['Batter Name'] || '',
-            ev:   parseNum(r['Exit Velocity (mph)']),
-            la:   parseNum(r['Launch Angle (°)']),
-            dist: parseNum(r['Distance (ft)']),
-            time: r['Hit Time'] || ''
-          }))
-          .sort((a, b) => b.dist - a.dist);
-      }
-
-      populateTeamFilter();
-      populateBatterList();
-      renderTable(allHomeRuns.slice(0,10));
-
-      document.getElementById('teamFilter')
-        .addEventListener('change', applyFilters);
-      document.getElementById('batterInput')
-        .addEventListener('input', applyFilters);
+      // 2) load homeruns.csv & parse Hit Time into JS Date
+      const htxt = await fetch('homeruns.csv').then(r=>r.text());
+      Papa.parse(htxt, { header:true, skipEmptyLines:true,
+        complete: res => {
+          allHomeRuns = res.data
+            .map(r => ({
+              team: rosterMap[r['Batter Name']] || '',
+              name: r['Batter Name'] || '',
+              ev:   parseNum(r['Exit Velocity (mph)']),
+              la:   parseNum(r['Launch Angle (°)']),
+              dist: parseNum(r['Distance (ft)']),
+              time: r['Hit Time']||'',
+              date: r['Hit Time'] ? new Date(r['Hit Time']) : null
+            }))
+            .filter(r => !isNaN(r.dist) && r.date instanceof Date)
+            .sort((a,b) => b.dist - a.dist);
+          populateTeamFilter();
+          populateBatterList();
+          attachListeners();
+          applyFilters();
+        }
+      });
     }
 
     function populateTeamFilter() {
       const sel = document.getElementById('teamFilter');
-      const teams = [...new Set(allHomeRuns.map(r => r.team))].sort();
+      const teams = [...new Set(allHomeRuns.map(r=>r.team))].sort();
       teams.forEach(t => sel.append(new Option(t, t)));
     }
 
     function populateBatterList() {
       const dl = document.getElementById('batters');
-      const names = [...new Set(allHomeRuns.map(r => r.name))].sort();
+      const names = [...new Set(allHomeRuns.map(r=>r.name))].sort();
       names.forEach(n => {
         const opt = document.createElement('option');
         opt.value = n;
@@ -135,39 +109,56 @@
       });
     }
 
+    function attachListeners() {
+      ['teamFilter','batterInput','dateFilter'].forEach(id => {
+        document.getElementById(id)
+          .addEventListener('input', applyFilters);
+      });
+    }
+
     function applyFilters() {
       const teamVal   = document.getElementById('teamFilter').value;
       const batterVal = document.getElementById('batterInput').value.trim().toLowerCase();
+      const dateVal   = document.getElementById('dateFilter').value;
 
       let filtered = allHomeRuns;
-      if (teamVal)   filtered = filtered.filter(r => r.team === teamVal);
-      if (batterVal) filtered = filtered.filter(r => r.name.toLowerCase().includes(batterVal));
+
+      if (teamVal)   filtered = filtered.filter(r=>r.team===teamVal);
+      if (batterVal) filtered = filtered.filter(r=>r.name.toLowerCase().includes(batterVal));
+
+      const now = new Date();
+      if (dateVal === 'last3') {
+        const cutoff = new Date(now.getTime() - 3*24*3600e3);
+        filtered = filtered.filter(r=>r.date >= cutoff);
+      } else if (dateVal === 'last7') {
+        const cutoff = new Date(now.getTime() - 7*24*3600e3);
+        filtered = filtered.filter(r=>r.date >= cutoff);
+      } else if (dateVal === 'apr') {
+        filtered = filtered.filter(r=> r.date.getMonth() === 3 );
+      } else if (dateVal === 'may') {
+        filtered = filtered.filter(r=> r.date.getMonth() === 4 );
+      }
+      // else 'all' shows everything
 
       renderTable(filtered.slice(0,10));
     }
 
     function renderTable(rows) {
+      const div = document.getElementById('leagueTable');
       if (!rows.length) {
-        document.getElementById('leagueTable').innerHTML = '<em>No home runs found</em>';
+        div.innerHTML = '<em>No home runs found</em>';
         return;
       }
-
       let html = `<table>
-        <caption>Top ${rows.length} Home Runs${document.getElementById('batterInput').value ? ' – ' + document.getElementById('batterInput').value : ''}</caption>
+        <caption>Top ${rows.length} Home Runs</caption>
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Team</th>
-            <th>Batter Name</th>
-            <th>Exit Velocity (mph)</th>
-            <th>Launch Angle (°)</th>
-            <th>Distance (ft)</th>
-            <th>Hit Time</th>
+            <th>Rank</th><th>Team</th><th>Batter</th>
+            <th>Exit Vel</th><th>Launch Ang</th>
+            <th>Distance</th><th>Hit Time</th>
           </tr>
-        </thead>
-        <tbody>`;
-
-      rows.forEach((r, i) => {
+        </thead><tbody>`;
+      rows.forEach((r,i)=> {
         html += `<tr>
           <td>${i+1}</td>
           <td>${r.team}</td>
@@ -178,9 +169,8 @@
           <td>${r.time}</td>
         </tr>`;
       });
-
       html += `</tbody></table>`;
-      document.getElementById('leagueTable').innerHTML = html;
+      div.innerHTML = html;
     }
   </script>
 
