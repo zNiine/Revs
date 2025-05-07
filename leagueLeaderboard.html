@@ -81,7 +81,7 @@
               team: rosterMap[r['Batter Name']] || '',
               name: r['Batter Name'] || '',
               ev:   parseNum(r['Exit Velocity (mph)']),
-              la:   parseNum(r['Launch Angle (°)']),
+              la:   parseNum(r['Launch Angle']),
               dist: parseNum(r['Distance (ft)']),
               time: r['Hit Time']||'',
               date: r['Hit Time'] ? new Date(r['Hit Time']) : null
