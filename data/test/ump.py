@@ -52,7 +52,12 @@ umpire_mapping = {
     "376733dc-67f3-4efc-96a9-8f75a6fab131" : "Steve Bartelstein",
     "6a6a390a-cc4b-467c-9859-1d6930e13979" : "Warren Nicholson",
     "7f7b3f09-f1cf-4648-9baa-cade95fb3b53" : "Benjamin Wilson",
-    "64ad3e0a-87e9-4ab8-9ee2-8f40213ce4e2" : "Dustin Fields"
+    "64ad3e0a-87e9-4ab8-9ee2-8f40213ce4e2" : "Dustin Fields",
+    "20846eab-c59e-46af-a797-67b1f060101f" : "Daniel Wetzel",
+    "d07abe5f-72e7-478e-9d4c-09a460049366" : "Andrew Eng",
+    "cdb51c41-3d3b-4fbb-830a-fdcca9e66076" : "Owen Ballard IV",
+    "8a421e80-e10b-4530-9e59-9ee28c301f62" : "David Martinez",
+    "f576593b-b421-46cb-a31d-73bdb2fdaddc" : "Miguel De La Cruz Segura",
     # add your other GameID→Umpire entries here…
 }
 
