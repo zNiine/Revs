@@ -48,10 +48,10 @@
     <div class="global-filters">
       <label for="time-filter">Time Range:</label>
       <select id="time-filter">
-        <option value="0">All Time</option>
+        <option value="0" selected>All Time</option>
         <option value="1">Yesterday</option>
         <option value="3">Last 3 Days</option>
-        <option value="7" selected>Last 7 Days</option>
+        <option value="7" >Last 7 Days</option>
         <option value="15">Last 15 Days</option>
         <option value="30">Last 30 Days</option>
       </select>
@@ -127,8 +127,11 @@
         <thead>
           <tr>
             <th data-key="Catcher">Catcher</th>
+            <th data-key="ExchangeTime">Team</th>
+
             <th data-key="PopTime">Avg PopTime</th>
             <th data-key="ExchangeTime">Avg ExchangeTime</th>
+            <th data-key="ThrowSpeed">Avg ThrowSpeed</th>
             <th data-key="Attempts">Attempts</th>
 
           </tr>
@@ -159,7 +162,7 @@
       <h2>7. Most Accurate Umpire</h2>
       <table>
         <thead>
-          <tr><th>Umpire</th><th>Accuracy</th><th>Total Calls</th></tr>
+          <tr><th>Umpire</th><th data-key="Accuracy">Accuracy</th><th>Total Calls</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -191,6 +194,7 @@
       awayFull: 'AwayNameFull',
       date: 'Date'
     };
+let fullUmpireRows = [];
 
     let data = [];
     const teams = new Set(), playersSet = new Set();
@@ -327,108 +331,168 @@ renderLeaderboard('release-speed',
   ['Pitcher','Release Speed','PitchCall']
 );
       
- const catcherMap = {};
-      filtered.forEach(r => {
-        // fallback to ensure correct property
-        const c = r[columns.catcher] || r.Catcher || r.CatcherId;
-        if (!c) return;
-        if (!catcherMap[c]) {
-          const teamName = r[columns.catcherTeam] || r.CatcherTeam || '';
-          catcherMap[c] = {
-            popSum: 0, popCount: 0,
-            exchSum: 0, exchCount: 0,
-            team: getFullTeamName(teamName, r)
-          };
-        }
-        const pop = parseFloat(r[columns.popTime] || r.PopTime || 0);
-        if (!isNaN(pop) && pop > 0) {
-          catcherMap[c].popSum += pop;
-          catcherMap[c].popCount++;
-        }
-        const ex = parseFloat(r[columns.exchangeTime] || r.ExchangeTime || 0);
-        if (!isNaN(ex) && ex > 0) {
-          catcherMap[c].exchSum += ex;
-          catcherMap[c].exchCount++;
-        }
+// 7. Catcher Stats
+const catcherMap = {};
+filtered.forEach(r => {
+  // identify the catcher
+  const c = r[columns.catcher] || r.Catcher || r.CatcherId;
+  if (!c) return;
 
-        
-      });
+  // initialize if needed
+  if (!catcherMap[c]) {
+    const teamName = r[columns.catcherTeam] || r.CatcherTeam || '';
+    catcherMap[c] = {
+      popSum: 0, popCount: 0,
+      exchSum: 0, exchCount: 0,
+      throwSum: 0, throwCount: 0,
+      team: getFullTeamName(teamName, r)
+    };
+  }
+  const stats = catcherMap[c];
 
+  // Pop Time
+  const pop = parseFloat(r[columns.popTime] || r.PopTime || '');
+  if (!isNaN(pop) && pop > 0) {
+    stats.popSum += pop;
+    stats.popCount++;
+  }
 
-      let catcherRows = Object.entries(catcherMap).map(([name, stats]) => ({
-        Catcher: name,
-        PopTime: stats.popCount ? (stats.popSum/stats.popCount).toFixed(2) : '',
-        ExchangeTime: stats.exchCount ? (stats.exchSum/stats.exchCount).toFixed(2) : '',
-        Attempts: stats.popCount // number of measured attempts
-      }));
-    
-    
-      const cpf = document.getElementById('catcher-player-filter').value;
-      if (cpf) catcherRows = catcherRows.filter(r => r.Catcher === cpf);
-      const ctf = document.getElementById('catcher-team-filter').value;
-      if (ctf) catcherRows = catcherRows.filter(r => r.Team === ctf);
-      // compute league average
-      const total = catcherRows.reduce((acc,r) => { acc.popSum+=parseFloat(r.PopTime)||0; acc.exchSum+=parseFloat(r.ExchangeTime)||0; acc.count++; acc.attempts+=r.Attempts; return acc; }, {popSum:0, exchSum:0, count:0, attempts:0});
-      if (total.count>0) {
-        catcherRows.push({
-          Catcher: 'League Average',
-          PopTime: (total.popSum/total.count).toFixed(2),
-          ExchangeTime: (total.exchSum/total.count).toFixed(2),
-          Attempts: total.attempts
-        })
-    }
-      // sort
-catcherRows.sort((a,b) => {
-        if (a.Catcher==='League Average') return 1;
-        if (b.Catcher==='League Average') return -1;
-        return parseFloat(a.PopTime) - parseFloat(b.PopTime);
-      });      
-      renderLeaderboard('catcher-stats', catcherRows, ['Catcher','PopTime','ExchangeTime','Attempts']);
+  // Exchange Time
+  const ex = parseFloat(r[columns.exchangeTime] || r.ExchangeTime || '');
+  if (!isNaN(ex) && ex > 0) {
+    stats.exchSum += ex;
+    stats.exchCount++;
+  }
 
-      // make sortable
-     document.querySelectorAll('#catcher-stats th[data-key]').forEach(th => {
-        th.addEventListener('click', () => {
-          const key = th.dataset.key;
-          const tbody = document.querySelector('#catcher-stats tbody');
-          const rows = Array.from(tbody.rows);
-          const asc = !th.classList.contains('asc');
-          rows.sort((a,b) => {
-            const i = ['Catcher','PopTime','ExchangeTime','Attempts'].indexOf(key);
-            let va = key==='Catcher'? a.cells[i].innerText : parseFloat(a.cells[i].innerText);
-            let vb = key==='Catcher'? b.cells[i].innerText : parseFloat(b.cells[i].innerText);
-            if (key==='Catcher') return asc? va.localeCompare(vb): vb.localeCompare(va);
-            return asc? va-vb: vb-va;
-          });
-          tbody.innerHTML=''; rows.forEach(r=>tbody.appendChild(r));
-          document.querySelectorAll('#catcher-stats th').forEach(h=>h.classList.remove('asc','desc'));
-          th.classList.add(asc?'asc':'desc');
-        });
-      });
-    
+  // Throw Speed
+  const th = parseFloat(r[columns.throwSpeed] || r.ThrowSpeed || '');
+  if (!isNaN(th) && th > 0) {
+    stats.throwSum += th;
+    stats.throwCount++;
+  }
+});
+
+let catcherRows = Object.entries(catcherMap).map(([name, s]) => ({
+  Catcher:      name,
+  Team:         s.team,
+  PopTime:      s.popCount   ? (s.popSum   / s.popCount).toFixed(2) : '',
+  ExchangeTime: s.exchCount  ? (s.exchSum  / s.exchCount).toFixed(2) : '',
+  ThrowSpeed:   s.throwCount ? (s.throwSum / s.throwCount).toFixed(2) : '',
+  Attempts:     s.popCount
+}));
+
+// apply filters
+const cpf = document.getElementById('catcher-player-filter').value;
+if (cpf) catcherRows = catcherRows.filter(r => r.Catcher === cpf);
+const ctf = document.getElementById('catcher-team-filter').value;
+if (ctf) catcherRows = catcherRows.filter(r => catcherMap[r.Catcher].team === ctf);
+
+// league average row
+const total = catcherRows.reduce((acc, r) => {
+  acc.popSum  += parseFloat(r.PopTime)      || 0;
+  acc.exchSum += parseFloat(r.ExchangeTime) || 0;
+  acc.throwSum+= parseFloat(r.ThrowSpeed)   || 0;
+  acc.count  ++;
+  acc.attempts+= r.Attempts;
+  return acc;
+}, { popSum:0, exchSum:0, throwSum:0, count:0, attempts:0 });
+
+if (total.count > 0) {
+  
+}
+
+// sort so league average goes last, then by PopTime asc
+catcherRows.sort((a, b) =>
+  (parseFloat(a.PopTime) || 0) - (parseFloat(b.PopTime) || 0)
+);
+// render
+renderLeaderboard('catcher-stats', catcherRows, [
+  'Catcher','Team','PopTime','ExchangeTime','ThrowSpeed','Attempts'
+]);
+
+// make headers sortable
+document.querySelectorAll('#catcher-stats th[data-key]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.key;
+    const tbody = document.querySelector('#catcher-stats tbody');
+    const rows  = Array.from(tbody.rows);
+    const asc   = !th.classList.contains('asc');
+
+    rows.sort((a,b) => {
+      const headers = ['Catcher','Team','PopTime','ExchangeTime','ThrowSpeed','Attempts'];
+      const idx = headers.indexOf(key);
+      let va = key==='Catcher' || key==='Team'
+               ? a.cells[idx].innerText
+               : parseFloat(a.cells[idx].innerText);
+      let vb = key==='Catcher' || key==='Team'
+               ? b.cells[idx].innerText
+               : parseFloat(b.cells[idx].innerText);
+      if (key==='Catcher' || key==='Team') {
+        return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+      }
+      return asc ? va - vb : vb - va;
+    });
+
+    tbody.innerHTML = '';
+    rows.forEach(r => tbody.appendChild(r));
+
+    document.querySelectorAll('#catcher-stats th').forEach(h => h.classList.remove('asc','desc'));
+    th.classList.add(asc ? 'asc' : 'desc');
+  });
+});
 
 
 
       // 5. Umpire Accuracy
       const umpMap = {};
-      filtered.forEach(r => {
-        const call = r[columns.pitchCall];
-        if (call !== 'StrikeCalled' && call !== 'BallCalled') return;
-        const u = r[columns.ump];
-        if (!umpMap[u]) umpMap[u] = { total:0, correct:0 };
-        umpMap[u].total++;
-        const h = parseFloat(r[columns.plateHeight]), s = parseFloat(r[columns.plateSide]);
-        const inZone = (h >=1.5 && h<=3.5 && s>=-0.83 && s<=0.83);
-        if ((inZone && call==='StrikeCalled') || (!inZone && call==='BallCalled')) {
-          umpMap[u].correct++;
-        }
-      });
-      let umpRows = Object.entries(umpMap).map(([u,stats])=>({
-        Umpire: u,
-        Accuracy: stats.total ? (stats.correct/stats.total).toFixed(2) : '0.00',
-        TotalCalls: stats.total
-      }));
-      umpRows.sort((a,b) => parseFloat(b.Accuracy) - parseFloat(a.Accuracy));
-      renderLeaderboard('umpire-accuracy', umpRows.slice(0,10), ['Umpire','Accuracy','TotalCalls']);
+filtered.forEach(r => {
+  const call = r[columns.pitchCall];
+  if (call !== 'StrikeCalled' && call !== 'BallCalled') return;
+  const u = r[columns.ump];
+  if (!umpMap[u]) umpMap[u] = { total:0, correct:0 };
+  umpMap[u].total++;
+  const h = parseFloat(r[columns.plateHeight]), s = parseFloat(r[columns.plateSide]);
+  const inZone = h>=1.5 && h<=3.5 && s>=-0.83 && s<=0.83;
+  if ((inZone && call==='StrikeCalled') || (!inZone && call==='BallCalled')) {
+    umpMap[u].correct++;
+  }
+});
+
+// build full array
+fullUmpireRows = Object.entries(umpMap).map(([u,stats]) => ({
+  Umpire: u,
+  Accuracy: stats.total ? +(stats.correct/stats.total).toFixed(2) : 0,
+  TotalCalls: stats.total
+}));
+
+// initial sort descending
+fullUmpireRows.sort((a,b) => b.Accuracy - a.Accuracy);
+
+// render the top 10
+renderLeaderboard(
+  'umpire-accuracy',
+  fullUmpireRows.slice(0,10),
+  ['Umpire','Accuracy','TotalCalls']
+);
+// right after computeAndRender, wire up the sorter:
+const thAcc = document.querySelector('#umpire-accuracy th[data-key="Accuracy"]');
+if (thAcc) {
+  thAcc.style.cursor = 'pointer';
+  thAcc.onclick = () => {
+    // toggle ascending / descending
+    const asc = !thAcc.classList.contains('asc');
+    fullUmpireRows.sort((a, b) => asc ? a.Accuracy - b.Accuracy : b.Accuracy - a.Accuracy);
+    // re-render top 10
+    renderLeaderboard(
+      'umpire-accuracy',
+      fullUmpireRows.slice(0,10),
+      ['Umpire','Accuracy','TotalCalls']
+    );
+    // update arrow classes
+    document.querySelectorAll('#umpire-accuracy th').forEach(h=>h.classList.remove('asc','desc'));
+    thAcc.classList.add(asc ? 'asc' : 'desc');
+  };
+}
 
       // 6. Average Exit Velocity by Batter
       const avgMap = {};
@@ -451,6 +515,8 @@ catcherRows.sort((a,b) => {
       avgRows.sort((a,b)=>parseFloat(b.AvgExitVelocity)-parseFloat(a.AvgExitVelocity));
       renderLeaderboard('avg-ev', avgRows.slice(0,10), ['Batter','Team','AvgExitVelocity']);
     }
+
+
 
     Papa.parse('./data.csv', {
       download:true,
