@@ -49,10 +49,10 @@
       <label for="time-filter">Time Range:</label>
       <select id="time-filter">
         <option value="0" selected>All Time</option>
-        <option value="1">Yesterday</option>
-        <option value="3">Last 3 Days</option>
-        <option value="7" >Last 7 Days</option>
-        <option value="15">Last 15 Days</option>
+        <option value="3">Yesterday</option>
+        <option value="5">Last 3 Days</option>
+        <option value="9" >Last 7 Days</option>
+        <option value="17">Last 15 Days</option>
         <option value="30">Last 30 Days</option>
       </select>
     </div>
@@ -254,12 +254,22 @@ let fullUmpireRows = [];
 
     function computeAndRender() {
       // time filter
-      const days = +document.getElementById('time-filter').value;
-      const cutoff = days ? Date.now() - days * 24*3600e3 : 0;
-      const filtered = data.filter(r =>
-        !cutoff ||
-        new Date(r[columns.date]).getTime() >= cutoff
-      );
+      // pick up how many days the user wants (1 = yesterday-today)
+// and compute a cutoff that is midnight-of-(days-1) days ago
+const days = +document.getElementById('time-filter').value;
+let cutoff = 0;
+if (days > 0) {
+  // start with today at local midnight:
+  const d0 = new Date();
+  d0.setHours(0,0,0,0);
+  // back up (days - 1) full days
+  cutoff = d0.getTime() - (days - 1) * 24 * 3600 * 1000;
+}
+// now filter
+const filtered = data.filter(r =>
+  !cutoff || new Date(r[columns.date]).getTime() >= cutoff
+);
+
 
       // 1. HR Distance
       let hrRows = filtered.filter(r => r[columns.playResult] === 'HomeRun');
