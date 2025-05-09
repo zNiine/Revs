@@ -203,28 +203,7 @@
       });
     }
 
-    function renderAccuracyBar(rows) {
-      const calls = rows.filter(r =>
-        r.PitchCall === 'StrikeCalled' || r.PitchCall === 'BallCalled'
-      );
-      const total = calls.length;
-      const correct = calls.filter(r=>{
-        const strike = r.PitchCall==='StrikeCalled';
-        return strike === inZone(r);
-      }).length;
-      const incorrect = total - correct;
 
-      const trace = {
-        x:['Correct','Incorrect'],
-        y:[correct, incorrect],
-        type:'bar',
-        marker:{ color:['#4CAF50','#F44336'] }
-      };
-      Plotly.newPlot('accuracyBar',[trace],{
-        yaxis:{ title:'Number of Calls' },
-        margin:{t:30}
-      });
-    }
 
     window.addEventListener('DOMContentLoaded',() => {
       umpName = getParam('umpire');
