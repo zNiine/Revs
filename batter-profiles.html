@@ -150,13 +150,12 @@
 
 <body>
     <header>
-        <div id="logo">Baseball Analytics</div>
+        <div id="logo">ALPB</div>
         <form id="search-form">
-            <input type="text" id="search" placeholder="Search players, teams..." list="suggestions"
-                autocomplete="off" />
-            <button type="submit" id="search-btn">Go</button>
-            <datalist id="suggestions"></datalist>
-        </form>
+      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off" />
+      <button type="submit" id="search-btn">Go</button>
+      <datalist id="suggestions"></datalist>
+    </form>
     </header>
     <nav id="menu">
         <ul>
@@ -228,11 +227,17 @@
 
     <script>
         let allData = [], playerName = '';
+        let data = []
 
         function parseNum(s) { const n = parseFloat(s); return isNaN(n) ? null : n; }
 
         function loadData() {
-            Papa.parse('./data.csv', { download: true, header: true, skipEmptyLines: true, complete: res => { allData = res.data.map(r => ({ ...r, Date: new Date(r.Date) })); initDashboard(); } });
+            Papa.parse('./data.csv', { download: true, header: true, skipEmptyLines: true, complete: res => {
+                 allData = res.data.map(r => ({ ...r, Date: new Date(r.Date) }));
+                 data = allData
+                 initSearchHandler();
+                 populateSuggestions();
+                 initDashboard(); } });
         }
 
         function initDashboard() {
@@ -419,6 +424,59 @@
         function renderTable(data) { const rows = data.filter(r => r.PlayResult !== 'Undefined'); rows.forEach((r, i) => r.__hitNumber = i + 1); let html = '<table><thead><tr><th>#</th><th>Date</th><th>Pitcher</th><th>Inning</th><th>PlayCall</th><th>ExitSpeed</th><th>Angle</th><th>Distance</th></tr></thead><tbody>'; rows.forEach(r => { const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall); html += `<tr><td>${r.__hitNumber}</td><td>${r.Date.toISOString().slice(0, 10)}</td><td>${r.Pitcher}</td><td>${r.Inning}</td><td>${result}</td><td>${r.ExitSpeed}</td><td>${r.Angle}</td><td>${r.Distance}</td></tr>`; }); html += '</tbody></table>'; document.getElementById('battedBallTable').innerHTML = html; }
 
         function renderAtBatDetails(data) { const at = document.getElementById('atBatFilter').value; const t = document.getElementById('atBatPitchTable'); if (!at) { t.style.display = 'none'; return; } t.style.display = 'block'; let html = '<table><thead><tr><th>#</th><th>Pitch Type</th><th>Result</th><th>RelSpeed</th><th>SpinRate</th><th>InducedVertBreak</th><th>HorzBreak</th><th>Drop</th></tr></thead><tbody>'; data.forEach((r, i) => { const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall); html += `<tr><td>${i + 1}</td><td>${r.AutoPitchType}</td><td>${result}</td><td>${r.RelSpeed || ''}</td><td>${r.SpinRate || ''}</td><td>${r.InducedVertBreak || ''}</td><td>${r.HorzBreak || ''}</td><td>${r.SpeedDrop || ''}</td></tr>`; }); html += '</tbody></table>'; t.innerHTML = html; }
+
+
+        function populateSuggestions() {
+      const dl = document.getElementById('suggestions');
+      const batters = new Set(data.map(r => r.Batter));
+      const ump = new Set(data.map(r => r.Umpire));
+      const pitchers = new Set(data.map(r => r.Pitcher));
+      const teams = new Set(data.map(r => r.HomeNameFull).concat(data.map(r => r.AwayNameFull)));
+      [...batters, ...teams, ...pitchers, ...ump].sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        dl.appendChild(opt);
+      });
+    }
+
+    // Attach form submit after data is ready
+    function initSearchHandler() {
+      document.getElementById('search-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const q = document.getElementById('search').value.trim();
+
+        const isUmp = data.some(r => r.Umpire === q);
+        if (isUmp) {
+          window.location.href = `ump-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        const isPitcher = data.some(r => r.Pitcher === q);
+        if (isPitcher) {
+          window.location.href = `pitcher-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Check if query matches a batter
+        const isBatter = data.some(r => r.Batter === q);
+        if (isBatter) {
+          window.location.href = `batter-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Otherwise check if it matches a team
+        const isTeam = data.some(r => r.HomeNameFull === q || r.AwayNameFull === q);
+        if (isTeam) {
+          window.location.href = `team-profiles.html?team=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Fallback: no match
+        alert('No matching player or team found.');
+      });
+    }
+
+
 
         window.addEventListener('DOMContentLoaded', loadData);
     </script>

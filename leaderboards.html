@@ -28,12 +28,13 @@
 </head>
 <body>
   <header>
-    <div id="logo">Baseball Analytics</div>
-    <div id="search-container">
-      <input type="text" id="search" placeholder="Search..." list="suggestions" autocomplete="off" />
+    <div id="logo">ALPB</div>
+        <form id="search-form">
+      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off" />
+      <button type="submit" id="search-btn">Go</button>
       <datalist id="suggestions"></datalist>
-    </div>
-  </header>
+    </form>
+    </header>
   <nav id="menu">
     <ul>
       <li><a href="index.html">Home</a></li>
@@ -462,6 +463,9 @@ catcherRows.sort((a,b) => {
           teams.add(getFullTeamName(r[columns.pitcherTeam],r));
           playersSet.add(r[columns.player]);
         });
+
+        initSearchHandler();
+                    populateSuggestions();
         initFilters();
         [
           'hr-team-filter','hr-player-filter',
@@ -475,6 +479,59 @@ catcherRows.sort((a,b) => {
         computeAndRender();
       }
     });
+
+    function populateSuggestions() {
+      const dl = document.getElementById('suggestions');
+      const batters = new Set(data.map(r => r.Batter));
+      const ump = new Set(data.map(r => r.Umpire));
+      const pitchers = new Set(data.map(r => r.Pitcher));
+      const teams = new Set(data.map(r => r.HomeNameFull).concat(data.map(r => r.AwayNameFull)));
+      [...batters, ...teams, ...pitchers, ...ump].sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        dl.appendChild(opt);
+      });
+    }
+
+    // Attach form submit after data is ready
+    function initSearchHandler() {
+      document.getElementById('search-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const q = document.getElementById('search').value.trim();
+
+        const isUmp = data.some(r => r.Umpire === q);
+        if (isUmp) {
+          window.location.href = `ump-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        const isPitcher = data.some(r => r.Pitcher === q);
+        if (isPitcher) {
+          window.location.href = `pitcher-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Check if query matches a batter
+        const isBatter = data.some(r => r.Batter === q);
+        if (isBatter) {
+          window.location.href = `batter-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Otherwise check if it matches a team
+        const isTeam = data.some(r => r.HomeNameFull === q || r.AwayNameFull === q);
+        if (isTeam) {
+          window.location.href = `team-profiles.html?team=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Fallback: no match
+        alert('No matching player or team found.');
+      });
+    }
+
+
+
   </script>
 </body>
 </html>
