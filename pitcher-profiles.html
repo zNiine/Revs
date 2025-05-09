@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Pitcher Dashboard</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- Libraries -->
+    <script src="libs/plotly.min.js"></script>
+    <script src="libs/papaparse.min.js"></script>
+    <style>
+        /* (same styles as batter page) */
+        body {
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        header,
+        nav {
+            padding: 0.5rem 1rem;
+            background: #fafafa;
+            border-bottom: 1px solid #ddd;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        nav#menu ul {
+            list-style: none;
+            display: flex;
+            gap: 1rem;
+            margin: 0;
+            padding: 0;
+        }
+
+        nav#menu a {
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+        }
+
+        nav#menu a.active {
+            text-decoration: underline;
+        }
+
+        #subMenu {
+            padding: 0.5rem 1rem;
+            background: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #subMenu button {
+            margin-right: 0.5rem;
+            padding: 0.4rem 0.8rem;
+        }
+
+        #subMenu .sub-active {
+            background: #ddd;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+        }
+
+        .sidebar {
+            width: 250px;
+            padding: 1rem;
+            background: #f7f7f7;
+            border-right: 1px solid #ddd;
+        }
+
+        .sidebar .filters {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .sidebar label {
+            font-size: 0.9rem;
+        }
+
+        .sidebar button {
+            margin-top: 1rem;
+            padding: 0.5rem;
+            cursor: pointer;
+        }
+
+        .main {
+            flex: 1;
+            padding: 1rem;
+            overflow: auto;
+        }
+
+        #plateContainer {
+            display: flex;
+            margin-bottom: 2rem;
+            height: 400px;
+            gap: 0.5rem;
+        }
+
+        #plateChart {
+            width: 40%;
+            height: 100%;
+        }
+
+        #legendDiv {
+            width: 10%;
+            padding-left: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        #atBatPitchTable {
+            width: 60%;
+            overflow: auto;
+            font-size: 0.9rem;
+            display: none;
+            padding-left: 0.5rem;
+        }
+
+        #battedBallTable table,
+        #atBatPitchTable table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        #battedBallTable th,
+        #battedBallTable td,
+        #atBatPitchTable th,
+        #atBatPitchTable td {
+            border: 1px solid #ccc;
+            padding: 0.4rem;
+            text-align: left;
+        }
+
+        #battedBallTable th,
+        #atBatPitchTable th {
+            background: #eee;
+        }
+
+        @media print {
+  header, nav, #subMenu, .sidebar, #paContainer { display: none !important; }
+  body, html { margin:0; padding:0; }
+  #usageContainer { display:block !important; width:100% !important; }
+  .treeWrapper { display:block !important; width:100% !important; }
+  #treeChart {
+    width:100% !important; height:400px !important;
+    page-break-inside: avoid;
+  }
+  #treeLegend {
+    display:block !important;
+    width:100% !important;
+    margin:1rem 0;
+    z-index: 100;
+  }
+  #validationTable {
+    display:block !important;
+    width:50% !important;
+    max-height: 20vh;       /* keep it from taking too much space */
+    margin-top: 210px;
+    page-break-before: auto;
+        page-break-inside: avoid;
+
+  }
+  * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+}
+    </style>
+</head>
+
+<body>
+    <header>
+        <div id="logo">Baseball Analytics</div>
+        <form id="search-form">
+      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off" />
+      <button type="submit" id="search-btn">Go</button>
+      <datalist id="suggestions"></datalist>
+    </form>
+    </header>
+    <nav id="menu">
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="leaderboards.html">Leaderboards</a></li>
+            <li><a href="park-factors.html">Park Factors</a></li>
+            <li><a href="#" class="active">Pitcher Profiles</a></li>
+        </ul>
+    </nav>
+
+    <!-- Sub-menu: toggle between the two profile panels -->
+    <div id="subMenu">
+        <button id="tabPA" class="sub-active">Plate Appearances</button>
+        <button id="tabTree">Usage Tree</button>
+        <button id="printTree">Print</button>
+
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="filters">
+                <label for="startDate">Start Date</label>
+                <input type="date" id="startDate" onchange="applyFilters()" />
+
+                <label for="endDate">End Date</label>
+                <input type="date" id="endDate" onchange="applyFilters()" />
+
+                <label>
+                    <input type="checkbox" id="showAllDates" onchange="applyFilters()" />
+                    Show All Dates
+                </label>
+
+                <label for="sideFilter">Batter Side</label>
+                <select id="sideFilter" onchange="applyFilters()">
+                    <option value="">All</option>
+                    <option value="Left">Left</option>
+                    <option value="Right">Right</option>
+                </select>
+
+                <label for="batterFilter">Batter</label>
+                <select id="batterFilter" onchange="onBatterChange()">
+                    <option value="">All</option>
+                </select>
+
+                <label for="pitchTypeFilter">Pitch Type</label>
+                <select id="pitchTypeFilter" onchange="applyFilters()">
+                    <option value="">All</option>
+                </select>
+
+                <label for="atBatFilter" id="atBatLabel" style="display:none;">At Bat</label>
+                <select id="atBatFilter" onchange="applyFilters()" style="display:none;">
+                    <option value="">All</option>
+                </select>
+
+                <button onclick="resetFilters()">Reset Filters</button>
+            </div>
+        </div>
+
+        <!-- Plate Appearances view -->
+        <div class="main" id="paContainer">
+            <h2 id="playerName"></h2>
+
+            <div id="plateContainer">
+                <div id="plateChart"></div>
+                <div id="legendDiv"></div>
+                <div id="atBatPitchTable"></div>
+            </div>
+
+            <h3>Spray Chart</h3>
+            <div id="sprayChart" style="width:600px;height:600px;margin:auto;"></div>
+
+            <div id="trajectoryChart"></div>
+
+            <h3>Batted Ball Table</h3>
+            <div id="battedBallTable"></div>
+        </div>
+
+        <!-- Usage Tree view -->
+        <div class="main" id="usageContainer" style="display:none;">
+            <h2 id="playerNameTree"></h2>
+            <div style="margin-bottom:1rem;">
+                <label for="treeSideFilter">Batter Side:</label>
+                <select id="treeSideFilter" onchange="renderUsageTree()">
+                    <option value="">All</option>
+                    <option value="Left">Left</option>
+                    <option value="Right">Right</option>
+                </select>
+            </div>
+
+            <div class="treeWrapper" style="display:flex; gap:1rem; align-items:flex-start;">
+  <!-- Chart -->
+  <div id="treeChart" style="width:70%; height:600px; position:relative;"></div>
+  <!-- Legend moved out here -->
+  <div id="treeLegend" style="width:10%; padding-left:0.5rem; font-size:0.9rem;"></div>
+  <!-- Stats table -->
+  <div id="validationTable" style="width:20%; height:600px; overflow:auto;
+             border:1px solid #ccc; padding:0.5rem; font-size:0.9rem;">
+    <strong>Pitch Type Statistics</strong>
+    <table style="width:100%; border-collapse: collapse; margin-top:0.5rem;">
+      <thead>…</thead>
+      <th>Pitch Type</th>
+      <th>Count</th>
+      <th>Velo Mean</th>
+      <th>Std</th>
+      <tbody id="statsTableBody"></tbody>
+    </table>
+  </div>
+</div>
+        </div>
+
+       
+    </div>
+
+    <script>
+        let allData = [], playerName = '';
+ let data = [];
+        document.getElementById('printTree').addEventListener('click', () => {
+  // ensure we’re on the Usage Tree first
+  document.getElementById('tabTree').click();
+  // give the browser a moment to re-layout, then print
+  setTimeout(() => window.print(), 200);
+});
+        function parseNum(s) { const n = parseFloat(s); return isNaN(n) ? null : n; }
+        function onBatterChange() {
+            // now a batter was chosen → show atBat dropdown
+            const bat = document.getElementById('batterFilter').value;
+            const sel = document.getElementById('atBatFilter'),
+                lbl = document.getElementById('atBatLabel');
+            if (bat) {
+                const opts = [...new Set(allData
+                    .filter(r => r.Pitcher === playerName && r.Batter === bat)
+                    .map(r => `${r.Date.toISOString().slice(0, 10)} PA${r.PAofInning} Inning${r.Inning}`))]
+                sel.innerHTML = '<option value=\"\">All</option>' + opts.map(o => `<option>${o}</option>`).join('');
+                lbl.style.display = sel.style.display = '';
+            } else {
+                lbl.style.display = sel.style.display = 'none';
+            }
+            applyFilters();
+        }
+        function loadData() {
+            Papa.parse('./data.csv', {
+                download: true, header: true, skipEmptyLines: true,
+                complete: res => {
+                            data = res.data;
+
+                    allData = res.data.map(r => ({ ...r, Date: new Date(r.Date) }));
+                    initDashboard();
+                    initSearchHandler();
+                    populateSuggestions();
+                }
+            });
+        }
+
+        function initDashboard() {
+            playerName = new URLSearchParams(location.search).get('player') || '';
+ const sample = allData.find(r => r.Pitcher === playerName);
+    const handAbbrev = sample
+      ? (sample.PitcherThrows === 'Left'  ? 'LHP'
+         : sample.PitcherThrows === 'Right' ? 'RHP'
+         : '')
+      : '';
+    // set header to "Lastname, Firstname (RHP)" etc.
+    document.getElementById('playerName').textContent =
+      handAbbrev
+        ? `${playerName} (${handAbbrev})`
+        : playerName;
+            // populate Batter dropdown
+            const batters = [...new Set(allData
+                .filter(r => r.Pitcher === playerName)
+                .map(r => r.Batter)
+            )];
+            document.getElementById('batterFilter').innerHTML =
+                '<option value="">All</option>' +
+                batters.map(b => `<option>${b}</option>`).join('');
+
+            // populate Pitch Type dropdown
+            const pts = [...new Set(allData
+                .filter(r => r.Pitcher === playerName)
+                .map(r => r.AutoPitchType)
+            )];
+            document.getElementById('pitchTypeFilter').innerHTML =
+                '<option value="">All</option>' +
+                pts.map(t => `<option>${t}</option>`).join('');
+
+            // sub-tab toggles
+            document.getElementById('tabPA').addEventListener('click', () => {
+                document.getElementById('paContainer').style.display = '';
+                document.getElementById('usageContainer').style.display = 'none';
+                document.getElementById('tabPA').classList.add('sub-active');
+                document.getElementById('tabTree').classList.remove('sub-active');
+            });
+            document.getElementById('tabTree').addEventListener('click', () => {
+                document.getElementById('paContainer').style.display = 'none';
+                document.getElementById('usageContainer').style.display = '';
+                document.getElementById('tabTree').classList.add('sub-active');
+                document.getElementById('tabPA').classList.remove('sub-active');
+                document.getElementById('playerNameTree').textContent = handAbbrev
+        ? `${playerName} (${handAbbrev})`
+        : playerName; + ' — Usage Tree';
+                renderUsageTree();
+            });
+
+            // disable date inputs when "Show All Dates" checked
+            document.getElementById('showAllDates').addEventListener('change', e => {
+                const c = e.target.checked;
+                document.getElementById('startDate').disabled = c;
+                document.getElementById('endDate').disabled = c;
+                applyFilters();
+            });
+
+            applyFilters();
+        }
+
+        function resetFilters() {
+            ['startDate', 'endDate'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('showAllDates').checked = false;
+            ['sideFilter', 'batterFilter', 'pitchTypeFilter', 'atBatFilter'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            document.getElementById('atBatLabel').style.display = 'none';
+            document.getElementById('atBatFilter').style.display = 'none';
+            applyFilters();
+        }
+function applyFilters() {
+  let f = allData.filter(r => r.Pitcher === playerName);
+
+  // date range
+  if (!document.getElementById('showAllDates').checked) {
+    const sd = document.getElementById('startDate').value;
+    const ed = document.getElementById('endDate').value;
+    if (sd) f = f.filter(r => r.Date >= new Date(sd));
+    if (ed) f = f.filter(r => r.Date <= new Date(ed));
+  }
+
+  // batter side
+  const side = document.getElementById('sideFilter').value;
+  if (side) f = f.filter(r => r.BatterSide === side);
+
+  // batter filter (just a normal filter now)
+  const bat = document.getElementById('batterFilter').value;
+  if (bat) f = f.filter(r => r.Batter === bat);
+
+  // pitch type
+  const pt = document.getElementById('pitchTypeFilter').value;
+  if (pt) f = f.filter(r => r.AutoPitchType === pt);
+
+  // at-bat filter
+  const at = document.getElementById('atBatFilter').value;
+  if (at) {
+    f = f.filter(r =>
+      `${r.Date.toISOString().slice(0,10)} PA${r.PAofInning} Inning${r.Inning}` === at
+    );
+  }
+
+  // now re-render everything
+  plotPlate(f);
+  plotSpray(f);
+  renderTable(f);
+  renderAtBatDetails(f);
+}
+
+        function onBatterChange() {
+  const bat = document.getElementById('batterFilter').value;
+  const sel = document.getElementById('atBatFilter'),
+        lbl = document.getElementById('atBatLabel');
+
+  if (bat) {
+    const opts = [...new Set(
+      allData
+        .filter(r => r.Pitcher === playerName && r.Batter === bat)
+        .map(r => `${r.Date.toISOString().slice(0,10)} PA${r.PAofInning} Inning${r.Inning}`)
+    )];
+    sel.innerHTML = '<option value="">All</option>' + opts.map(o => `<option>${o}</option>`).join('');
+    lbl.style.display = sel.style.display = '';
+  } else {
+    lbl.style.display = sel.style.display = 'none';
+  }
+
+  // now do the normal filtering/rendering
+  applyFilters();
+}
+        function applyBaseFilters(f) {
+            const pt = document.getElementById('pitchTypeFilter').value;
+            if (pt) f = f.filter(r => r.AutoPitchType === pt);
+
+            const at = document.getElementById('atBatFilter').value;
+            if (at) {
+                f = f.filter(r =>
+                    `${r.Date.toISOString().slice(0, 10)} PA${r.PAofInning} Inning${r.Inning}` === at
+                );
+            }
+
+            plotPlate(f);
+            plotSpray(f);
+            renderTable(f);
+            renderAtBatDetails(f);
+        }
+
+
+        function plotPlate(data) {
+            const atVal = document.getElementById('atBatFilter').value;
+            // Build table rows for numbering
+            const tableRows = data.filter(r => r.PlayResult !== 'Undefined');
+            tableRows.forEach((r, i) => r.__hitNumber = i + 1);
+            const indexMap = new Map(tableRows.map(r => [r, r.__hitNumber]));
+            // If At Bat selected, number by sequence in 'data'
+            const atSeq = atVal ? data.map((_, i) => i + 1) : null;
+
+            const types = [...new Set(data.map(r => r.AutoPitchType))], CM = {};
+            types.forEach((t, i) => CM[t] = `hsl(${(i * 60) % 360},70%,50%)`);
+            const swing = r => r.PitchCall !== 'StrikeCalled' && r.PitchCall !== 'BallCalled';
+            const trace = {
+                x: data.map(r => parseNum(r.PlateLocSide)),
+                y: data.map(r => parseNum(r.PlateLocHeight)),
+                text: data.map((r, i) => atVal ? atSeq[i] : (indexMap.get(r) || '')),
+                mode: 'markers+text',
+                marker: {
+                    symbol: data.map(r => swing(r) ? 'square' : 'circle'),
+                    size: 10,
+                    color: data.map(r => CM[r.AutoPitchType] || '#999')
+                }
+            };
+            const layout = {
+                shapes: [{ type: 'rect', x0: -0.708, x1: 0.708, y0: 1.5, y1: 3.5, line: { color: 'black' } }],
+                xaxis: { title: 'Horizontal Location (ft)' },
+                yaxis: { title: 'Vertical Location (ft)' },
+                height: 400
+            };
+            Plotly.newPlot('plateChart', [trace], layout);
+            let html = '<strong>AutoPitchType:</strong><br>';
+            types.forEach(t => html += `<span style="display:inline-block;width:12px;height:12px;background:${CM[t]};margin-right:5px"></span>${t}<br>`);
+            html += '<br><strong>Action:</strong><br>';
+            html += '<span style="display:inline-block;width:12px;height:12px;background:blue;margin-right:5px"></span>Swing<br>';
+            html += '<span style="display:inline-block;width:12px;height:12px;border:1px solid blue;border-radius:50%;margin-right:5px"></span>Take';
+            document.getElementById('legendDiv').innerHTML = html;
+        }
+        function plotSpray(rows) {
+            rows = rows.filter(r => r.PlayResult !== 'Undefined');
+            const H = 2.0;
+            const hits = rows.filter(r => {
+                const d = parseNum(r.Direction);
+                const dist = parseNum(r.Distance);
+                return !isNaN(d) && !isNaN(dist);
+            });
+            if (!hits.length) { document.getElementById('sprayChart').innerHTML = '<em>No hits</em>'; return; } hits.forEach((r, i) => r.__hitNumber = i + 1);
+            const pts = hits.map(r => { const dist = parseNum(r.Distance), dir = parseNum(r.Direction), rad = dir * Math.PI / 180; return { num: r.__hitNumber, x: Math.sin(rad) * dist * H, y: Math.cos(rad) * dist, ev: parseNum(r.ExitSpeed), la: parseNum(r.Angle), type: r.TaggedHitType, distance: dist }; });
+            const maxD = Math.max(...pts.map(p => p.distance), 400), F = maxD * 1.05, types2 = [...new Set(pts.map(p => p.type))], C2 = {}; types2.forEach((t, i) => C2[t] = `hsl(${(i * 45) % 360},70%,50%)`);
+            const tr2 = { x: pts.map(p => p.x), y: pts.map(p => p.y), mode: 'markers+text', marker: { size: pts.map(p => isNaN(p.ev) ? 10 : Math.min(p.ev / 2, 20)), color: pts.map(p => C2[p.type] || 'gray'), line: { width: 1, color: '#333' }, opacity: 0.8 }, text: pts.map(p => p.num), textposition: 'middle center', hoverinfo: 'text', hovertext: pts.map(p => `#${p.num} ${p.type}<br>EV:${p.ev}<br>LA:${p.la}<br>Dist:${p.distance}`) };
+            Plotly.newPlot('sprayChart', [tr2], {
+                images: [{
+                    source: 'assets/trackman-bg.png',
+                    xref: 'x', yref: 'y',
+                    x: 0, y: 0,
+                    xanchor: 'center', yanchor: 'bottom',
+                    sizex: 2 * F,
+                    sizey: F * 1.12,
+                    sizing: 'stretch',
+                    layer: 'below',
+                    opacity: 0.8
+                }],
+                xaxis: {
+                    range: [-F, F],
+                    zeroline: false,
+                    showgrid: false,
+                    fixedrange: true,
+                    title: 'Left Field ← → Right Field'
+                },
+                yaxis: {
+                    range: [0, F],
+                    zeroline: false,
+                    showgrid: false,
+                    fixedrange: true,
+                    scaleanchor: 'x',
+                    scaleratio: 1,
+                    title: 'Distance from Home Plate (ft)'
+                },
+                margin: { t: 20, b: 20, l: 20, r: 20 }
+            });
+        }
+
+
+        function renderTable(data) { const rows = data.filter(r => r.PlayResult !== 'Undefined'); rows.forEach((r, i) => r.__hitNumber = i + 1); let html = '<table><thead><tr><th>#</th><th>Date</th><th>Batter</th><th>Inning</th><th>PlayCall</th><th>ExitSpeed</th><th>Angle</th><th>Distance</th></tr></thead><tbody>'; rows.forEach(r => { const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall); html += `<tr><td>${r.__hitNumber}</td><td>${r.Date.toISOString().slice(0, 10)}</td><td>${r.Batter}</td><td>${r.Inning}</td><td>${result}</td><td>${r.ExitSpeed}</td><td>${r.Angle}</td><td>${r.Distance}</td></tr>`; }); html += '</tbody></table>'; document.getElementById('battedBallTable').innerHTML = html; }
+        function renderAtBatDetails(data) { const at = document.getElementById('atBatFilter').value; const t = document.getElementById('atBatPitchTable'); if (!at) { t.style.display = 'none'; return; } t.style.display = 'block'; let html = '<table><thead><tr><th>#</th><th>Pitch Type</th><th>Result</th><th>RelSpeed</th><th>SpinRate</th><th>InducedVertBreak</th><th>HorzBreak</th><th>Drop</th></tr></thead><tbody>'; data.forEach((r, i) => { const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall); html += `<tr><td>${i + 1}</td><td>${r.AutoPitchType}</td><td>${result}</td><td>${r.RelSpeed || ''}</td><td>${r.SpinRate || ''}</td><td>${r.InducedVertBreak || ''}</td><td>${r.HorzBreak || ''}</td><td>${r.SpeedDrop || ''}</td></tr>`; }); html += '</tbody></table>'; t.innerHTML = html; }
+
+function renderUsageTree() {
+  const side = document.getElementById('treeSideFilter').value;
+  let rows = allData.filter(r => r.Pitcher === playerName);
+  if (side) rows = rows.filter(r => r.BatterSide === side);
+
+  // 1) Build map: "b-s" → count of each AutoPitchType
+  const tree = {};
+  rows.forEach(r => {
+    const key = `${r.Balls}-${r.Strikes}`;
+    const type = r.AutoPitchType || 'undefined';
+    tree[key] = tree[key] || {};
+    tree[key][type] = (tree[key][type]||0) + 1;
+  });
+
+  // 2) Determine maximum balls+strikes to know how many rows
+  const allKeys = Object.keys(tree).map(ks => ks.split('-').map(Number));
+  const maxSum = allKeys.reduce((m, [b,s]) => Math.max(m, b+s), 0);
+
+  const container = document.getElementById('treeChart');
+  container.innerHTML = '';
+
+  // Your fixed color palette
+  const PALETTE = {
+    'Four-Seam': '#000000',
+    'Sinker':    '#FF69B4',
+    'Slider':    '#0000FF',
+    'Changeup':  '#00FF00',
+    'Curveball': '#FFA500',
+    'Cutter':    '#800080',
+    'Splitter':  '#00FFFF',
+    'undefined':'#888888'
+  };
+
+  // Layout constants
+  const boxSize  = 120;
+  const spacingX = boxSize + 20;
+  const spacingY = boxSize * 0.8 + 10;
+  const cW       = container.clientWidth;
+
+  // 3) For each row (sum of balls+strikes) draw all possible counts
+  for (let sum = 0; sum <= maxSum; sum++) {
+    // build this tier: all (b,s) pairs with b+s = sum
+    // build this tier: only valid counts with b ≤ 3 and s ≤ 2, b+s = sum
+const tier = [];
+for (let b = 0; b <= 3; b++) {
+  const s = sum - b;
+  if (s < 0 || s > 2) continue;
+  const key = `${b}-${s}`;
+  tier.push({ b, s, dist: tree[key] || {} });
+}
+
+// keep your existing sort by balls descending
+tier.sort((a, b) => b.b - a.b);
+
+
+    // center the tier
+    const rowWidth = (tier.length - 1)*spacingX + boxSize;
+    const startX   = (cW - rowWidth) / 2;
+
+    tier.forEach((e, i) => {
+      // container div for this cell
+      const div = document.createElement('div');
+      div.style.cssText = `
+        position:absolute;
+        left:${startX + i*spacingX}px;
+        top:${sum*spacingY + (sum>2?15:0)}px;
+        width:${boxSize}px;
+        height:${boxSize}px;
+      `;
+      container.appendChild(div);
+
+      // prepare labels/values (or a single zero slice)
+      const labels = Object.keys(e.dist).length
+        ? Object.keys(e.dist)
+        : ['none'];
+      const values = Object.keys(e.dist).length
+        ? labels.map(l => e.dist[l])
+        : [0];
+
+      // draw pie (donut) chart
+      Plotly.newPlot(div, [{
+        type: 'pie',
+        labels,
+        values,
+        hole: .6,
+        marker: { colors: labels.map(l => PALETTE[l] || PALETTE.undefined) },
+        textinfo: 'percent',
+        textposition: 'inside',
+        textfont: { color: '#ffffff' },
+        hoverinfo: 'label+value'
+      }], {
+        margin: { t:0, b:0, l:0, r:0 },
+        showlegend: false,
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor:  'rgba(0,0,0,0)'
+      });
+
+      // overlay the b-s count and total
+      const total = values.reduce((a,v) => a+v, 0);
+      const txt = document.createElement('div');
+      txt.innerHTML = `${e.b}-${e.s}<br>${total}`;
+      txt.style.cssText = `
+        position:absolute;
+        left:50%; top:50%;
+        transform:translate(-50%,-50%);
+        text-align:center;
+        font-size:14px;
+      `;
+      div.appendChild(txt);
+    });
+  }
+
+  // 4) Draw legend
+  const legend = document.createElement('div');
+  legend.style.cssText = `
+    position:absolute;
+    left:0; top:0;
+    padding:10px;
+    background:rgba(255,255,255,0.8);
+    font-size:0.9rem;
+  `;
+  Object.keys(PALETTE).forEach(t => {
+    legend.innerHTML += `
+      <span style="
+        display:inline-block;
+        width:12px; height:12px;
+        background:${PALETTE[t]};
+        margin-right:5px;
+        vertical-align:middle;
+      "></span>${t}<br>
+    `;
+  });
+  container.appendChild(legend);
+
+  // 5) Build & inject pitch‐type statistics table below (unchanged)
+  const stats = {};
+  rows.forEach(r => {
+    const type = r.AutoPitchType || 'undefined';
+    const speed = parseFloat(r.RelSpeed);
+    if (isNaN(speed)) return;
+    if (!stats[type]) stats[type] = { count:0, sum:0, sumSq:0 };
+    stats[type].count++;
+    stats[type].sum   += speed;
+    stats[type].sumSq += speed*speed;
+  });
+
+  const tbody = document.getElementById('statsTableBody');
+  let html = '';
+  Object.entries(stats)
+    .sort(([,a], [,b]) => b.count - a.count)
+    .forEach(([type,{count,sum,sumSq}]) => {
+      const mean     = sum/count;
+      const variance = sumSq/count - mean*mean;
+      const std      = Math.sqrt(Math.max(0, variance));
+      html += `
+        <tr>
+          <td>${type}</td>
+          <td style="text-align:right">${count}</td>
+          <td style="text-align:right">${mean.toFixed(1)}</td>
+          <td style="text-align:right">${std.toFixed(1)}</td>
+        </tr>`;
+    });
+  tbody.innerHTML = html;
+}
+
+  
+function populateSuggestions() {
+      const dl = document.getElementById('suggestions');
+      const batters = new Set(data.map(r => r.Batter));
+      const ump = new Set(data.map(r => r.Umpire));
+      const pitchers = new Set(data.map(r => r.Pitcher));
+      const teams = new Set(data.map(r => r.HomeNameFull).concat(data.map(r => r.AwayNameFull)));
+      [...batters, ...teams, ...pitchers, ...ump].sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        dl.appendChild(opt);
+      });
+    }
+
+    // Attach form submit after data is ready
+    function initSearchHandler() {
+      document.getElementById('search-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const q = document.getElementById('search').value.trim();
+
+        const isUmp = data.some(r => r.Umpire === q);
+        if (isUmp) {
+          window.location.href = `ump-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        const isPitcher = data.some(r => r.Pitcher === q);
+        if (isPitcher) {
+          window.location.href = `pitcher-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Check if query matches a batter
+        const isBatter = data.some(r => r.Batter === q);
+        if (isBatter) {
+          window.location.href = `batter-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Otherwise check if it matches a team
+        const isTeam = data.some(r => r.HomeNameFull === q || r.AwayNameFull === q);
+        if (isTeam) {
+          window.location.href = `team-profiles.html?team=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Fallback: no match
+        alert('No matching player or team found.');
+      });
+    }
+
+
+
+        window.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+
+</html>

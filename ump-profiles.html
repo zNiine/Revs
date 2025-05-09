@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Umpire Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="libs/plotly.min.js"></script>
+  <script src="libs/papaparse.min.js"></script>
+  <style>
+    body { display:flex; flex-direction:column; margin:0; font-family:Arial,sans-serif; }
+    header, nav { padding:0.5rem 1rem; background:#fafafa; border-bottom:1px solid #ddd; }
+    header { display:flex; justify-content:space-between; align-items:center; }
+    #logo { font-size:1.5rem; font-weight:bold; }
+    nav ul { list-style:none; display:flex; gap:1rem; margin:0; padding:0; }
+    nav a { text-decoration:none; color:#333; font-weight:500; }
+    nav a.active { text-decoration:underline; }
+
+    .container { display:flex; flex:1; }
+    .sidebar { width:250px; padding:1rem; background:#f7f7f7; border-right:1px solid #ddd; }
+    .filters { display:flex; flex-direction:column; gap:0.5rem; }
+    .filters label { font-size:0.9rem; }
+    .filters select, .filters button { padding:0.4rem; }
+
+    .main { flex:1; padding:1rem; overflow:auto; }
+    .chart { margin-bottom:2rem; }
+    .chart h3 { margin-bottom:0.5rem; }
+
+    /* narrower plate view */
+    #plateView { width:70%; height:500px; }
+
+    /* full width miss heatmap, with zone overlay */
+    #missHeatmap { width:100%; height:400px; }
+
+    #accuracyBar { width:100%; height:300px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div id="logo">Baseball Analytics</div>
+    <form id="search-form">
+      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off"/>
+      <button type="submit">Go</button>
+      <datalist id="suggestions"></datalist>
+    </form>
+  </header>
+  <nav>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="leaderboards.html">Leaderboards</a></li>
+      <li><a href="park-factors.html">Park Factors</a></li>
+      <li><a href="#" class="active">Umpire Profiles</a></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="sidebar">
+      <div class="filters">
+        <label for="dateFilter">Date</label>
+        <select id="dateFilter" onchange="applyFilters()">
+          <option value="">All Dates</option>
+        </select>
+
+        <label for="sideFilter">Batter Side</label>
+        <select id="sideFilter" onchange="applyFilters()">
+          <option value="">All</option>
+          <option value="Left">Left</option>
+          <option value="Right">Right</option>
+        </select>
+
+        <label for="pitcherThrowFilter">Pitcher Throws</label>
+        <select id="pitcherThrowFilter" onchange="applyFilters()">
+          <option value="">All</option>
+          <option value="Left">Left</option>
+          <option value="Right">Right</option>
+        </select>
+
+        <button onclick="resetFilters()">Reset Filters</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <h2 id="umpName"></h2>
+
+      <div class="chart">
+        <h3>Plate View: Called Strikes vs. Balls</h3>
+        <div id="plateView"></div>
+      </div>
+
+      <div class="chart">
+        <h3>Miss Heatmap (False Calls)</h3>
+        <div id="missHeatmap"></div>
+      </div>
+
+      <div class="chart">
+        <h3>Overall Accuracy</h3>
+        <div id="accuracyBar"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allData = [], umpName = '';
+
+    function getParam(n) {
+      return new URLSearchParams(location.search).get(n) || '';
+    }
+
+    // true strike zone
+    function inZone(r) {
+      const h = parseFloat(r.PlateLocHeight),
+            s = parseFloat(r.PlateLocSide);
+      return h >= 1.5 && h <= 3.5 && s >= -0.83 && s <= 0.83;
+    }
+
+    function resetFilters() {
+      document.getElementById('dateFilter').value = '';
+      document.getElementById('sideFilter').value = '';
+      document.getElementById('pitcherThrowFilter').value = '';
+      applyFilters();
+    }
+
+    function applyFilters() {
+      let f = allData.filter(r => r.Umpire === umpName);
+
+      // date select
+      const d = document.getElementById('dateFilter').value;
+      if (d) f = f.filter(r => r.Date === d);
+
+      // batter side
+      const bs = document.getElementById('sideFilter').value;
+      if (bs) f = f.filter(r => r.BatterSide === bs);
+
+      // pitcher throws
+      const pt = document.getElementById('pitcherThrowFilter').value;
+      if (pt) f = f.filter(r => r.PitcherThrows === pt);
+
+      renderPlateView(f);
+      renderMissHeatmap(f);
+      renderAccuracyBar(f);
+    }
+
+    function renderPlateView(rows) {
+      const calls = rows.filter(r =>
+        r.PitchCall === 'StrikeCalled' || r.PitchCall === 'BallCalled'
+      );
+      const strikes = calls.filter(r => r.PitchCall==='StrikeCalled'),
+            balls   = calls.filter(r => r.PitchCall==='BallCalled');
+
+      const traceS = {
+        x: strikes.map(r=>parseFloat(r.PlateLocSide)),
+        y: strikes.map(r=>parseFloat(r.PlateLocHeight)),
+        mode:'markers', name:'Called Strike',
+        marker:{ color:'red', size:8 }, type:'scatter'
+      };
+      const traceB = {
+        x: balls.map(r=>parseFloat(r.PlateLocSide)),
+        y: balls.map(r=>parseFloat(r.PlateLocHeight)),
+        mode:'markers', name:'Called Ball',
+        marker:{ color:'blue', size:8 }, type:'scatter'
+      };
+      Plotly.newPlot('plateView',[traceS,traceB],{
+        shapes:[{
+          type:'rect', x0:-0.708, x1:0.708,
+          y0:1.5,   y1:3.5,
+          line:{color:'black'}
+        }],
+        xaxis:{ title:'Horizontal (ft)' },
+        yaxis:{ title:'Vertical (ft)' },
+        margin:{t:30}
+      });
+    }
+
+    function renderMissHeatmap(rows) {
+      // only called strikes/balls
+      const calls = rows.filter(r =>
+        r.PitchCall === 'StrikeCalled' || r.PitchCall === 'BallCalled'
+      );
+      const misses = calls.filter(r=>{
+        const strike = r.PitchCall==='StrikeCalled';
+        return strike ? !inZone(r) : inZone(r);
+      });
+
+      const x = misses.map(r=>parseFloat(r.PlateLocSide)),
+            y = misses.map(r=>parseFloat(r.PlateLocHeight));
+      Plotly.newPlot('missHeatmap',[{
+        x, y, type:'histogram2d',
+        nbinsx:40,
+        nbinsy: 18,
+        
+        colorscale:'Reds',
+        colorbar:{ title:'Miss count' }
+      }],{
+        width: 800,      // pixels
+  height: 500, 
+        shapes:[{
+          type:'rect', x0:-0.708, x1:0.708,
+          y0:1.5,   y1:3.5,
+          line:{color:'black'}
+        }],
+        xaxis:{ title:'Horizontal (ft)' },
+        yaxis:{ title:'Vertical (ft)' },
+        margin:{t:30}
+      });
+    }
+
+    function renderAccuracyBar(rows) {
+      const calls = rows.filter(r =>
+        r.PitchCall === 'StrikeCalled' || r.PitchCall === 'BallCalled'
+      );
+      const total = calls.length;
+      const correct = calls.filter(r=>{
+        const strike = r.PitchCall==='StrikeCalled';
+        return strike === inZone(r);
+      }).length;
+      const incorrect = total - correct;
+
+      const trace = {
+        x:['Correct','Incorrect'],
+        y:[correct, incorrect],
+        type:'bar',
+        marker:{ color:['#4CAF50','#F44336'] }
+      };
+      Plotly.newPlot('accuracyBar',[trace],{
+        yaxis:{ title:'Number of Calls' },
+        margin:{t:30}
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded',() => {
+      umpName = getParam('umpire');
+      document.getElementById('umpName').textContent = umpName;
+
+      Papa.parse('./data.csv',{ download:true, header:true, skipEmptyLines:true,
+        complete: res => {
+          allData = res.data.map(r => ({
+            ...r,
+            Date: r.Date.split('T')[0]   // normalize to YYYY-MM-DD
+          }));
+
+          // build date dropdown
+          const dates = Array.from(new Set(
+            allData
+              .filter(r=>r.Umpire===umpName)
+              .map(r=>r.Date)
+          )).sort();
+          const df = document.getElementById('dateFilter');
+          dates.forEach(d => df.append(new Option(d)));
+
+          // populate search suggestions
+          const dl = document.getElementById('suggestions'),
+                names = Array.from(new Set(allData.map(r=>r.Umpire)));
+          names.forEach(n => dl.append(new Option(n)));
+
+          applyFilters();
+        }
+      });
+
+      // search form handler
+      document.getElementById('search-form')
+        .addEventListener('submit', e => {
+          e.preventDefault();
+          const q = document.getElementById('search').value.trim();
+          if (allData.some(r=>r.Umpire===q)) {
+            window.location.href = `ump-profiles.html?umpire=${encodeURIComponent(q)}`;
+          } else {
+            alert('No matching umpire found.');
+          }
+        });
+    });
+  </script>
+</body>
+</html>

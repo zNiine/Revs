@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboards - Baseball Analytics</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; font-family: Arial, sans-serif; line-height: 1.4; }
+    header, nav { padding: 1rem 2rem; border-bottom: 1px solid #ddd; }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    #logo { font-size: 1.5rem; font-weight: bold; }
+    #search-container { position: relative; }
+    #search { padding: 0.5rem; width: 250px; }
+    nav#menu ul { list-style: none; display: flex; gap: 2rem; }
+    nav#menu a { text-decoration: none; color: #333; font-weight: 500; }
+    nav#menu a.active { text-decoration: underline; }
+    main { padding: 2rem; }
+    .global-filters { margin-bottom: 1rem; }
+    .global-filters select { padding: 0.5rem; margin-right: 1rem; }
+    .leaderboard { margin-bottom: 3rem; }
+    .leaderboard h2 { margin-bottom: 0.5rem; }
+    .filters { margin-bottom: 1rem; display: flex; gap: 1rem; }
+    .filters input, .filters label { padding: 0.4rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.5rem; border: 1px solid #ccc; text-align: left; }
+  </style>
+</head>
+<body>
+  <header>
+    <div id="logo">Baseball Analytics</div>
+    <div id="search-container">
+      <input type="text" id="search" placeholder="Search..." list="suggestions" autocomplete="off" />
+      <datalist id="suggestions"></datalist>
+    </div>
+  </header>
+  <nav id="menu">
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="leaderboards.html" class="active">Leaderboards</a></li>
+      <li><a href="#">Search</a></li>
+      <li><a href="park-factors.html">Park Factors</a></li>
+      <li><a href="#">Point Streak</a></li>
+    </ul>
+  </nav>
+  <main>
+    <div class="global-filters">
+      <label for="time-filter">Time Range:</label>
+      <select id="time-filter">
+        <option value="0">All Time</option>
+        <option value="1">Yesterday</option>
+        <option value="3">Last 3 Days</option>
+        <option value="7" selected>Last 7 Days</option>
+        <option value="15">Last 15 Days</option>
+        <option value="30">Last 30 Days</option>
+      </select>
+    </div>
+
+    <!-- 1. HomeRun Distance -->
+    <div class="leaderboard" id="hr-distance">
+      <h2>1. HomeRun Distance</h2>
+      <div class="filters">
+        <input type="text" id="hr-team-filter" placeholder="Filter by team" list="team-suggestions" />
+        <input type="text" id="hr-player-filter" placeholder="Filter by player" list="player-suggestions" />
+      </div>
+      <table>
+        <thead>
+          <tr><th>Team</th><th>Batter</th><th>Pitcher</th><th>Exit Vel</th><th>Launch Ang</th><th>Distance</th><th>AutoPitchType</th><th>Date</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- 2. Fastest Exit Velocity -->
+    <div class="leaderboard" id="ev-speed">
+      <h2>2. Fastest Exit Velocity</h2>
+      <div class="filters">
+        <input type="text" id="ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
+        <input type="text" id="ev-player-filter" placeholder="Filter by player" list="player-suggestions" />
+      </div>
+      <table>
+        <thead>
+          <tr><th>Team</th><th>Batter</th><th>Pitcher</th><th>Exit Vel</th><th>Launch Ang</th><th>PlayResult</th><th>AutoPitchType</th><th>Date</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- 3. Chase Rate -->
+    <div class="leaderboard" id="chase-rate">
+      <h2>3. Chase Rate</h2>
+      <div class="filters">
+        <input type="text" id="chase-team-filter" placeholder="Filter by team" list="team-suggestions" />
+        <label for="chase-min-filter">Min Outside Pitches:</label>
+        <input type="number" id="chase-min-filter" value="20" min="1" />
+      </div>
+      <table>
+        <thead>
+          <tr><th>Player</th><th>Chase Rate</th><th>Total Outside</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- 4. Fastest Release Speed -->
+    <div class="leaderboard" id="release-speed">
+      <h2>4. Fastest Release Speed</h2>
+      <div class="filters">
+        <input type="text" id="rel-team-filter" placeholder="Filter by team" list="team-suggestions" />
+      </div>
+      <table>
+        <thead>
+          <tr><th>Pitcher</th><th>Release Speed</th><th>PitchCall</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="leaderboard" id="catcher-stats">
+      <h2>5. Average Catcher Stats</h2>
+      <div class="filters">
+    <input type="text" id="catcher-player-filter" placeholder="Filter by catcher" list="player-suggestions" />
+    <input type="text" id="catcher-team-filter"   placeholder="Filter by team"    list="team-suggestions"  />
+  </div>
+      <table>
+        <thead>
+          <tr>
+            <th data-key="Catcher">Catcher</th>
+            <th data-key="PopTime">Avg PopTime</th>
+            <th data-key="ExchangeTime">Avg ExchangeTime</th>
+            <th data-key="Attempts">Attempts</th>
+
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+   
+
+    <!-- 6. Average Exit Velocity by Batter -->
+    <div class="leaderboard" id="avg-ev">
+      <h2>6. Average Exit Velocity by Batter</h2>
+      <div class="filters">
+        <input type="text" id="avg-ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
+      </div>
+      <table>
+        <thead>
+          <tr><th>Batter</th><th>Team</th><th>Avg Exit Velocity</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+
+     <!-- 5. Most Accurate Umpire -->
+    <div class="leaderboard" id="umpire-accuracy">
+      <h2>7. Most Accurate Umpire</h2>
+      <table>
+        <thead>
+          <tr><th>Umpire</th><th>Accuracy</th><th>Total Calls</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <datalist id="team-suggestions"></datalist>
+  <datalist id="player-suggestions"></datalist>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script>
+    const columns = {
+      player: 'Batter',
+      playerTeam: 'BatterTeam',
+      pitcher: 'Pitcher',
+      pitcherTeam: 'PitcherTeam',
+      playResult: 'PlayResult',
+      distance: 'Distance',
+      exitSpeed: 'ExitSpeed',
+      relSpeed: 'RelSpeed',
+      angle: 'Angle',
+      ump: 'Umpire',
+      autoType: 'AutoPitchType',
+      plateHeight: 'PlateLocHeight',
+      plateSide: 'PlateLocSide',
+      pitchCall: 'PitchCall',
+      homeAbbr: 'HomeTeam',
+      awayAbbr: 'AwayTeam',
+      homeFull: 'HomeNameFull',
+      awayFull: 'AwayNameFull',
+      date: 'Date'
+    };
+
+    let data = [];
+    const teams = new Set(), playersSet = new Set();
+
+    function getFullTeamName(abbr, row) {
+      if (abbr === row[columns.homeAbbr]) return row[columns.homeFull];
+      if (abbr === row[columns.awayAbbr]) return row[columns.awayFull];
+      return abbr;
+    }
+
+    function initFilters() {
+      teams.forEach(t => document.getElementById('team-suggestions').append(new Option(t)));
+      playersSet.forEach(p => document.getElementById('player-suggestions').append(new Option(p)));
+    }
+
+    function renderLeaderboard(id, rows, cols) {
+      const tbody = document.querySelector(`#${id} tbody`);
+      tbody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        cols.forEach(c => {
+          const td = document.createElement('td');
+          td.textContent = r[c];
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    function computeAndRender() {
+      // time filter
+      const days = +document.getElementById('time-filter').value;
+      const cutoff = days ? Date.now() - days * 24*3600e3 : 0;
+      const filtered = data.filter(r =>
+        !cutoff ||
+        new Date(r[columns.date]).getTime() >= cutoff
+      );
+
+      // 1. HR Distance
+      let hrRows = filtered.filter(r => r[columns.playResult] === 'HomeRun');
+      const hrTeam = document.getElementById('hr-team-filter').value;
+      const hrPlayer = document.getElementById('hr-player-filter').value;
+      if (hrTeam)   hrRows = hrRows.filter(r => getFullTeamName(r[columns.playerTeam],r) === hrTeam);
+      if (hrPlayer) hrRows = hrRows.filter(r => r[columns.player] === hrPlayer);
+      hrRows.sort((a,b) => parseFloat(b[columns.distance]) - parseFloat(a[columns.distance]));
+      const hrDisplay = hrRows.slice(0,10).map(r => ({
+        Team: getFullTeamName(r[columns.playerTeam],r),
+        Batter: r[columns.player],
+        Pitcher: r[columns.pitcher],
+        'Exit Vel': r[columns.exitSpeed],
+        'Launch Ang': r[columns.angle],
+        Distance: r[columns.distance],
+        AutoPitchType: r[columns.autoType],
+        Date: r[columns.date]
+      }));
+      renderLeaderboard('hr-distance', hrDisplay, ['Team','Batter','Pitcher','Exit Vel','Launch Ang','Distance','AutoPitchType','Date']);
+
+      // 2. Fastest Exit Velocity
+      let evRows = filtered.filter(r =>
+        r[columns.exitSpeed] && r[columns.playResult] !== 'Undefined'
+      );
+      const evTeam = document.getElementById('ev-team-filter').value;
+      const evPlayer = document.getElementById('ev-player-filter').value;
+      if (evTeam)   evRows = evRows.filter(r => getFullTeamName(r[columns.playerTeam],r) === evTeam);
+      if (evPlayer) evRows = evRows.filter(r => r[columns.player] === evPlayer);
+      evRows.sort((a,b) => parseFloat(b[columns.exitSpeed]) - parseFloat(a[columns.exitSpeed]));
+      const evDisplay = evRows.slice(0,10).map(r => ({
+        Team: getFullTeamName(r[columns.playerTeam],r),
+        Batter: r[columns.player],
+        Pitcher: r[columns.pitcher],
+        'Exit Vel': r[columns.exitSpeed],
+        'Launch Ang': r[columns.angle],
+        PlayResult: r[columns.playResult],
+        AutoPitchType: r[columns.autoType],
+        Date: r[columns.date]
+      }));
+      renderLeaderboard('ev-speed', evDisplay, ['Team','Batter','Pitcher','Exit Vel','Launch Ang','PlayResult','AutoPitchType','Date']);
+
+      // 3. Chase Rate
+      const chaseMap = {};
+      filtered.forEach(r => {
+        const h = parseFloat(r[columns.plateHeight]), s = parseFloat(r[columns.plateSide]);
+        const outZone = (h < 1.5 || h > 3.5 || s < -0.83 || s > 0.83);
+        if (!outZone) return;
+        const batter = r[columns.player];
+        if (!chaseMap[batter]) chaseMap[batter] = { outside:0, chase:0, team: getFullTeamName(r[columns.playerTeam],r) };
+        chaseMap[batter].outside++;
+        const call = r[columns.pitchCall];
+        if (call !== 'StrikeCalled' && call !== 'BallCalled') chaseMap[batter].chase++;
+      });
+      let chaseRows = Object.entries(chaseMap).map(([player,stats])=>({
+        Player: player,
+        ChaseRate: stats.outside ? (stats.chase/stats.outside).toFixed(2) : '0.00',
+        TotalOutside: stats.outside,
+        Team: stats.team
+      }));
+      const chaseTeam = document.getElementById('chase-team-filter').value;
+      const minOut = +document.getElementById('chase-min-filter').value;
+      if (chaseTeam) chaseRows = chaseRows.filter(r => r.Team === chaseTeam);
+      chaseRows = chaseRows.filter(r => r.TotalOutside >= minOut);
+      chaseRows.sort((a,b) => parseFloat(a.ChaseRate) - parseFloat(b.ChaseRate));
+      renderLeaderboard('chase-rate', chaseRows.slice(0,10), ['Player','ChaseRate','TotalOutside']);
+// 4. Fastest Release Speed
+let relRows = filtered.slice();
+
+// team filter
+const relTeam = document.getElementById('rel-team-filter').value;
+if (relTeam) {
+  relRows = relRows.filter(r =>
+    getFullTeamName(r[columns.pitcherTeam], r) === relTeam
+  );
+}
+
+// only keep rows where RelSpeed parses to a number
+relRows = relRows.filter(r => {
+  const v = parseFloat(r[columns.relSpeed]);
+  return !isNaN(v);
+});
+
+// now sort descending
+relRows.sort((a,b) =>
+  parseFloat(b[columns.relSpeed]) - parseFloat(a[columns.relSpeed])
+);
+
+// map out the top 10
+const relDisplay = relRows.slice(0,10).map(r => ({
+  Pitcher:       r[columns.pitcher],
+  'Release Speed': r[columns.relSpeed],
+  PitchCall:     r[columns.pitchCall]
+}));
+
+renderLeaderboard('release-speed',
+  relDisplay,
+  ['Pitcher','Release Speed','PitchCall']
+);
+      
+ const catcherMap = {};
+      filtered.forEach(r => {
+        // fallback to ensure correct property
+        const c = r[columns.catcher] || r.Catcher || r.CatcherId;
+        if (!c) return;
+        if (!catcherMap[c]) {
+          const teamName = r[columns.catcherTeam] || r.CatcherTeam || '';
+          catcherMap[c] = {
+            popSum: 0, popCount: 0,
+            exchSum: 0, exchCount: 0,
+            team: getFullTeamName(teamName, r)
+          };
+        }
+        const pop = parseFloat(r[columns.popTime] || r.PopTime || 0);
+        if (!isNaN(pop) && pop > 0) {
+          catcherMap[c].popSum += pop;
+          catcherMap[c].popCount++;
+        }
+        const ex = parseFloat(r[columns.exchangeTime] || r.ExchangeTime || 0);
+        if (!isNaN(ex) && ex > 0) {
+          catcherMap[c].exchSum += ex;
+          catcherMap[c].exchCount++;
+        }
+
+        
+      });
+
+
+      let catcherRows = Object.entries(catcherMap).map(([name, stats]) => ({
+        Catcher: name,
+        PopTime: stats.popCount ? (stats.popSum/stats.popCount).toFixed(2) : '',
+        ExchangeTime: stats.exchCount ? (stats.exchSum/stats.exchCount).toFixed(2) : '',
+        Attempts: stats.popCount // number of measured attempts
+      }));
+    
+    
+      const cpf = document.getElementById('catcher-player-filter').value;
+      if (cpf) catcherRows = catcherRows.filter(r => r.Catcher === cpf);
+      const ctf = document.getElementById('catcher-team-filter').value;
+      if (ctf) catcherRows = catcherRows.filter(r => r.Team === ctf);
+      // compute league average
+      const total = catcherRows.reduce((acc,r) => { acc.popSum+=parseFloat(r.PopTime)||0; acc.exchSum+=parseFloat(r.ExchangeTime)||0; acc.count++; acc.attempts+=r.Attempts; return acc; }, {popSum:0, exchSum:0, count:0, attempts:0});
+      if (total.count>0) {
+        catcherRows.push({
+          Catcher: 'League Average',
+          PopTime: (total.popSum/total.count).toFixed(2),
+          ExchangeTime: (total.exchSum/total.count).toFixed(2),
+          Attempts: total.attempts
+        })
+    }
+      // sort
+catcherRows.sort((a,b) => {
+        if (a.Catcher==='League Average') return 1;
+        if (b.Catcher==='League Average') return -1;
+        return parseFloat(a.PopTime) - parseFloat(b.PopTime);
+      });      
+      renderLeaderboard('catcher-stats', catcherRows, ['Catcher','PopTime','ExchangeTime','Attempts']);
+
+      // make sortable
+     document.querySelectorAll('#catcher-stats th[data-key]').forEach(th => {
+        th.addEventListener('click', () => {
+          const key = th.dataset.key;
+          const tbody = document.querySelector('#catcher-stats tbody');
+          const rows = Array.from(tbody.rows);
+          const asc = !th.classList.contains('asc');
+          rows.sort((a,b) => {
+            const i = ['Catcher','PopTime','ExchangeTime','Attempts'].indexOf(key);
+            let va = key==='Catcher'? a.cells[i].innerText : parseFloat(a.cells[i].innerText);
+            let vb = key==='Catcher'? b.cells[i].innerText : parseFloat(b.cells[i].innerText);
+            if (key==='Catcher') return asc? va.localeCompare(vb): vb.localeCompare(va);
+            return asc? va-vb: vb-va;
+          });
+          tbody.innerHTML=''; rows.forEach(r=>tbody.appendChild(r));
+          document.querySelectorAll('#catcher-stats th').forEach(h=>h.classList.remove('asc','desc'));
+          th.classList.add(asc?'asc':'desc');
+        });
+      });
+    
+
+
+
+      // 5. Umpire Accuracy
+      const umpMap = {};
+      filtered.forEach(r => {
+        const call = r[columns.pitchCall];
+        if (call !== 'StrikeCalled' && call !== 'BallCalled') return;
+        const u = r[columns.ump];
+        if (!umpMap[u]) umpMap[u] = { total:0, correct:0 };
+        umpMap[u].total++;
+        const h = parseFloat(r[columns.plateHeight]), s = parseFloat(r[columns.plateSide]);
+        const inZone = (h >=1.5 && h<=3.5 && s>=-0.83 && s<=0.83);
+        if ((inZone && call==='StrikeCalled') || (!inZone && call==='BallCalled')) {
+          umpMap[u].correct++;
+        }
+      });
+      let umpRows = Object.entries(umpMap).map(([u,stats])=>({
+        Umpire: u,
+        Accuracy: stats.total ? (stats.correct/stats.total).toFixed(2) : '0.00',
+        TotalCalls: stats.total
+      }));
+      umpRows.sort((a,b) => parseFloat(b.Accuracy) - parseFloat(a.Accuracy));
+      renderLeaderboard('umpire-accuracy', umpRows.slice(0,10), ['Umpire','Accuracy','TotalCalls']);
+
+      // 6. Average Exit Velocity by Batter
+      const avgMap = {};
+      filtered
+        .filter(r => r[columns.pitchCall] === 'InPlay' && !isNaN(parseFloat(r[columns.exitSpeed])))
+        .forEach(r => {
+          const bat = r[columns.player];
+          const tm  = getFullTeamName(r[columns.playerTeam],r);
+          if (!avgMap[bat]) avgMap[bat] = { sum:0, count:0, team: tm };
+          avgMap[bat].sum   += parseFloat(r[columns.exitSpeed]);
+          avgMap[bat].count += 1;
+        });
+      let avgRows = Object.entries(avgMap).map(([b,st])=>({
+        Batter: b,
+        Team: st.team,
+        AvgExitVelocity: (st.sum/st.count).toFixed(2)
+      }));
+      const avgTeam = document.getElementById('avg-ev-team-filter').value;
+      if (avgTeam) avgRows = avgRows.filter(r => r.Team === avgTeam);
+      avgRows.sort((a,b)=>parseFloat(b.AvgExitVelocity)-parseFloat(a.AvgExitVelocity));
+      renderLeaderboard('avg-ev', avgRows.slice(0,10), ['Batter','Team','AvgExitVelocity']);
+    }
+
+    Papa.parse('./data.csv', {
+      download:true,
+      header:true,
+      skipEmptyLines:true,
+      complete: results => {
+        data = results.data;
+        data.forEach(r => {
+          teams.add(getFullTeamName(r[columns.playerTeam],r));
+          teams.add(getFullTeamName(r[columns.pitcherTeam],r));
+          playersSet.add(r[columns.player]);
+        });
+        initFilters();
+        [
+          'hr-team-filter','hr-player-filter',
+          'ev-team-filter','ev-player-filter',
+          'chase-team-filter','rel-team-filter',
+          'avg-ev-team-filter',
+          'chase-min-filter','time-filter','catcher-player-filter','catcher-team-filter'
+        ].forEach(id =>
+          document.getElementById(id).addEventListener('input', computeAndRender)
+        );
+        computeAndRender();
+      }
+    });
+  </script>
+</body>
+</html>

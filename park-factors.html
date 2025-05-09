@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Park Factors - Baseball Analytics</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; font-family: Arial, sans-serif; }
+    header, nav { padding: 1rem 2rem; border-bottom: 1px solid #ddd; }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    #logo { font-size: 1.5rem; font-weight: bold; }
+    main { padding: 2rem; }
+    .filters { margin-bottom: 1rem; }
+    .filters label { margin-right: 1rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: 0.5rem; border: 1px solid #ccc; text-align: center; }
+    th { background: #f4f4f4; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <div id="logo">Baseball Analytics</div>
+  </header>
+  <nav>
+    <ul style="list-style:none; display:flex; gap:1rem; padding:1rem 2rem;">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="leaderboards.html">Leaderboards</a></li>
+      <li><a href="park-factors.html" class="active">Park Factors</a></li>
+      <li><a href="#">Point Streak</a></li>
+    </ul>
+  </nav>
+  <main>
+    <h2>Park Factors</h2>
+    <div class="filters">
+      <label for="bat-side-filter">Bat Side:</label>
+      <select id="bat-side-filter">
+        <option value="All">All</option>
+        <option value="Left">Left</option>
+        <option value="Right">Right</option>
+      </select>
+    </div>
+    <table id="pf-table">
+      <thead>
+        <tr>
+          <th>Park</th>
+          <th>HR</th>
+          <th>3B</th>
+          <th>2B</th>
+          <th>1B</th>
+          <th>H</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </main>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script>
+    const cols = {
+      home: 'HomeTeam', homeFull: 'HomeNameFull', away: 'AwayTeam',
+      play: 'PlayResult', side: 'BatterSide', paId: 'PitchofPA',
+      batter: 'Batter', game: 'GameID'
+    };
+
+    let raw = [];
+    let sortKey = 'H';
+    let sortAsc = false;
+
+    function heatColor(v, min, max) {
+      const mid = 100;
+      if (v <= mid) {
+        const ratio = (v - min) / ((mid - min) || 1);
+        const r = Math.round(ratio * 255);
+        return `rgb(${r},${r},255)`;
+      } else {
+        const ratio = (v - mid) / ((max - mid) || 1);
+        const g = Math.round((1 - ratio) * 255);
+        return `rgb(255,${g},${g})`;
+      }
+    }
+
+    function computeFactors() {
+      const sideFilter = document.getElementById('bat-side-filter').value;
+      // count parks per player
+      const parkCount = {};
+      raw.forEach(r => {
+        if (r[cols.paId] !== '1') return;
+        if (sideFilter !== 'All' && r[cols.side] !== sideFilter) return;
+        const p = r[cols.batter], park = r[cols.home];
+        parkCount[p] = parkCount[p] || new Set();
+        parkCount[p].add(park);
+      });
+      // global and park-player stats
+      const global = {}, parkMap = {};
+      raw.forEach(r => {
+        if (sideFilter !== 'All' && r[cols.side] !== sideFilter) return;
+        const p = r[cols.batter], park = r[cols.home], away = r[cols.away];
+        const pa = r[cols.paId] === '1', pr = r[cols.play];
+        global[p] = global[p] || { pa:0, hr:0, tb3:0, db:0, sb:0, h:0 };
+        [park, away].forEach(pk => {
+          parkMap[pk] = parkMap[pk] || {};
+          parkMap[pk][p] = parkMap[pk][p] || { pa:0, hr:0, tb3:0, db:0, sb:0, h:0 };
+        });
+        if (pa) {
+          global[p].pa++;
+          parkMap[park][p].pa++; parkMap[away][p].pa++;
+        }
+        if (pr === 'HomeRun') { global[p].hr++; parkMap[park][p].hr++; parkMap[away][p].hr++; }
+        if (pr === 'Triple')  { global[p].tb3++; parkMap[park][p].tb3++; parkMap[away][p].tb3++; }
+        if (pr === 'Double')  { global[p].db++; parkMap[park][p].db++; parkMap[away][p].db++; }
+        if (pr === 'Single')  { global[p].sb++; parkMap[park][p].sb++; parkMap[away][p].sb++; }
+        if (['HomeRun','Triple','Double','Single'].includes(pr)) {
+          global[p].h++; parkMap[park][p].h++; parkMap[away][p].h++;
+        }
+      });
+      // compute raw factors
+      const rawResults = [];
+      Object.entries(parkMap).forEach(([park, players]) => {
+        const ratios = { HR:[], '3B':[], '2B':[], '1B':[], H:[] };
+        Object.entries(players).forEach(([p, st]) => {
+          if (st.pa < 1 || (parkCount[p]||new Set()).size < 2) return;
+          const g = global[p]; const awayPA=g.pa - st.pa;
+          if (awayPA < 1) return;
+          ratios.HR.push((st.hr/st.pa)/((g.hr-st.hr)/awayPA));
+          ratios['3B'].push((st.tb3/st.pa)/((g.tb3-st.tb3)/awayPA));
+          ratios['2B'].push((st.db/st.pa)/((g.db-st.db)/awayPA));
+          ratios['1B'].push((st.sb/st.pa)/((g.sb-st.sb)/awayPA));
+          ratios.H.push((st.h/st.pa)/((g.h-st.h)/awayPA));
+        });
+        const entry={ park };
+        ['HR','3B','2B','1B','H'].forEach(k=>{
+          const arr=ratios[k].filter(Number.isFinite);
+          entry[k]= arr.length? arr.reduce((a,b)=>a+b)/arr.length * 100 : NaN;
+        });
+        if (!isNaN(entry.HR)) rawResults.push(entry);
+      });
+      // normalize to average 100
+      const norms={};
+      ['HR','3B','2B','1B','H'].forEach(k=>{
+        const vals=rawResults.map(r=>r[k]);
+        norms[k]= vals.reduce((a,b)=>a+b)/vals.length;
+      });
+      return rawResults.map(r=>{
+        const out={ park:r.park };
+        ['HR','3B','2B','1B','H'].forEach(k=>{
+          out[k]= isNaN(r[k])? NaN : r[k]/norms[k]*100;
+        });
+        return out;
+      });
+    }
+    
+    function render() {
+      const tbody=document.querySelector('#pf-table tbody'); tbody.innerHTML='';
+      const data=computeFactors();
+      data.sort((a,b)=>sortAsc? a[sortKey]-b[sortKey] : b[sortKey]-a[sortKey]);
+      const keys=['HR','3B','2B','1B','H'];
+      const ranges={}; keys.forEach(k=>{
+        const vals=data.map(d=>d[k]); ranges[k]={min:Math.min(...vals), max:Math.max(...vals)};
+      });
+      data.forEach(d=>{
+        const tr=document.createElement('tr');
+        const pf= cols;
+        const name=(raw.find(r=>r[pf.home]===d.park)||{})[pf.homeFull]||d.park;
+        tr.append(Object.assign(document.createElement('td'),{textContent:name}));
+        keys.forEach(k=>{
+          const v=d[k]; const td=document.createElement('td');
+          td.textContent=isNaN(v)?'-':v.toFixed(1);
+          td.style.background=isNaN(v)?'none':heatColor(v,ranges[k].min,ranges[k].max);
+          td.style.color=(!isNaN(v)&& v<=75)?'white':'black';
+          tr.append(td);
+        });
+        tbody.append(tr);
+      });
+    }
+
+    function setup(){
+      Papa.parse('./data.csv',{download:true,header:true,skipEmptyLines:true,complete:r=>{
+        raw=r.data;
+        document.getElementById('bat-side-filter').addEventListener('change',render);
+        document.querySelectorAll('#pf-table th').forEach((th,i)=>{
+          const key=['park','HR','3B','2B','1B','H'][i];
+          th.addEventListener('click',()=>{if(sortKey===key)sortAsc=!sortAsc;else{sortKey=key;sortAsc=true;}render();});
+        });
+        render();
+      }});
+    }
+
+    setup();
+  </script>
+</body>
+</html>

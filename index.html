@@ -1,28 +1,109 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <meta charset='UTF-8'>
-    <title>Player Select</title>
-    <link rel='stylesheet' href='style.css'>
-    <script src='libs/papaparse.min.js'></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Baseball Analytics Hub</title>
+  <style>
+    /* Basic reset and styling */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; font-family: Arial, sans-serif; }
+    header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem; border-bottom: 1px solid #ddd; }
+    #logo { font-size: 1.5rem; font-weight: bold; }
+    #search-form { position: relative; }
+    #search { padding: 0.5rem 1rem; font-size: 1rem; width: 250px; }
+    #search-btn { padding: 0.5rem 0.75rem; font-size: 1rem; margin-left: 0.5rem; }
+    nav#menu { padding: 1rem 2rem; }
+    nav#menu ul { list-style: none; display: flex; gap: 2rem; }
+    nav#menu a { text-decoration: none; color: #333; font-weight: 500; }
+    nav#menu a:hover, nav#menu a.active { text-decoration: underline; }
+  </style>
 </head>
-
 <body>
-    <div class='centered'>
-        <h1>Select Your Name</h1><select id='playerSelect'></select><button onclick='goToDashboard()'>Go</button>
+  <header>
+    <div id="logo">Baseball Analytics</div>
+    <form id="search-form">
+      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off" />
+      <button type="submit" id="search-btn">Go</button>
+      <datalist id="suggestions"></datalist>
+    </form>
+  </header>
+  <nav id="menu">
+    <ul>
+      <li><a href="index.html" class="active">Home</a></li>
+      <li><a href="leaderboards.html">Leaderboards</a></li>
+      <li><a href="park-factors.html">Park Factors</a></li>
+      <li><a href="#">Point Streak</a></li>
+    </ul>
+  </nav>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+ 
+  <script>
+    // Global data container
+    let data = [];
 
-        <hr/>
+    // Load data.csv and initialize search handler
+    Papa.parse('./data.csv', {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        data = results.data;
+        populateSuggestions();
+        initSearchHandler();
+      }
+    });
 
-  <!-- New Link to Leaderboards -->
-  <button onclick="window.location.href='leaderboard.html'">
-    View Leaderboards
-  </button>
-  <button onclick="window.location.href='leagueLeaderboard.html'">League Leaderboard</button>
-  <button onclick="window.location.href='Fact.html'">Record Sheet</button>
+    // Populate datalist with both batters and teams
+    function populateSuggestions() {
+      const dl = document.getElementById('suggestions');
+      const batters = new Set(data.map(r => r.Batter));
+      const ump = new Set(data.map(r => r.Umpire));
+      const pitchers = new Set(data.map(r => r.Pitcher));
+      const teams = new Set(data.map(r => r.HomeNameFull).concat(data.map(r => r.AwayNameFull)));
+      [...batters, ...teams, ...pitchers, ...ump].sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        dl.appendChild(opt);
+      });
+    }
 
-    </div>
-    <script src='script.js'></script>
+    // Attach form submit after data is ready
+    function initSearchHandler() {
+      document.getElementById('search-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const q = document.getElementById('search').value.trim();
+
+        const isUmp = data.some(r => r.Umpire === q);
+        if (isUmp) {
+          window.location.href = `ump-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        const isPitcher = data.some(r => r.Pitcher === q);
+        if (isPitcher) {
+          window.location.href = `pitcher-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Check if query matches a batter
+        const isBatter = data.some(r => r.Batter === q);
+        if (isBatter) {
+          window.location.href = `batter-profiles.html?player=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Otherwise check if it matches a team
+        const isTeam = data.some(r => r.HomeNameFull === q || r.AwayNameFull === q);
+        if (isTeam) {
+          window.location.href = `team-profiles.html?team=${encodeURIComponent(q)}`;
+          return;
+        }
+
+        // Fallback: no match
+        alert('No matching player or team found.');
+      });
+    }
+  </script>
 </body>
-
 </html>
