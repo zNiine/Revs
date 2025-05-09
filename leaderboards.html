@@ -24,9 +24,26 @@
     .filters input, .filters label { padding: 0.4rem; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 0.5rem; border: 1px solid #ccc; text-align: left; }
+.back-to-top {
+  margin-left: 1rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  background: #eee;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.back-to-top:hover {
+  background: #ddd;
+}
+    html {
+    scroll-behavior: smooth;
+  }
   </style>
 </head>
 <body>
+      <a id="top"></a>
+
   <header>
     <div id="logo">ALPB</div>
         <form id="search-form">
@@ -44,6 +61,20 @@
       <li><a href="#">Point Streak</a></li>
     </ul>
   </nav>
+
+  <nav id="subMenu" style="background:#fafafa;border-bottom:1px solid #ddd;padding:0.5rem 2rem;">
+  <ul style="list-style:none;display:flex;gap:1rem;margin:0;padding:0;">
+    <li><a href="#hr-distance">Home Run Distance</a></li>
+    <li><a href="#ev-speed">Exit Velocity</a></li>
+    <li><a href="#chase-rate">Chase Rate</a></li>
+    <li><a href="#release-speed">Release Speed</a></li>
+    <li><a href="#catcher-stats">Catcher Stats</a></li>
+    <li><a href="#avg-ev">Avg Exit Vel</a></li>
+    <li><a href="#umpire-accuracy">Umpire Accuracy</a></li>
+    <li><a href="#batter-run-exp">Batter RE by Pitch</a></li>
+    <li><a href="#pitch-run-exp">Pitcher RE by Pitch</a></li>
+  </ul>
+</nav>
   <main>
     <div class="global-filters">
       <label for="time-filter">Time Range:</label>
@@ -59,7 +90,9 @@
 
     <!-- 1. HomeRun Distance -->
     <div class="leaderboard" id="hr-distance">
-      <h2>1. HomeRun Distance</h2>
+      <h2>1. HomeRun Distance    <a href="#top" class="back-to-top">Back to Top</a>
+
+</h2>
       <div class="filters">
         <input type="text" id="hr-team-filter" placeholder="Filter by team" list="team-suggestions" />
         <input type="text" id="hr-player-filter" placeholder="Filter by player" list="player-suggestions" />
@@ -74,7 +107,9 @@
 
     <!-- 2. Fastest Exit Velocity -->
     <div class="leaderboard" id="ev-speed">
-      <h2>2. Fastest Exit Velocity</h2>
+      <h2>2. Fastest Exit Velocity    <a href="#top" class="back-to-top">Back to Top</a>
+
+</h2>
       <div class="filters">
         <input type="text" id="ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
         <input type="text" id="ev-player-filter" placeholder="Filter by player" list="player-suggestions" />
@@ -89,7 +124,9 @@
 
     <!-- 3. Chase Rate -->
     <div class="leaderboard" id="chase-rate">
-      <h2>3. Chase Rate</h2>
+      <h2>3. Chase Rate   <a href="#top" class="back-to-top">Back to Top</a>
+
+</h2>
       <div class="filters">
         <input type="text" id="chase-team-filter" placeholder="Filter by team" list="team-suggestions" />
         <label for="chase-min-filter">Min Outside Pitches:</label>
@@ -105,7 +142,9 @@
 
     <!-- 4. Fastest Release Speed -->
     <div class="leaderboard" id="release-speed">
-      <h2>4. Fastest Release Speed</h2>
+      <h2>4. Fastest Release Speed    <a href="#top" class="back-to-top">Back to Top</a>
+
+</h2>
       <div class="filters">
         <input type="text" id="rel-team-filter" placeholder="Filter by team" list="team-suggestions" />
       </div>
@@ -117,8 +156,53 @@
       </table>
     </div>
 
+    <!-- 8. Batter Run Expectancy by Pitch Type -->
+<div class="leaderboard" id="batter-run-exp">
+  <h2>8. Batter Run Expectancy by Pitch Type    <a href="#top" class="back-to-top">Back to Top</a>
+
+</h2>
+  <div class="filters">
+    <input type="text" id="bre-team-filter"    placeholder="Filter by team"   list="team-suggestions" />
+    <input type="text" id="bre-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Batter</th>
+        <th>Pitch Type</th>
+        <th>Avg Run Value</th>
+        <th>Count</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="leaderboard" id="pitch-run-exp">
+  <h2>9. Most Effective Pitches (Lowest Avg Run Value)   <a href="#top" class="back-to-top">Back to Top</a>
+
+</h2>
+  <div class="filters">
+    <input type="text" id="pre-team-filter"    placeholder="Filter by team"   list="team-suggestions" />
+    <input type="text" id="pre-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th data-key="Pitcher">Pitcher</th>
+        <th data-key="Pitch Type">Pitch Type</th>
+        <th data-key="AvgRunValue">Avg Run Value</th>
+        <th data-key="Count">Count</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
     <div class="leaderboard" id="catcher-stats">
-      <h2>5. Average Catcher Stats</h2>
+      <h2>5. Average Catcher Stats    <a href="#top" class="back-to-top">Back to Top</a>
+
+</h2>
       <div class="filters">
     <input type="text" id="catcher-player-filter" placeholder="Filter by catcher" list="player-suggestions" />
     <input type="text" id="catcher-team-filter"   placeholder="Filter by team"    list="team-suggestions"  />
@@ -144,7 +228,9 @@
 
     <!-- 6. Average Exit Velocity by Batter -->
     <div class="leaderboard" id="avg-ev">
-      <h2>6. Average Exit Velocity by Batter</h2>
+      <h2>6. Average Exit Velocity by Batter   <a href="#top" class="back-to-top">Back to Top</a>
+
+</h2>
       <div class="filters">
         <input type="text" id="avg-ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
       </div>
@@ -159,7 +245,9 @@
 
      <!-- 5. Most Accurate Umpire -->
     <div class="leaderboard" id="umpire-accuracy">
-      <h2>7. Most Accurate Umpire</h2>
+      <h2>7. Most Accurate Umpire   <a href="#top" class="back-to-top">Back to Top</a>
+
+</h2>
       <table>
         <thead>
           <tr><th>Umpire</th><th data-key="Accuracy">Accuracy</th><th>Total Calls</th></tr>
@@ -250,6 +338,31 @@ let fullUmpireRows = [];
     tbody.appendChild(tr);
   });
 }
+
+const RV = {
+  StrikeCalled:  0.1,
+  BallCalled:   -0.1,
+  StrikeSwinging: 0.3
+  // HomeRuns are handled separately as -0.5 in your code
+};
+
+// MLB run expectancy by Ball-Strike count (runs to come)
+// Source: aggregate across seasons (0-0 through 3-2)
+const RE_COUNT = {
+  '0-0': 0.496, '0-1': 0.383, '0-2': 0.254,
+  '1-0': 0.621, '1-1': 0.508, '1-2': 0.379,
+  '2-0': 0.703, '2-1': 0.590, '2-2': 0.455,
+  '3-0': 0.855, '3-1': 0.736, '3-2': 0.602
+};
+
+// League‐average RE after a hit/out ends the PA
+const RE_AFTER_HIT = {
+  Single: 0.757,   // avg RE with runner on 1st, 0 outs
+  Double: 1.053,   // runner on 2nd, 0 outs
+  Triple: 1.560,   // runner on 3rd, 0 outs
+  // for any generic out we'll approximate a single‐out transition
+  Out:    0.250    // avg RE after a typical out
+};
 
 
     function computeAndRender() {
@@ -552,6 +665,16 @@ if (thAcc) {
       if (avgTeam) avgRows = avgRows.filter(r => r.Team === avgTeam);
       avgRows.sort((a,b)=>parseFloat(b.AvgExitVelocity)-parseFloat(a.AvgExitVelocity));
       renderLeaderboard('avg-ev', avgRows.slice(0,10), ['Batter','Team','AvgExitVelocity']);
+
+      drawBatterRunExp(filtered);
+      ['bre-team-filter','bre-batter-filter'].forEach(id => {
+  document.getElementById(id).addEventListener('input', computeAndRender);
+});
+drawTruePitchRunExp(filtered);
+['pre-team-filter','pre-pitcher-filter'].forEach(id => {
+  document.getElementById(id).addEventListener('input', computeAndRender);
+});
+
     }
 
 
@@ -581,8 +704,110 @@ if (thAcc) {
           document.getElementById(id).addEventListener('input', computeAndRender)
         );
         computeAndRender();
+        ['bre-team-filter','bre-batter-filter'].forEach(id => {
+  document.getElementById(id).addEventListener('input', computeAndRender);
+});
       }
     });
+
+function drawBatterRunExp(rows) {
+  // 1) Aggregate Batter → Pitch Type
+  const brMap = {};
+
+  rows.forEach(r => {
+    const pt  = r[columns.autoType];
+    const bat = r[columns.player];
+    if (!pt) return;  // skip blank pitch types
+
+    const B    = +r.Balls,
+          S    = +r.Strikes,
+          call = r.PitchCall,
+          hit  = r.TaggedHitType,
+          runs = parseInt(r.RunsScored, 10) || 0,
+          pre  = RE_COUNT[`${B}-${S}`] || 0;
+
+    // determine post‐pitch RE
+    let post;
+    if (call === 'BallCalled') {
+      const key = `${Math.min(B+1,3)}-${S}`;
+      post = RE_COUNT[key] || 0;
+    } else if (call === 'StrikeCalled' || call === 'StrikeSwinging') {
+      const key = `${B}-${Math.min(S+1,2)}`;
+      post = RE_COUNT[key] || 0;
+    } else if (hit === 'HomeRun') {
+      post = 0;
+    } else if (RE_AFTER_HIT[hit] != null) {
+      post = RE_AFTER_HIT[hit];
+    } else {
+      post = RE_AFTER_HIT.Out;
+    }
+
+    const rv = (pre - post) + runs;
+    const team = getFullTeamName(r[columns.playerTeam], r);
+
+    // accumulate
+    brMap[bat] = brMap[bat] || {};
+    brMap[bat][pt] = brMap[bat][pt] || { sum:0, c:0, team };
+    brMap[bat][pt].sum += rv;
+    brMap[bat][pt].c   += 1;
+  });
+
+  // 2) Flatten to array
+  let brRows = [];
+  Object.entries(brMap).forEach(([bat, pts]) => {
+    Object.entries(pts).forEach(([pt, v]) => {
+      brRows.push({
+        Batter:        bat,
+        'Pitch Type':  pt,
+        'Avg Run Value': (v.sum / v.c).toFixed(3),
+        Count:         v.c,
+        Team:          v.team
+      });
+    });
+  });
+
+  // 3) Filter out blanks and small samples
+  brRows = brRows.filter(r => r['Pitch Type'] && r.Count >= 15);
+
+  // 4) Apply UI filters
+  const teamF = document.getElementById('bre-team-filter').value;
+  const batF  = document.getElementById('bre-batter-filter').value;
+  if (teamF) brRows = brRows.filter(r => r.Team === teamF);
+  if (batF)  brRows = brRows.filter(r => r.Batter === batF);
+
+  // 5) Sort descending (highest AvgRunValue first)
+  brRows.sort((a, b) => parseFloat(b['Avg Run Value']) - parseFloat(a['Avg Run Value']));
+
+  // 6) Render top 20
+  renderLeaderboard('batter-run-exp',
+    brRows.slice(0,20),
+    ['Batter','Pitch Type','Avg Run Value','Count']
+  );
+
+  // 7) Make columns sortable
+  const tbl = document.getElementById('batter-run-exp');
+  tbl.querySelectorAll('th[data-key]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.onclick = () => {
+      const key = th.dataset.key.replace(/\s+/g, '');
+      const asc = !th.classList.contains('asc');
+      brRows.sort((a,b) => {
+        const va = isNaN(a[key]) ? a[key] : parseFloat(a[key]);
+        const vb = isNaN(b[key]) ? b[key] : parseFloat(b[key]);
+        return asc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+      });
+      renderLeaderboard('batter-run-exp',
+        brRows.slice(0,20),
+        ['Batter','Pitch Type','Avg Run Value','Count']
+      );
+      tbl.querySelectorAll('th').forEach(h=>h.classList.remove('asc','desc'));
+      th.classList.add(asc?'asc':'desc');
+    };
+  });
+}
+
+    
+
 
     function populateSuggestions() {
       const dl = document.getElementById('suggestions');
@@ -596,6 +821,142 @@ if (thAcc) {
         dl.appendChild(opt);
       });
     }
+
+    
+
+function drawTruePitchRunExp(rows) {
+  // 1) Aggregate pitcher→pitchType
+  const pr = {};
+  rows.forEach(r => {
+    const pt = r[columns.autoType];
+    if (!pt) return;  // skip blank pitch types
+
+    const pit = r[columns.pitcher],
+          B   = +r.Balls,
+          S   = +r.Strikes,
+          call= r[columns.pitchCall],
+          hit = r.TaggedHitType,
+          runs = parseInt(r.RunsScored, 10) || 0,
+          pre  = RE_COUNT[`${B}-${S}`] || 0;
+
+    // determine post‐pitch RE
+    let post;
+    if (call === 'BallCalled') {
+      const key = `${Math.min(B+1,3)}-${S}`;
+      post = RE_COUNT[key] || 0;
+    } else if (call === 'StrikeCalled' || call === 'StrikeSwinging') {
+      const key = `${B}-${Math.min(S+1,2)}`;
+      post = RE_COUNT[key] || 0;
+    } else if (hit === 'HomeRun') {
+      post = 0;
+    } else if (RE_AFTER_HIT[hit] != null) {
+      post = RE_AFTER_HIT[hit];
+    } else {
+      // any other in‐play outcome (groundout, flyout, etc.)
+      post = RE_AFTER_HIT.Out;
+    }
+
+    // run value = RE_before – RE_after + any runs scored
+    const rv = (pre - post) + runs;
+    const team = getFullTeamName(r[columns.pitcherTeam], r);
+
+    // accumulate
+    pr[pit] = pr[pit] || {};
+    pr[pit][pt] = pr[pit][pt] || { sum: 0, c: 0, team };
+    pr[pit][pt].sum += rv;
+    pr[pit][pt].c   += 1;
+  });
+
+  // 2) Flatten to array
+  let output = [];
+  Object.entries(pr).forEach(([pit, pts]) => {
+    Object.entries(pts).forEach(([pt, v]) => {
+      output.push({
+        Pitcher:      pit,
+        'Pitch Type': pt,
+        AvgRunValue:  (v.sum / v.c).toFixed(3),
+        Count:        v.c,
+        Team:         v.team
+      });
+    });
+  });
+
+  // 3) Filter out small samples & blanks
+  output = output.filter(r => r['Pitch Type'] && r.Count >= 15);
+
+  // 4) Apply UI filters
+  const teamF = document.getElementById('pre-team-filter').value;
+  const pitF  = document.getElementById('pre-pitcher-filter').value;
+  if (teamF) output = output.filter(r => r.Team === teamF);
+  if (pitF)  output = output.filter(r => r.Pitcher === pitF);
+
+  // 5) Sort by effectiveness (lowest AvgRunValue first)
+  output.sort((a, b) => parseFloat(a.AvgRunValue) - parseFloat(b.AvgRunValue));
+
+  // 6) Render top 20
+  renderLeaderboard('pitch-run-exp',
+    output.slice(0,20),
+    ['Pitcher','Pitch Type','AvgRunValue','Count']
+  );
+
+  // 7) Make columns sortable
+  const tbl = document.getElementById('pitch-run-exp');
+  tbl.querySelectorAll('th[data-key]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.onclick = () => {
+      const key = th.dataset.key.replace(/\s+/g, '');
+      const asc = !th.classList.contains('asc');
+      output.sort((a,b) => {
+        const va = isNaN(a[key]) ? a[key] : parseFloat(a[key]);
+        const vb = isNaN(b[key]) ? b[key] : parseFloat(b[key]);
+        return asc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+      });
+      renderLeaderboard('pitch-run-exp',
+        output.slice(0,20),
+        ['Pitcher','Pitch Type','AvgRunValue','Count']
+      );
+      tbl.querySelectorAll('th').forEach(h=>h.classList.remove('asc','desc'));
+      th.classList.add(asc?'asc':'desc');
+    };
+  });
+}
+  // filters
+  const teamF = document.getElementById('pre-team-filter').value;
+  const pitF  = document.getElementById('pre-pitcher-filter').value;
+  if (teamF) prRows = prRows.filter(r => r.Team === teamF);
+  if (pitF)  prRows = prRows.filter(r => r.Pitcher === pitF);
+
+  // sort ascending for “most effective” (lowest RV first)
+  prRows.sort((a,b) => parseFloat(a.AvgRunValue) - parseFloat(b.AvgRunValue));
+
+  // render top 20
+  renderLeaderboard('pitch-run-exp',
+    prRows.slice(0,20),
+    ['Pitcher','Pitch Type','AvgRunValue','Count']
+  );
+
+  // make columns sortable by clicking headers
+  const tbl = document.getElementById('pitch-run-exp');
+  tbl.querySelectorAll('th[data-key]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.onclick = () => {
+      const key = th.dataset.key.replace(/\s+/g,'');
+      const asc = !th.classList.contains('asc');
+      prRows.sort((a,b) => {
+        const va = key==='Pitcher'||key==='PitchType'
+                   ? a[key] : parseFloat(a[key]);
+        const vb = key==='Pitcher'||key==='PitchType'
+                   ? b[key] : parseFloat(b[key]);
+        return asc ? (va>vb?1:-1) : (va<vb?1:-1);
+      });
+      renderLeaderboard('pitch-run-exp', prRows.slice(0,20),
+                        ['Pitcher','Pitch Type','AvgRunValue','Count']);
+      tbl.querySelectorAll('th').forEach(h=>h.classList.remove('asc','desc'));
+      th.classList.add(asc?'asc':'desc');
+    };
+  });
+
+
 
     // Attach form submit after data is ready
     function initSearchHandler() {
@@ -634,7 +995,11 @@ if (thAcc) {
       });
     }
 
-
+document.querySelectorAll('.back-to-top').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('top').scrollIntoView({ behavior: 'smooth' });
+  });
+});
 
   </script>
 </body>

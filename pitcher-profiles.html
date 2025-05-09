@@ -320,6 +320,24 @@
 <div id="callRatesTable" style="width:50%; margin:auto;"></div>
 
 
+<!-- 1) Pitch Sequence Sankey -->
+<h3>Pitch Type Transition Sunburst</h3>
+<div id="sunburstChart" style="width:700px; height:500px; margin:auto;"></div>
+
+<h3>Zone% by Pitch Type</h3>
+<div id="zoneAccuracy" style="width:700px;height:400px;margin:auto;"></div>
+
+
+<!-- 3) Leverage‐Indexed Run Value -->
+<h3>Avg Run Value by Pitch</h3>
+<div id="runValueBar" style="width:600px;height:400px;margin:auto;"></div>
+
+<!-- 5) Inning‐by‐Inning Velocity Trend -->
+<h3>Avg Release Speed by Inning</h3>
+<div id="inningTrend" style="width:700px;height:400px;margin:auto;"></div>
+
+
+
 
         </div>
 
@@ -387,6 +405,284 @@ const PTYPE_COLORS = {};
 
 
 function pnum(v){ const n=parseFloat(v); return isNaN(n)?null:n; }
+
+function drawSunburst(f) {
+  // 1) Build transitions
+  const trans = {}, byPA = {};
+  f.forEach(r => {
+    const key = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    byPA[key] = byPA[key] || [];
+    byPA[key].push(r);
+  });
+  Object.values(byPA).forEach(arr => {
+    arr.sort((a,b)=> +a.PitchofPA - +b.PitchofPA);
+    for (let i=0; i<arr.length-1; i++) {
+      const cur = arr[i].AutoPitchType || 'undefined';
+      const nxt = arr[i+1].AutoPitchType || 'undefined';
+      const k = `${cur}→${nxt}`;
+      trans[k] = (trans[k]||0) + 1;
+    }
+  });
+
+  // 2) Accumulate totals by parent
+  const parentTotals = {};
+  Object.entries(trans).forEach(([k,v])=>{
+    const [cur] = k.split('→');
+    parentTotals[cur] = (parentTotals[cur]||0) + v;
+  });
+
+  // 3) Build sunburst arrays with unique ids
+  const ids = [], labels = [], parents = [], values = [], colors = [];
+
+  // top‐level: each pitch type
+  Object.entries(parentTotals).forEach(([pt, sum]) => {
+    ids.push(pt);
+    labels.push(pt);
+    parents.push('');
+    values.push(sum);
+    colors.push(PTYPE_COLORS[pt] || '#ccc');
+  });
+
+  // second‐level: each (pitch→next) transition
+  Object.entries(trans).forEach(([k, cnt]) => {
+    const [cur, nxt] = k.split('→');
+    const nodeId = `${cur}|${nxt}`;  // guaranteed unique
+    ids.push(nodeId);
+    labels.push(nxt);                // what’s displayed
+    parents.push(cur);               // hierarchy link
+    values.push(cnt);
+    colors.push(PTYPE_COLORS[nxt] || '#ccc');
+  });
+
+  // 4) Plot
+  Plotly.newPlot('sunburstChart', [{
+    type: 'sunburst',
+    ids, labels, parents, values,
+    marker: { colors },
+    branchvalues: 'total',
+    hovertemplate:'%{label}<br>Count: %{value}<extra></extra>'
+  }], {
+    margin: { t:30, l:0, r:0, b:0 }
+  });
+}
+
+// 1) Pitch Sequence Sankey
+function drawSankey(f) {
+  // build transitions between consecutive pitches within each PA
+  const links = {}, labelsSet = new Set();
+  f.sort((a,b)=>a.LocalDateTime.localeCompare(b.LocalDateTime));
+  let lastKey = null;
+  f.forEach(r => {
+    const key = `${r.GameID}-${r.Date}-${r.PAofInning}`;
+    const type = r.AutoPitchType || 'undefined';
+    if (lastKey === key && lastType) {
+      const linkId = `${lastType}->${type}`;
+      links[linkId] = (links[linkId]||0) + 1;
+    }
+    lastKey = key; lastType = type;
+    labelsSet.add(type);
+  });
+  const labels = Array.from(labelsSet);
+  const source = [], target = [], value = [];
+  Object.entries(links).forEach(([k,v]) => {
+    const [s,t] = k.split('->');
+    source.push(labels.indexOf(s));
+    target.push(labels.indexOf(t));
+    value.push(v);
+  });
+
+  Plotly.newPlot('sankeyChart',[{
+    type: 'sankey',
+    orientation:'h',
+    node: { label: labels, pad:15, thickness:20, color:labels.map(l=>PTYPE_COLORS[l]||'#ccc') },
+    link: { source, target, value }
+  }],{ margin:{t:10,l:50,r:50,b:10} });
+}
+
+// 2) Zone Usage & Whiff%
+function drawZoneHeatmap(f) {
+  const xBins = [-0.708, -0.236, 0.236, 0.708],
+        yBins = [1.5, 2.166, 2.833, 3.5];
+  const usage = [], whiff = [];
+  for (let i=0;i<3;i++){
+    usage[i]=[]; whiff[i]=[];
+    for (let j=0;j<3;j++){
+      let tot=0, w=0;
+      f.forEach(r=>{
+        const x=parseFloat(r.PlateLocSide),
+              y=parseFloat(r.PlateLocHeight);
+        if (x>=xBins[j] && x<xBins[j+1] && y>=yBins[i] && y<yBins[i+1]){
+          tot++;
+          if (r.PitchCall==='StrikeSwinging') w++;
+        }
+      });
+      usage[i][j] = tot? tot/f.length*100 : 0;
+      whiff[i][j] = tot? w/tot*100 : 0;
+    }
+  }
+  const text = usage.map((row,i)=>
+    row.map((u,j)=>`Usage: ${u.toFixed(1)}%<br>Whiff: ${whiff[i][j].toFixed(1)}%`)
+  );
+  Plotly.newPlot('zoneHeatmap',[{
+    z: usage,
+    x: ['Low','Middle','High'],    // lateral zones
+    y: ['Low','Mid','High'],       // vertical zones
+    type:'heatmap',
+    colorscale:[[0,'white'],[1,'red']],
+    text, hoverinfo:'text'
+  }],{
+    xaxis:{title:'Horizontal Zone'},
+    yaxis:{title:'Vertical Zone', autorange:'reversed'},
+    margin:{t:30}
+  });
+}
+
+// (Make sure RE_COUNT and RE_AFTER_HIT are defined at top of your script, as before)
+const RE_COUNT = {
+  '0-0': 0.496, '0-1': 0.383, '0-2': 0.254,
+  '1-0': 0.621, '1-1': 0.508, '1-2': 0.379,
+  '2-0': 0.703, '2-1': 0.590, '2-2': 0.455,
+  '3-0': 0.855, '3-1': 0.736, '3-2': 0.602
+};
+
+// League‐average RE after a hit/out ends the PA
+const RE_AFTER_HIT = {
+  Single: 0.757,   // avg RE with runner on 1st, 0 outs
+  Double: 1.053,   // runner on 2nd, 0 outs
+  Triple: 1.560,   // runner on 3rd, 0 outs
+  // for any generic out we'll approximate a single‐out transition
+  Out:    0.250    // avg RE after a typical out
+};
+
+function drawRunValue(f) {
+  // 1) Aggregate by pitch type
+  const sums   = {}, 
+        counts = {};
+
+  f.forEach(r => {
+    const pt   = r.AutoPitchType || 'undefined';
+    if (!pt) return;  // skip blanks
+
+    const B    = +r.Balls,
+          S    = +r.Strikes,
+          call = r.PitchCall,
+          hit  = r.TaggedHitType,
+          runs = parseInt(r.RunsScored, 10) || 0,
+          pre  = RE_COUNT[`${B}-${S}`] || 0;
+
+    // determine post‐pitch RE
+    let post;
+    if (call === 'BallCalled') {
+      const key = `${Math.min(B+1,3)}-${S}`;
+      post = RE_COUNT[key] || 0;
+    } else if (call === 'StrikeCalled' || call === 'StrikeSwinging') {
+      const key = `${B}-${Math.min(S+1,2)}`;
+      post = RE_COUNT[key] || 0;
+    } else if (hit === 'HomeRun') {
+      post = 0;
+    } else if (RE_AFTER_HIT[hit] != null) {
+      post = RE_AFTER_HIT[hit];
+    } else {
+      post = RE_AFTER_HIT.Out;
+    }
+
+    // run value = (before – after) + any runs scored
+    const rv = (pre - post) + runs;
+
+    sums[pt]   = (sums[pt]   || 0) + rv;
+    counts[pt] = (counts[pt] || 0) + 1;
+  });
+
+  // 2) Compute averages, skip small samples if you like
+  const types = Object.keys(sums).sort(),
+        avg   = types.map(t => sums[t] / counts[t]);
+
+  // 3) Plot
+  Plotly.newPlot('runValueBar', [{
+    x: types,
+    y: avg,
+    type: 'bar',
+    marker: { color: types.map(t => PTYPE_COLORS[t] || '#666') },
+    hovertemplate: '%{x}<br>Avg RV: %{y:.3f}<br>Count: %{customdata}',
+    customdata: types.map(t => counts[t])
+  }], {
+    yaxis: { title: 'Avg Run Value' },
+    margin: { t: 30, l: 50 }
+  });
+}
+
+// 5) Inning Trend (avg RelSpeed)
+function drawInningTrend(f) {
+  const byIn = {};
+  f.forEach(r=>{
+    const inning = r.PAofInning; // or r.Inning
+    byIn[inning]=byIn[inning]||{sum:0,c:0};
+    const v=parseFloat(r.RelSpeed);
+    if(!isNaN(v)){ byIn[inning].sum+=v; byIn[inning].c++; }
+  });
+  const innings=Object.keys(byIn).map(n=>+n).sort((a,b)=>a-b);
+  const avg=innings.map(i=>byIn[i].sum/byIn[i].c);
+  Plotly.newPlot('inningTrend',[{
+    x:innings, y:avg, mode:'lines+markers', type:'scatter',
+    line:{color:'#444'}
+  }],{
+    xaxis:{title:'PA of Inning'},
+    yaxis:{title:'Avg Release Speed (mph)'},
+    margin:{t:30,l:50}
+  });
+}
+
+// 6) Zone Accuracy & Consistency
+function drawZoneAccuracy(f) {
+  const inZone={}, tot={}, types=new Set();
+  f.forEach(r=>{
+    const t=r.AutoPitchType;
+    types.add(t);
+    tot[t]=(tot[t]||0)+1;
+    const x=parseFloat(r.PlateLocSide),
+          y=parseFloat(r.PlateLocHeight);
+    if (x>=-0.708 && x<=0.708 && y>=1.5 && y<=3.5) {
+      inZone[t]=(inZone[t]||0)+1;
+    }
+  });
+  const ts=Array.from(types).sort(),
+        pct=ts.map(t=> (inZone[t]||0)/tot[t]*100 );
+  Plotly.newPlot('zoneAccuracy',[{
+    x:ts, y:pct, type:'bar',
+    marker:{color:ts.map(t=>PTYPE_COLORS[t]||'#666')}
+  }],{
+    yaxis:{title:'% In Zone'},
+    margin:{t:30,l:50}
+  });
+}
+
+// 7) Swing‐Decision Timeline
+function drawTimeline(f) {
+  // map each PA to its series of counts
+  const PAs = {};
+  f.forEach(r=>{
+    const key = `${r.GameID}-${r.Date}-${r.PAofInning}`;
+    const idx = parseInt(r.PitchofPA,10);
+    PAs[key] = PAs[key]||[];
+    PAs[key][idx-1] = +r.Balls + +r.Strikes; // sum for y
+  });
+  const traces = Object.values(PAs).map(arr=>({
+    x: arr.map((_,i)=>i+1),
+    y: arr,
+    mode:'lines+markers',
+    type:'scatter',
+    line:{width:1},
+    marker:{size:6},
+    hoverinfo:'x+y'
+  }));
+  Plotly.newPlot('timelineChart', traces, {
+    xaxis:{title:'# Pitch in PA'},
+    yaxis:{title:'Balls+Strikes', dtick:1},
+    margin:{t:30,l:50}
+  });
+}
+
+
 
 function drawReleasePoint(f) {
   const ext = f.map(r => parseFloat(r.Extension)),
@@ -1108,7 +1404,10 @@ if (metrics) {
 
 drawReleasePoint(f); drawSpinBreakBoxes(f); drawUsageOverTime(f);
   drawTunnelMap(f); renderCallRates(f);
- 
+drawSunburst(f);
+  drawRunValue(f);
+  drawInningTrend(f);
+  drawZoneAccuracy(f);
 
 }
 
