@@ -62,8 +62,8 @@
     </ul>
   </nav>
 
-  <nav id="subMenu" style="background:#fafafa;border-bottom:1px solid #ddd;padding:0.5rem 2rem;">
-  <ul style="list-style:none;display:flex;gap:1rem;margin:0;padding:0;">
+ <nav id="subMenu" style="background:#fafafa;border-bottom:1px solid #ddd;padding:0.5rem 2rem;">
+  <ul style="list-style:none;display:flex;gap:1rem;margin:0;padding:0;flex-wrap:wrap;">
     <li><a href="#hr-distance">Home Run Distance</a></li>
     <li><a href="#ev-speed">Exit Velocity</a></li>
     <li><a href="#chase-rate">Chase Rate</a></li>
@@ -73,8 +73,12 @@
     <li><a href="#umpire-accuracy">Umpire Accuracy</a></li>
     <li><a href="#batter-run-exp">Batter RE by Pitch</a></li>
     <li><a href="#pitch-run-exp">Pitcher RE by Pitch</a></li>
+    <li><a href="#spin-eff">Spin Efficiency</a></li>
+    <li><a href="#pitcher-hh">Pitcher HardHit %</a></li>
+    <li><a href="#batter-hh">Batter HardHit %</a></li>
   </ul>
 </nav>
+
   <main>
     <div class="global-filters">
       <label for="time-filter">Time Range:</label>
@@ -241,6 +245,75 @@
         <tbody></tbody>
       </table>
     </div>
+<!-- 10. Spin Efficiency -->
+<div class="leaderboard" id="spin-eff">
+  <h2>
+    10. Spin Efficiency
+    <a href="#top" class="back-to-top">Back to Top</a>
+  </h2>
+  <div class="filters">
+    <input type="text" id="seam-team-filter"    placeholder="Filter by team"    list="team-suggestions" />
+    <input type="text" id="seam-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th data-key="Pitcher">Pitcher</th>
+        <th data-key="PitchType">Pitch Type</th>
+        <th data-key="SpinEff">Spin Eff. (in/1k rpm)</th>
+        <th data-key="Count">Count</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<!-- 11. Pitcher HardHit% -->
+<div class="leaderboard" id="pitcher-hh">
+  <h2>
+    11. Pitcher HardHit %
+    <a href="#top" class="back-to-top">Back to Top</a>
+  </h2>
+  <div class="filters">
+    <input type="text" id="hh-p-team-filter"    placeholder="Filter by team"    list="team-suggestions" />
+    <input type="text" id="hh-p-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
+    <label for="hh-threshold">Threshold:</label>
+    <input type="number" id="hh-threshold" value="95" min="0" style="width:4rem"/> mph
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th data-key="Pitcher">Pitcher</th>
+        <th data-key="HHPct">HardHit %</th>
+        <th data-key="Count">Count</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<!-- 12. Batter HardHit% -->
+<div class="leaderboard" id="batter-hh">
+  <h2>
+    12. Batter HardHit %
+    <a href="#top" class="back-to-top">Back to Top</a>
+  </h2>
+  <div class="filters">
+    <input type="text" id="hh-b-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
+    <label for="hh-b-threshold">Threshold:</label>
+    <input type="number" id="hh-b-threshold" value="95" min="0" style="width:4rem"/> mph
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th data-key="Batter">Batter</th>
+        <th data-key="HHPct">HardHit %</th>
+        <th data-key="Count">Count</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
 
 
      <!-- 5. Most Accurate Umpire -->
@@ -363,6 +436,124 @@ const RE_AFTER_HIT = {
   // for any generic out we'll approximate a single‐out transition
   Out:    0.250    // avg RE after a typical out
 };
+
+// 10) Spin Efficiency
+function drawSpinEfficiency(rows) {
+  const map = {};
+  rows.forEach(r => {
+    const pit = r[columns.pitcher],
+          pt  = r[columns.autoType];
+    const sv = parseFloat(r.SpinRate),
+          vb = parseFloat(r.InducedVertBreak);
+    if (!pit || !pt || isNaN(sv) || isNaN(vb)) return;
+    const eff = vb/sv*1000;
+    map[pit] = map[pit] || {};
+    map[pit][pt] = map[pit][pt] || { sum:0, c:0, team: getFullTeamName(r[columns.pitcherTeam],r) };
+    map[pit][pt].sum += eff;
+    map[pit][pt].c   += 1;
+  });
+  let out = [];
+  Object.entries(map).forEach(([pit, pts]) => {
+    Object.entries(pts).forEach(([pt, v]) => {
+      if (v.c < 15) return;
+      out.push({
+        Pitcher: pit,
+        PitchType: pt,
+        SpinEff:   (v.sum/v.c).toFixed(1),
+        Count:     v.c,
+        Team:      v.team
+      });
+    });
+  });
+  // filters
+  const teamF = document.getElementById('seam-team-filter').value;
+  const pitF  = document.getElementById('seam-pitcher-filter').value;
+  if (teamF) out = out.filter(r=>r.Team===teamF);
+  if (pitF)  out = out.filter(r=>r.Pitcher===pitF);
+  // sort descending
+  out.sort((a,b)=>b.SpinEff - a.SpinEff);
+renderLeaderboard('spin-eff',
+  out.slice(0,10),
+  ['Pitcher','PitchType','SpinEff','Count']
+);  // sortable
+  const tbl = document.getElementById('spin-eff');
+  tbl.querySelectorAll('th[data-key]').forEach(th=>{
+    th.style.cursor = 'pointer';
+    th.onclick = ()=>{
+      const key = th.dataset.key;
+      const asc = !th.classList.contains('asc');
+      out.sort((a,b)=>
+        asc ? (a[key]>b[key]?1:-1) : (a[key]<b[key]?1:-1)
+      );
+renderLeaderboard('spin-eff',
+  out.slice(0,10),
+  ['Pitcher','PitchType','SpinEff','Count']
+);      tbl.querySelectorAll('th').forEach(h=>h.classList.remove('asc','desc'));
+      th.classList.add(asc?'asc':'desc');
+    };
+  });
+}
+
+// 11) Pitcher HardHit%
+function drawPitcherHardHit(rows) {
+  const threshold = +document.getElementById('hh-threshold').value;
+  const map = {};
+  rows.forEach(r => {
+    const pit = r[columns.pitcher];
+    const ev  = parseFloat(r[columns.exitSpeed]);
+    if (!pit || isNaN(ev)) return;
+    map[pit] = map[pit] || { hh:0, tot:0, team: getFullTeamName(r[columns.pitcherTeam],r) };
+    map[pit].tot++;
+    if (ev >= threshold) map[pit].hh++;
+  });
+  let out = Object.entries(map).map(([pit, v])=>({
+    Pitcher: pit,
+    HHPct:   ((v.hh/v.tot)*100).toFixed(1),
+    Count:   v.tot,
+    Team:    v.team
+  })).filter(r=>r.Count>=15);
+  // filters
+  const teamF = document.getElementById('hh-p-team-filter').value;
+  const pitF  = document.getElementById('hh-p-pitcher-filter').value;
+  if (teamF) out = out.filter(r=>r.Team===teamF);
+  if (pitF)  out = out.filter(r=>r.Pitcher===pitF);
+  // sort descending
+  out.sort((a,b)=>a.HHPct - b.HHPct);
+renderLeaderboard('pitcher-hh',
+  out.slice(0,10),
+  ['Pitcher','HHPct','Count']
+);}
+
+// 12) Batter HardHit%
+function drawBatterHardHit(rows) {
+  const threshold = +document.getElementById('hh-b-threshold').value;
+  const map = {};
+  rows.forEach(r => {
+    const bat = r[columns.player];
+    const ev  = parseFloat(r[columns.exitSpeed]);
+    const call= r[columns.pitchCall];
+    // only in‐play batted balls
+    if (!bat || call!=='InPlay' || isNaN(ev)) return;
+    map[bat] = map[bat] || { hh:0, tot:0, team: getFullTeamName(r[columns.playerTeam],r) };
+    map[bat].tot++;
+    if (ev >= threshold) map[bat].hh++;
+  });
+  let out = Object.entries(map).map(([bat, v])=>({
+    Batter: bat,
+    HHPct:  ((v.hh/v.tot)*100).toFixed(1),
+    Count:  v.tot,
+    Team:   v.team
+  })).filter(r=>r.Count>=15);
+  // filter
+  const batF = document.getElementById('hh-b-batter-filter').value;
+  if (batF) out = out.filter(r=>r.Batter===batF);
+  // sort descending
+  out.sort((a,b)=>b.HHPct - a.HHPct);
+renderLeaderboard('batter-hh',
+  out.slice(0,10),
+  ['Batter','HHPct','Count']
+);
+}
 
 
     function computeAndRender() {
@@ -675,6 +866,21 @@ drawTruePitchRunExp(filtered);
   document.getElementById(id).addEventListener('input', computeAndRender);
 });
 
+// 10) Spin Efficiency
+drawSpinEfficiency(filtered);
+
+// 11) Pitcher HardHit%
+drawPitcherHardHit(filtered);
+
+// 12) Batter HardHit%
+drawBatterHardHit(filtered);
+[
+  'seam-team-filter','seam-pitcher-filter',
+  'hh-p-team-filter','hh-p-pitcher-filter','hh-threshold',
+  'hh-b-batter-filter','hh-b-threshold'
+].forEach(id =>
+  document.getElementById(id).addEventListener('input', computeAndRender)
+);
     }
 
 
