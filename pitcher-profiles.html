@@ -180,7 +180,7 @@
 
 <body>
     <header>
-        <div id="logo">Baseball Analytics</div>
+        <div id="logo">ALPB</div>
         <form id="search-form">
       <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off" />
       <button type="submit" id="search-btn">Go</button>
@@ -201,6 +201,7 @@
         <button id="tabPA" class="sub-active">Plate Appearances</button>
         <button id="tabTree">Usage Tree</button>
         <button id="printTree">Print</button>
+        
 
     </div>
 
@@ -261,6 +262,65 @@
 
             <h3>Batted Ball Table</h3>
             <div id="battedBallTable"></div>
+
+            <h3>Movement Profile</h3>
+<div id="movementContainer" style="text-align:center;">
+  <svg id="movementSvg" width="500" height="500" style="border:1px solid #ccc;"></svg>
+  <div id="movementLegend" style="text-align:center; margin-top:0.5rem;"></div>
+
+</div>
+
+<h3>Pitch Type Location</h3>
+<div style="margin-bottom:0.5rem;">
+  <label for="heatmapSideFilter">Batter Side:</label>
+  <select id="heatmapSideFilter" onchange="drawLocationHeatmap()">
+    <option value="">All</option>
+    <option value="Left">Left</option>
+    <option value="Right">Right</option>
+  </select>
+
+  <label for="locationPitchType" style="margin-left:1rem;">
+    Pitch Type:
+  </label>
+  <select id="locationPitchType" onchange="drawLocationHeatmap()">
+    <option value="">All</option>
+    <!-- options filled in initDashboard() -->
+  </select>
+</div>
+<div id="locationHeatmap" style="width:500px; height:500px; margin:auto;"></div>
+
+<h3>Pitch Stats By Count</h3>
+<div id="pitchStatsByCount"></div>
+
+<h3>Contact Quality Metrics</h3>
+<div id="contactMetrics"></div>
+
+<!-- 1. Release Point Scatter -->
+<h3>Release Point Profile (Extension vs. Height)</h3>
+<div id="releasePointScatter" style="width:600px; height:400px; margin:auto;"></div>
+
+<!-- 2. Spin‐Efficiency Boxplots -->
+<h3>Spin vs. Break Boxplots</h3>
+<div id="spinBreakBoxplots" style="width:600px; height:400px; margin:auto;"></div>
+
+<!-- 3. Pitch Usage Over Time -->
+<h3>Weekly Pitch Mix</h3>
+<div id="usageOverTime" style="width:800px; height:400px; margin:auto;"></div>
+
+
+<!-- 5. Tunneling Map (Ext vs Break) -->
+<h3>Tunneling Map</h3>
+<div id="tunnelMap" style="display:flex; justify-content:center; gap:1rem;">
+  <div id="tunnelX" style="width:300px; height:300px;"></div>
+  <div id="tunnelY" style="width:300px; height:300px;"></div>
+</div>
+
+<!-- 6. Called‐Swing‐Whiff Table -->
+<h3>Pitch Call Rates</h3>
+<div id="callRatesTable" style="width:50%; margin:auto;"></div>
+
+
+
         </div>
 
         <!-- Usage Tree view -->
@@ -308,6 +368,505 @@
   // give the browser a moment to re-layout, then print
   setTimeout(() => window.print(), 200);
 });
+// use same colors as plate-chart
+const PTYPE_COLORS = {};  
+(function(){
+  // grab the CM mapping from your plate code, e.g.:
+  // CM = { "4-Seam": "hsl(0,70%,50%)", ... }
+  // or hard-code your palette here:
+  PTYPE_COLORS["Four-Seam"] = "#000000";
+  PTYPE_COLORS["Sinker"]  = "#FF69B4";
+  PTYPE_COLORS["Slider"]  = "#f1c40f";
+  PTYPE_COLORS["Curveball"]   = "#FFA500";
+  PTYPE_COLORS["Splitter"]   = "#00FFFF";
+  PTYPE_COLORS["Cutter"]   = "#800080";
+  PTYPE_COLORS["Changeup"]   = "#00FF00";
+  PTYPE_COLORS["undefined"]   = "#888888";
+  // …add any others you use…
+})();
+
+
+function pnum(v){ const n=parseFloat(v); return isNaN(n)?null:n; }
+
+function drawReleasePoint(f) {
+  const ext = f.map(r => parseFloat(r.Extension)),
+        rh  = f.map(r => parseFloat(r.RelHeight)),
+        c   = f.map(r => r.AutoPitchType);
+  const colors = c.map(t => PTYPE_COLORS[t] || "#666");
+  
+  Plotly.newPlot('releasePointScatter', [{
+    x: ext, y: rh,
+    mode:'markers',
+    type:'scatter',
+    marker:{
+      size:6,
+      color: colors
+    },
+    text: c,
+    hovertemplate:'Ext: %{x:.2f} ft<br>H: %{y:.2f} ft<br>Type: %{text}<extra></extra>'
+  }], {
+    xaxis:{ title:'Extension (ft)' },
+    yaxis:{ title:'Release Height (ft)' },
+    margin:{ t:20 }
+  });
+}
+
+// 2) Spin‐Efficiency Boxplots
+function drawSpinBreakBoxes(f) {
+  const byType = {};
+  f.forEach(r=>{
+    const t=r.AutoPitchType;
+    if(!byType[t]) byType[t]={spin:[],vert:[]};
+    const sp=pnum(r.SpinRate), vb=pnum(r.InducedVertBreak);
+    if(sp!=null) byType[t].spin.push(sp);
+    if(vb!=null) byType[t].vert.push(vb);
+  });
+  const types=Object.keys(byType).sort();
+  const traces = types.map(t=>({
+    y: byType[t].spin,
+    name:t,
+    type:'box',
+    boxmean:'sd'
+  }));
+  Plotly.newPlot('spinBreakBoxplots', traces, { title:'Spin Rate by Pitch Type', yaxis:{title:'Spin Rate (rpm)'}, margin:{t:30} });
+}
+
+// 3) Pitch Usage Over Time
+function weekOf(d) {
+  const D=new Date(d), oneJan=new Date(D.getFullYear(),0,1);
+  return Math.ceil((((D-oneJan)/86400000)+oneJan.getDay()+1)/7);
+}
+
+function drawUsageOverTime(f) {
+  // aggregate by ISO week
+  const byWeek = {};
+  f.forEach(r => {
+    const w = weekOf(r.Date), t = r.AutoPitchType;
+    byWeek[w] = byWeek[w] || { total:0 };
+    byWeek[w][t] = (byWeek[w][t]||0) + 1;
+    byWeek[w].total++;
+  });
+
+  const weeks = Object.keys(byWeek).map(n=>parseInt(n,10)).sort((a,b)=>a-b);
+  const types = [...new Set(f.map(r=>r.AutoPitchType))].sort();
+
+  const traces = types.map(t => ({
+    x: weeks,
+    y: weeks.map(w => byWeek[w][t] ? byWeek[w][t]/byWeek[w].total*100 : 0),
+    name: t,
+    stackgroup: 'one',
+    type: 'scatter'
+  }));
+
+  Plotly.newPlot('usageOverTime', traces, {
+    xaxis:{ title:'ISO Week', tickmode:'linear', dtick:1 },
+    yaxis:{ title:'% of Pitches', ticksuffix:'%', range:[0,100] },
+    margin:{ t:30, l:50, b:50 }
+  });
+}
+
+
+function drawFastballHeatmap(f) {
+  const maxB = 3, maxS = 2;
+  // counts[strike][ball]
+  const counts = Array(maxS+1).fill().map(() => Array(maxB+1).fill(0));
+  const fb     = Array(maxS+1).fill().map(() => Array(maxB+1).fill(0));
+
+  f.forEach(r => {
+    const b = parseInt(r.Balls,10),
+          s = parseInt(r.Strikes,10);
+    if (s <= maxS && b <= maxB) {
+      counts[s][b]++;
+      if (r.AutoPitchType === 'Four-Seam') fb[s][b]++;
+    }
+  });
+
+  // build z[strike][ball]
+  const z = counts.map((row,s) =>
+    row.map((c,b) => c ? fb[s][b] / c * 100 : 0)
+  );
+
+  Plotly.newPlot('fastballHeatmap', [{
+    z,
+    x: [0,1,2],        // strikes
+    y: [0,1,2,3],      // balls
+    type: 'heatmap',
+    colorscale: [[0,'white'],[1,'red']],
+    zmin: 0, zmax: 100,
+    showscale: true,
+    colorbar: { title: '% Four-Seam' }
+  }], {
+    xaxis: {
+      title: 'Balls',
+      tickmode: 'array',
+      tickvals: [0,1,2],
+      ticktext: ['0','1','2', '3']
+    },
+    yaxis: {
+      title: 'Strikes',
+      tickmode: 'array',
+      tickvals: [0,1,2,3],
+      ticktext: ['0','1','2']
+    },
+    margin: { t: 20, l: 60, b: 60 }
+  });
+}
+
+
+
+
+function drawTunnelMap(f) {
+  // helper to extract and color
+  function mkTrace(xArr, yArr, name) {
+    const colors = xArr.map((_,i) => PTYPE_COLORS[f[i].AutoPitchType] || "#666");
+    return {
+      x: xArr,
+      y: yArr,
+      mode:'markers',
+      type:'scatter',
+      name,
+      marker:{ size:6, color:colors },
+      hovertemplate:`Ext: %{x:.2f}<br>${name}: %{y:.2f}<br>Type: %{marker.color}<extra></extra>`
+    };
+  }
+
+  const ext = f.map(r => parseFloat(r.Extension));
+  const hb  = f.map(r => parseFloat(r.HorzBreak));
+  const vb  = f.map(r => parseFloat(r.InducedVertBreak));
+
+  Plotly.newPlot('tunnelX', [ mkTrace(ext, hb, 'Horz Break') ], {
+    xaxis:{ title:'Extension (ft)' },
+    yaxis:{ title:'Horz Break (in)' },
+    margin:{ t:20 }
+  });
+  Plotly.newPlot('tunnelY', [ mkTrace(ext, vb, 'Vert Break') ], {
+    xaxis:{ title:'Extension (ft)' },
+    yaxis:{ title:'Vert Break (in)' },
+    margin:{ t:20 }
+  });
+}
+
+function renderCallRates(f) {
+  const byType = {};
+  f.forEach(r => {
+    const t = r.AutoPitchType || 'undefined';
+    const c = r.PitchCall || 'Undefined';
+    if (c === 'Undefined') return;
+
+    byType[t] = byType[t] || { total:0, called:0, swing:0, whiff:0 };
+    const d = byType[t];
+    d.total++;
+
+    // called strikes
+    if (c === 'StrikeCalled') {
+      d.called++;
+    }
+
+    // swings: swinging strikes, fouls, or balls put in play
+    if (c === 'StrikeSwinging' || c.startsWith('Foul') || c === 'InPlay') {
+      d.swing++;
+      if (c === 'StrikeSwinging') {
+        d.whiff++;
+      }
+    }
+  });
+
+  let html = `
+    <table style="border-collapse:collapse; width:60%; margin:auto;">
+      <thead><tr>
+        <th style="border:1px solid #ccc;padding:4px;">Pitch</th>
+        <th style="border:1px solid #ccc;padding:4px;">CS%</th>
+        <th style="border:1px solid #ccc;padding:4px;">Sw%</th>
+        <th style="border:1px solid #ccc;padding:4px;">Wh%</th>
+      </tr></thead><tbody>`;
+
+  Object.keys(byType).sort().forEach(t => {
+    const d = byType[t];
+    const cs = d.total ? (d.called / d.total * 100).toFixed(1) + '%' : '0%';
+    const sw = d.total ? (d.swing  / d.total * 100).toFixed(1) + '%' : '0%';
+    const wh = d.swing ? (d.whiff  / d.swing * 100).toFixed(1) + '%' : '0%';
+    html += `
+      <tr>
+        <td style="border:1px solid #ccc;padding:4px;">${t}</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${cs}</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${sw}</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${wh}</td>
+      </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById('callRatesTable').innerHTML = html;
+}
+
+// 7) Trajectory Animation
+function animateTrajectories(f) {
+  const canvas = document.getElementById('trajCanvas'),
+        ctx = canvas.getContext('2d'),
+        toDraw = f.slice(0,5).map(r => {
+    // build full coeff arrays
+    const Xc = [], Yc = [];
+    for (let i=0; i<=8; i++) {
+      Xc.push(parseFloat(r['PitchTrajectoryXc'+i])||0);
+      Yc.push(parseFloat(r['PitchTrajectoryYc'+i])||0);
+    }
+    return { Xc, Yc, color:PTYPE_COLORS[r.AutoPitchType]||'#000' };
+  });
+
+  let t = 0;
+  function frame() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    toDraw.forEach(p => {
+      // evaluate polynomial at t ∈ [0,1]
+      let x=0, y=0;
+      p.Xc.forEach((c,i)=> x += c*Math.pow(t,i));
+      p.Yc.forEach((c,i)=> y += c*Math.pow(t,i));
+      // scale+translate to canvas
+      const cx = x*30 + canvas.width/2;
+      const cy = canvas.height - y*30;  
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(cx, cy, 4,0,2*Math.PI); ctx.fill();
+    });
+    t += 0.01;
+    if (t <= 1) requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+
+function computeContactPercentages(data) {
+  // 1. Only actual batted-balls
+  const contact = data.filter(r => r.PlayResult !== 'Undefined' && r.PitchCall === 'InPlay');
+  const total = contact.length;
+  if (total === 0) return null;
+
+  // 2. Thresholds
+  const TOP_ANG   = 0;   // < 0°
+  const UNDER_ANG = 10;  // 0°–10°
+  const WEAK_EV   = 85;  // < 85 mph
+  const HARD_EV   = 95;  // ≥ 95 mph
+
+  // 3. Bucket counts
+  let topped = 0, under = 0, weak = 0, hard = 0;
+  contact.forEach(r => {
+    const ang = parseFloat(r.Angle),
+          ev  = parseFloat(r.ExitSpeed);
+
+    if (!isNaN(ang)) {
+      if (ang < TOP_ANG) topped++;
+      else if (ang < UNDER_ANG) under++;
+    }
+    if (!isNaN(ev)) {
+      if (ev < WEAK_EV) weak++;
+      else if (ev >= HARD_EV) hard++;
+    }
+  });
+
+  // 4. Percentages
+  return {
+    ToppedPct:  (topped / total * 100).toFixed(1) + '%',
+    UnderPct:   (under  / total * 100).toFixed(1) + '%',
+    WeakPct:    (weak   / total * 100).toFixed(1) + '%',
+    HardHitPct: (hard   / total * 100).toFixed(1) + '%'
+  };
+}
+
+// Example usage: call this after filtering your data
+
+
+
+function renderPitchStatsByCount(data) {
+  // 1) Aggregate as before…
+  const stats = {};
+  data.forEach(r => {
+    const pt = r.AutoPitchType || 'undefined';
+    const b = parseInt(r.Balls,10)||0;
+    const s = parseInt(r.Strikes,10)||0;
+    const key = `${b}-${s}`;
+    stats[pt] = stats[pt]||{};
+    stats[pt][key] = stats[pt][key]||{ sumV:0, sumS:0, sumH:0, cnt:0 };
+    const e = stats[pt][key];
+    const v = parseFloat(r.RelSpeed),
+          sp = parseFloat(r.SpinRate),
+          h = parseFloat(r.RelHeight);
+    if (!isNaN(v))  e.sumV += v;
+    if (!isNaN(sp)) e.sumS += sp;
+    if (!isNaN(h))  e.sumH += h;
+    e.cnt += 1;
+  });
+
+  // 2) Flatten & sort
+  const rows = [];
+  Object.keys(stats).sort().forEach(pt => {
+    Object.keys(stats[pt]).map(key => {
+      const { sumV, sumS, sumH, cnt } = stats[pt][key];
+      return {
+        count: key,
+        pitchType: pt,
+        avgV: cnt ? (sumV/cnt).toFixed(1) : '',
+        avgS: cnt ? (sumS/cnt).toFixed(0) : '',
+        avgH: cnt ? (sumH/cnt).toFixed(2) : ''
+      };
+    })
+    .sort((a,b) => parseInt(a.count.split('-')[0],10) - parseInt(b.count.split('-')[0],10))
+    .forEach(r => rows.push(r));
+  });
+
+  // 3) Build a bordered table
+  let html = `
+    <table style="
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 0.5rem;
+    ">
+      <thead>
+        <tr>
+          <th style="border:1px solid #ccc; padding:4px;">Count</th>
+          <th style="border:1px solid #ccc; padding:4px;">Pitch Type</th>
+          <th style="border:1px solid #ccc; padding:4px; text-align:right;">Release Speed</th>
+          <th style="border:1px solid #ccc; padding:4px; text-align:right;">Spin Rate (rpm)</th>
+          <th style="border:1px solid #ccc; padding:4px; text-align:right;">Release Height (ft)</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  rows.forEach(r => {
+    html += `
+      <tr>
+        <td style="border:1px solid #ccc; padding:4px;">${r.count}</td>
+        <td style="border:1px solid #ccc; padding:4px;">${r.pitchType}</td>
+        <td style="border:1px solid #ccc; padding:4px; text-align:right;">${r.avgV}</td>
+        <td style="border:1px solid #ccc; padding:4px; text-align:right;">${r.avgS}</td>
+        <td style="border:1px solid #ccc; padding:4px; text-align:right;">${r.avgH}</td>
+      </tr>
+    `;
+  });
+
+  html += `
+      </tbody>
+    </table>
+  `;
+
+  document.getElementById('pitchStatsByCount').innerHTML = html;
+}
+
+
+
+function drawGrid(svgEl, radius, steps) {
+  const ns = "http://www.w3.org/2000/svg";
+
+  // concentric circles + radial tick labels (6", 12", …)
+  for (let i = 1; i <= steps; i++) {
+    const r = (radius / steps) * i;
+    // circle
+    const circle = document.createElementNS(ns, "circle");
+    circle.setAttribute("cx", radius);
+    circle.setAttribute("cy", radius);
+    circle.setAttribute("r", r);
+    circle.setAttribute("stroke", "#ccc");
+    circle.setAttribute("fill", "none");
+    svgEl.appendChild(circle);
+
+    // radial label
+    const txt = document.createElementNS(ns, "text");
+    txt.setAttribute("x", radius + 4);
+    txt.setAttribute("y", radius - r + 4);
+    txt.setAttribute("font-size", "10");
+    txt.setAttribute("fill", "#666");
+    txt.textContent = `${6 * i}"`;
+    svgEl.appendChild(txt);
+  }
+
+  // crosshairs
+  [[radius, 0, radius, 2*radius],[0, radius, 2*radius, radius]]
+    .forEach(coords => {
+      const line = document.createElementNS(ns, "line");
+      ["x1","y1","x2","y2"].forEach((att,i)=>line.setAttribute(att, coords[i]));
+      line.setAttribute("stroke","#ccc");
+      svgEl.appendChild(line);
+    });
+
+  // vertical axis label (rotated)
+  const yLabel = document.createElementNS(ns, "text");
+  yLabel.setAttribute("x", -radius + 20);
+  yLabel.setAttribute("y", radius);
+  yLabel.setAttribute("transform", `rotate(-90 ${-radius+20},${radius})`);
+  yLabel.setAttribute("text-anchor", "middle");
+  yLabel.setAttribute("font-size", "12");
+  yLabel.setAttribute("fill", "#333");
+  yLabel.textContent = "Vert Break (in)";
+  svgEl.appendChild(yLabel);
+
+  // horizontal axis tick‐marks & labels
+  // we’ll do ticks at -4,-3,-2,-1,0,1,2,3,4 → i*6 inches
+  for (let i = -steps; i <= steps; i++) {
+    const x = radius + (i / steps) * radius;
+    // tick mark
+    const tick = document.createElementNS(ns, "line");
+    tick.setAttribute("x1", x);
+    tick.setAttribute("y1", radius - 4);
+    tick.setAttribute("x2", x);
+    tick.setAttribute("y2", radius + 4);
+    tick.setAttribute("stroke", "#666");
+    svgEl.appendChild(tick);
+    // label
+    const lbl = document.createElementNS(ns, "text");
+    lbl.setAttribute("x", x);
+    lbl.setAttribute("y", radius + 16);
+    lbl.setAttribute("text-anchor", "middle");
+    lbl.setAttribute("font-size", "10");
+    lbl.setAttribute("fill", "#333");
+    lbl.textContent = `${i * 6}"`;
+    svgEl.appendChild(lbl);
+  }
+
+  // horizontal axis main label
+  const xLabel = document.createElementNS(ns, "text");
+  xLabel.setAttribute("x", radius);
+  xLabel.setAttribute("y", radius * 2 + 30);
+  xLabel.setAttribute("text-anchor", "middle");
+  xLabel.setAttribute("font-size", "12");
+  xLabel.setAttribute("fill", "#333");
+  xLabel.textContent = "Horiz Break (in)";
+  svgEl.appendChild(xLabel);
+}
+
+function drawPoints(svgEl, data, radius, maxBreak) {
+  const ns = "http://www.w3.org/2000/svg";
+  data.forEach(r => {
+    const x = parseFloat(r.HorzBreak),
+          y = parseFloat(r.InducedVertBreak);
+    if (isNaN(x)||isNaN(y)) return;
+    const cx = radius + (x/maxBreak)*radius,
+          cy = radius - (y/maxBreak)*radius,
+          dot = document.createElementNS(ns,"circle");
+    dot.setAttribute("cx", cx);
+    dot.setAttribute("cy", cy);
+    dot.setAttribute("r", 5);
+    dot.setAttribute("fill", PTYPE_COLORS[r.AutoPitchType] || "#666");
+    dot.setAttribute("opacity", 0.8);
+    svgEl.appendChild(dot);
+  });
+}
+
+function drawMovementProfile(data) {
+  const svg = document.getElementById("movementSvg");
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const radius = svg.clientWidth / 2;
+
+  drawGrid(svg, radius, 4);
+  drawPoints(svg, data, radius, 24);
+
+  // build legend
+  const lg = document.getElementById("movementLegend");
+  lg.innerHTML = "";  
+  Object.entries(PTYPE_COLORS).forEach(([type,color])=>{
+    const sw = `<span style="display:inline-block;width:12px;height:12px;background:${color};margin:0 4px 0 12px;"></span>`;
+    lg.innerHTML += `${sw}${type}`;
+  });
+}
+
+
         function parseNum(s) { const n = parseFloat(s); return isNaN(n) ? null : n; }
         function onBatterChange() {
             // now a batter was chosen → show atBat dropdown
@@ -338,6 +897,63 @@
                 }
             });
         }
+function drawLocationHeatmap() {
+  const typeSel = document.getElementById('locationPitchType').value;
+  const sideSel = document.getElementById('heatmapSideFilter').value;
+
+  // filter rows by pitcher, pitch type, and batter side
+  const pts = allData.filter(r =>
+    r.Pitcher === playerName &&
+    (typeSel === '' || r.AutoPitchType === typeSel) &&
+    (sideSel === '' || r.BatterSide === sideSel)
+  ).map(r => ({
+    x: parseFloat(r.PlateLocSide),
+    y: parseFloat(r.PlateLocHeight)
+  })).filter(p => !isNaN(p.x) && !isNaN(p.y));
+
+  const container = document.getElementById('locationHeatmap');
+  if (!pts.length) {
+    container.innerHTML = '<em>No data for that selection</em>';
+    return;
+  }
+
+  const x = pts.map(p => p.x),
+        y = pts.map(p => p.y);
+
+  Plotly.newPlot(container, [{
+    x, y,
+    type: 'histogram2dcontour',
+    colorscale: [[0, 'white'], [1, 'red']],
+    reversescale: false,
+    contours: { coloring: 'heatmap' },
+    showscale: true,
+    hovertemplate: 'x: %{x:.2f} ft<br>y: %{y:.2f} ft<br>count: %{z}<extra></extra>'
+  }], {
+    shapes: [
+      // strike zone rectangle: from x=-0.708 to +0.708, y=1.5 to 3.5
+      {
+        type: 'rect',
+        x0: -0.708, x1: 0.708,
+        y0: 1.5,    y1: 3.5,
+        line: { color: 'black', width: 2 },
+        fillcolor: 'rgba(0,0,0,0)'  // transparent inside
+      }
+    ],
+    xaxis: {
+      title: 'Horizontal Plate Location (ft)',
+      range: [-2, 2]
+    },
+    yaxis: {
+      title: 'Vertical Plate Location (ft)',
+      range: [0, 5]
+    },
+    margin: { t: 30, b: 40, l: 40, r: 20 },
+    height: 500,
+    width: 500
+  });
+}
+
+
 
         function initDashboard() {
             playerName = new URLSearchParams(location.search).get('player') || '';
@@ -369,6 +985,17 @@
             document.getElementById('pitchTypeFilter').innerHTML =
                 '<option value="">All</option>' +
                 pts.map(t => `<option>${t}</option>`).join('');
+
+                // fill the new heatmap dropdown
+const locSelect = document.getElementById('locationPitchType');
+pts.forEach(t => {
+  const opt = document.createElement('option');
+  opt.value = t;
+  opt.textContent = t;
+  locSelect.appendChild(opt);
+});
+
+
 
             // sub-tab toggles
             document.getElementById('tabPA').addEventListener('click', () => {
@@ -445,6 +1072,44 @@ function applyFilters() {
   plotSpray(f);
   renderTable(f);
   renderAtBatDetails(f);
+  drawMovementProfile(f);
+  renderPitchStatsByCount(f);
+
+  const metrics = computeContactPercentages(f);
+if (metrics) {
+  document.getElementById('contactMetrics').innerHTML = `
+    <table style="border-collapse:collapse;">
+      <tr>
+        <th style="border:1px solid #ccc; padding:4px;">Metric</th>
+        <th style="border:1px solid #ccc; padding:4px;">%</th>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ccc; padding:4px;">Topped</td>
+        <td style="border:1px solid #ccc; padding:4px;">${metrics.ToppedPct}</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ccc; padding:4px;">Under</td>
+        <td style="border:1px solid #ccc; padding:4px;">${metrics.UnderPct}</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ccc; padding:4px;">Weak</td>
+        <td style="border:1px solid #ccc; padding:4px;">${metrics.WeakPct}</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ccc; padding:4px;">HardHit</td>
+        <td style="border:1px solid #ccc; padding:4px;">${metrics.HardHitPct}</td>
+      </tr>
+    </table>
+  `;
+} else {
+  document.getElementById('contactMetrics').textContent = 'No batted-ball data.';
+}
+
+
+drawReleasePoint(f); drawSpinBreakBoxes(f); drawUsageOverTime(f);
+  drawTunnelMap(f); renderCallRates(f);
+ 
+
 }
 
         function onBatterChange() {
