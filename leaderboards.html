@@ -112,9 +112,7 @@
     <ul>
       <li><a href="index.html">Home</a></li>
       <li><a href="leaderboards.html" class="active">Leaderboards</a></li>
-      <li><a href="#">Search</a></li>
       <li><a href="park-factors.html">Park Factors</a></li>
-      <li><a href="#">Point Streak</a></li>
     </ul>
   </nav>
 
@@ -166,7 +164,7 @@
           <thead>
             <tr>
               <th>Team</th><th>Batter</th><th>Pitcher</th><th>Exit Vel</th>
-              <th>Launch Ang</th><th>Distance</th><th>AutoPitchType</th><th>Date</th>
+              <th>Launch Ang</th><th>Distance</th><th>AutoPitchType</th><th>Date</th><th>Details</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -184,16 +182,35 @@
       </summary>
       <div class="leaderboard" id="ev-speed">
         <div class="filters">
-          <input type="text" id="ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="ev-player-filter" placeholder="Filter by player" list="player-suggestions" />
-        </div>
+  <input type="text" id="ev-team-filter"   placeholder="Filter by team"   list="team-suggestions" />
+  <input type="text" id="ev-player-filter" placeholder="Filter by player" list="player-suggestions" />
+
+  <!-- new: Play Result dropdown -->
+  <select id="ev-playresult-filter">
+    <option value="">All Results</option>
+  </select>
+
+  <!-- new: AutoPitchType dropdown -->
+  <select id="ev-autotype-filter">
+    <option value="">All Pitch Types</option>
+  </select>
+</div>
         <table>
           <thead>
-            <tr>
-              <th>Team</th><th>Batter</th><th>Pitcher</th><th>Exit Vel</th>
-              <th>Launch Ang</th><th>PlayResult</th><th>AutoPitchType</th><th>Date</th>
-            </tr>
-          </thead>
+  <tr>
+    <th>Team</th>
+    <th>Batter</th>
+    <th>Pitcher</th>
+    <th>Exit Vel</th>
+    <th>Launch Ang</th>
+    <th>Distance</th>        <!-- ← new -->
+    <th>PlayResult</th>
+    <th>AutoPitchType</th>
+    <th>Date</th>
+    <th>Details</th>
+  </tr>
+</thead>
+
           <tbody></tbody>
         </table>
       </div>
@@ -518,11 +535,12 @@ let fullUmpireRows = [];
 
   rows.forEach(r => {
     const tr = document.createElement('tr');
+
     cols.forEach(c => {
       const td = document.createElement('td');
       const val = r[c];
 
-      // Decide if this column is a link
+      // build profile links for known columns
       let url = null;
       if (c === 'Batter') {
         url = `batter-profiles.html?player=${encodeURIComponent(val)}`;
@@ -532,10 +550,6 @@ let fullUmpireRows = [];
         url = `ump-profiles.html?player=${encodeURIComponent(val)}`;
       } else if (c === 'Team') {
         url = `team-profiles.html?team=${encodeURIComponent(val)}`;
-      } else if (c === 'Catcher') {
-      
-                url = `batter-profiles.html?player=${encodeURIComponent(val)}`;
-
       }
 
       if (url) {
@@ -543,15 +557,22 @@ let fullUmpireRows = [];
         a.href = url;
         a.textContent = val;
         td.appendChild(a);
+
+      } else if (c === 'Details') {
+        // render the HTML you prepared in r.Details
+        td.innerHTML = r.Details;
+
       } else {
         td.textContent = val;
       }
 
       tr.appendChild(td);
     });
+
     tbody.appendChild(tr);
   });
 }
+
 
 const RV = {
   StrikeCalled:  0.1,
@@ -733,16 +754,21 @@ const filtered = data.filter(r =>
       if (hrPlayer) hrRows = hrRows.filter(r => r[columns.player] === hrPlayer);
       hrRows.sort((a,b) => parseFloat(b[columns.distance]) - parseFloat(a[columns.distance]));
       const hrDisplay = hrRows.slice(0,10).map(r => ({
-        Team: getFullTeamName(r[columns.playerTeam],r),
-        Batter: r[columns.player],
-        Pitcher: r[columns.pitcher],
-        'Exit Vel': r[columns.exitSpeed],
-        'Launch Ang': r[columns.angle],
-        Distance: r[columns.distance],
-        AutoPitchType: r[columns.autoType],
-        Date: r[columns.date]
-      }));
-      renderLeaderboard('hr-distance', hrDisplay, ['Team','Batter','Pitcher','Exit Vel','Launch Ang','Distance','AutoPitchType','Date']);
+  Team: getFullTeamName(r[columns.playerTeam],r),
+  Batter: r[columns.player],
+  Pitcher: r[columns.pitcher],
+  'Exit Vel': r[columns.exitSpeed],
+  'Launch Ang': r[columns.angle],
+  Distance: r[columns.distance],
+  AutoPitchType: r[columns.autoType],
+  Date: r[columns.date],
+  Details: `<a href="Game-view.html?pitchUID=${r.PitchUID}">View</a>`
+}));
+renderLeaderboard(
+  'hr-distance',
+  hrDisplay,
+  ['Team','Batter','Pitcher','Exit Vel','Launch Ang','Distance','AutoPitchType','Date','Details']
+);
 
       // 2. Fastest Exit Velocity
       let evRows = filtered.filter(r =>
@@ -752,19 +778,46 @@ const filtered = data.filter(r =>
       const evPlayer = document.getElementById('ev-player-filter').value;
       if (evTeam)   evRows = evRows.filter(r => getFullTeamName(r[columns.playerTeam],r) === evTeam);
       if (evPlayer) evRows = evRows.filter(r => r[columns.player] === evPlayer);
+      const evResult = document.getElementById('ev-playresult-filter').value;
+if (evResult) evRows = evRows.filter(r => r.PlayResult === evResult);
+
+const evType = document.getElementById('ev-autotype-filter').value;
+if (evType) evRows = evRows.filter(r => r.AutoPitchType === evType);
+
       evRows.sort((a,b) => parseFloat(b[columns.exitSpeed]) - parseFloat(a[columns.exitSpeed]));
       const evDisplay = evRows.slice(0,10).map(r => ({
-        Team: getFullTeamName(r[columns.playerTeam],r),
-        Batter: r[columns.player],
-        Pitcher: r[columns.pitcher],
-        'Exit Vel': r[columns.exitSpeed],
-        'Launch Ang': r[columns.angle],
-        PlayResult: r[columns.playResult],
-        AutoPitchType: r[columns.autoType],
-        Date: r[columns.date]
-      }));
-      renderLeaderboard('ev-speed', evDisplay, ['Team','Batter','Pitcher','Exit Vel','Launch Ang','PlayResult','AutoPitchType','Date']);
+  Team:          getFullTeamName(r[columns.playerTeam], r),
+  Batter:        r[columns.player],
+  Pitcher:       r[columns.pitcher],
+  'Exit Vel':    r[columns.exitSpeed],
+  'Launch Ang':  r[columns.angle],
+  Distance:      r[columns.distance],
+  PlayResult:    r[columns.playResult],
+  AutoPitchType: r[columns.autoType],
+  Date:          r[columns.date],
+  Details:       `<a href="Game-view.html?pitchUID=${r.PitchUID}">View</a>`
+}));
 
+renderLeaderboard(
+  'ev-speed',
+  evDisplay,
+  [
+    'Team','Batter','Pitcher','Exit Vel','Launch Ang',
+    'Distance','PlayResult','AutoPitchType','Date','Details'
+  ]
+);
+
+
+
+      [
+  'ev-team-filter',
+  'ev-player-filter',
+  'ev-playresult-filter',   // ← new
+  'ev-autotype-filter',     // ← new
+  /* …the rest of your filter‐IDs… */
+].forEach(id =>
+  document.getElementById(id).addEventListener('input', computeAndRender)
+);
       // 3. Chase Rate
       const chaseMap = {};
       filtered.forEach(r => {
@@ -1132,6 +1185,27 @@ function drawSweetSpotPct(rows) {
         ].forEach(id =>
           document.getElementById(id).addEventListener('input', computeAndRender)
         );
+
+        // Populate Exit Velocity “Play Result” dropdown
+const playResults = [...new Set(data.map(r => r.PlayResult)
+                         .filter(v => v && v !== 'Undefined'))]
+                     .sort();
+playResults.forEach(pr => {
+  document
+    .getElementById('ev-playresult-filter')
+    .append(new Option(pr, pr));
+});
+
+// Populate Exit Velocity “AutoPitchType” dropdown
+const autoTypes = [...new Set(data.map(r => r.AutoPitchType)
+                      .filter(v => v))]   // drop null/undefined
+                  .sort();
+autoTypes.forEach(pt => {
+  document
+    .getElementById('ev-autotype-filter')
+    .append(new Option(pt, pt));
+});
+
         computeAndRender();
         ['bre-team-filter','bre-batter-filter'].forEach(id => {
   document.getElementById(id).addEventListener('input', computeAndRender);

@@ -58,6 +58,10 @@ umpire_mapping = {
     "cdb51c41-3d3b-4fbb-830a-fdcca9e66076" : "Owen Ballard IV",
     "8a421e80-e10b-4530-9e59-9ee28c301f62" : "David Martinez",
     "f576593b-b421-46cb-a31d-73bdb2fdaddc" : "Miguel De La Cruz Segura",
+    "cdbe141f-85c1-4ec0-b01b-4ff613b0d959" :"Charles Hudson",
+    "d13439de-49cf-4d93-a5d1-81facb36b9f2" : "",
+    "f01349d1-2159-4eab-9565-88c37aebcfca" :"Chris Minter"
+
     # add your other GameID→Umpire entries here…
 }
 
