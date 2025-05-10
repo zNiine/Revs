@@ -1204,7 +1204,50 @@ function plotRadarMetrics(rows){
     }
 
 
-        function renderTable(data) { const rows = data.filter(r => r.PlayResult !== 'Undefined'); rows.forEach((r, i) => r.__hitNumber = i + 1); let html = '<table><thead><tr><th>#</th><th>Date</th><th>Pitcher</th><th>Inning</th><th>PlayCall</th><th>ExitSpeed</th><th>Angle</th><th>Distance</th></tr></thead><tbody>'; rows.forEach(r => { const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall); html += `<tr><td>${r.__hitNumber}</td><td>${r.Date.toISOString().slice(0, 10)}</td><td>${r.Pitcher}</td><td>${r.Inning}</td><td>${result}</td><td>${r.ExitSpeed}</td><td>${r.Angle}</td><td>${r.Distance}</td></tr>`; }); html += '</tbody></table>'; document.getElementById('battedBallTable').innerHTML = html; }
+        function renderTable(data) {
+  const rows = data.filter(r => r.PlayResult !== 'Undefined');
+  rows.forEach((r, i) => r.__hitNumber = i + 1);
+
+  let html =
+    `<table>
+       <thead>
+         <tr>
+           <th>#</th>
+           <th>Date</th>
+           <th>Pitcher</th>
+           <th>Inning</th>
+           <th>PlayCall</th>
+           <th>ExitSpeed</th>
+           <th>Angle</th>
+           <th>Distance</th>
+           <th>Details</th>
+         </tr>
+       </thead>
+       <tbody>`;
+
+  rows.forEach(r => {
+    const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall);
+    const dateStr = (r.Date instanceof Date
+                     ? r.Date.toISOString().slice(0,10)
+                     : new Date(r.Date).toISOString().slice(0,10));
+
+    html +=
+      `<tr>
+         <td>${r.__hitNumber}</td>
+         <td>${dateStr}</td>
+         <td>${r.Pitcher}</td>
+         <td>${r.Inning}</td>
+         <td>${result}</td>
+         <td>${r.ExitSpeed}</td>
+         <td>${r.Angle}</td>
+         <td>${r.Distance}</td>
+         <td><a href="Game-view.html?pitchUID=${r.PitchUID}">View</a></td>
+       </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById('battedBallTable').innerHTML = html;
+}
 
         function renderAtBatDetails(data) { const at = document.getElementById('atBatFilter').value; const t = document.getElementById('atBatPitchTable'); if (!at) { t.style.display = 'none'; return; } t.style.display = 'block'; let html = '<table><thead><tr><th>#</th><th>Pitch Type</th><th>Result</th><th>RelSpeed</th><th>SpinRate</th><th>InducedVertBreak</th><th>HorzBreak</th><th>Drop</th></tr></thead><tbody>'; data.forEach((r, i) => { const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall); html += `<tr><td>${i + 1}</td><td>${r.AutoPitchType}</td><td>${result}</td><td>${r.RelSpeed || ''}</td><td>${r.SpinRate || ''}</td><td>${r.InducedVertBreak || ''}</td><td>${r.HorzBreak || ''}</td><td>${r.SpeedDrop || ''}</td></tr>`; }); html += '</tbody></table>'; t.innerHTML = html; }
 
