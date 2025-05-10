@@ -338,6 +338,17 @@
 
 
 
+<!-- 3. Spin-Axis Rose Plot -->
+<h3>Spin-Axis Rose</h3>
+<div id="spinAxisRose" style="width:100%;height:400px;margin:auto;"></div>
+
+
+
+
+<!-- 10. Exit-Velocity Allowed by Pitch Type -->
+<h3>Exit-Velocity Allowed by Pitch Type</h3>
+<div id="exitVelByPitch" style="width:100%;height:400px;margin:auto;"></div>
+
 
         </div>
 
@@ -405,6 +416,209 @@ const PTYPE_COLORS = {};
 
 
 function pnum(v){ const n=parseFloat(v); return isNaN(n)?null:n; }
+
+// 1) Release-Point Cluster Map
+function drawReleaseClusterMap(rows) {
+  const ext = rows.map(r=>parseFloat(r.Extension)),
+        side= rows.map(r=>parseFloat(r.RelSide)),
+        height=rows.map(r=>parseFloat(r.RelHeight)),
+        type = rows.map(r=>r.AutoPitchType);
+  Plotly.newPlot('releaseClusterMap',[{
+    x: side,
+    y: height,
+    mode:'markers',
+    type:'scatter',
+    marker:{
+      size:6,
+      color: type.map(t=>PTYPE_COLORS[t]||'#666')
+    },
+    text: type,
+    hovertemplate:
+      'Side: %{x:.2f} ft<br>Height: %{y:.2f} ft<br>Type: %{text}<extra></extra>'
+  }],{
+    xaxis:{ title:'Release Side (ft)' },
+    yaxis:{ title:'Release Height (ft)' },
+    margin:{ t:30,l:50 }
+  });
+}
+
+function drawSpinAxisRose(rows) {
+  // 1) Bin size (degrees)
+  const binSize = 15;  
+  // 2) Collect per‐pitch‐type counts
+  const countsByType = {};
+  rows.forEach(r => {
+    const pt   = r.AutoPitchType || 'undefined';
+    const axis = parseFloat(r.SpinAxis);
+    if (isNaN(axis)) return;
+    const bin  = Math.floor(axis / binSize) * binSize;
+    countsByType[pt] = countsByType[pt] || {};
+    countsByType[pt][bin] = (countsByType[pt][bin] || 0) + 1;
+  });
+
+  // 3) For each pitch type build a barpolar trace
+  const traces = Object.entries(countsByType).map(([pt, counts]) => {
+    // sort bins ascending
+    const bins  = Object.keys(counts).map(b=>+b).sort((a,b)=>a-b);
+    const labels = bins.map(b=>`${b}°`);
+    const values = bins.map(b=>counts[b]);
+    return {
+      type: 'barpolar',
+      r: values,
+      theta: labels,
+      name: pt,
+      marker: {
+        color: PTYPE_COLORS[pt] || '#999'
+      }
+    };
+  });
+
+  // 4) Plot with a legend
+  Plotly.newPlot('spinAxisRose', traces, {
+    title: 'Spin Axis Distribution by Pitch Type',
+    legend: { orientation: 'h', x: 0.3, y: -0.1 },
+    polar: {
+      radialaxis: { ticksuffix:'', angle:90 },
+      angularaxis: { direction: 'clockwise' }
+    },
+    margin: { t:40, b:80 }
+  });
+}
+
+// 4) Pitch Movement Heatmap
+function drawMovementHeatmap(rows) {
+  const hb = rows.map(r=>parseFloat(r.HorzBreak)),
+        vb = rows.map(r=>parseFloat(r.InducedVertBreak));
+  Plotly.newPlot('movementHeatmap',[{
+    x: hb, y: vb, 
+    type:'histogram2d',
+    colorscale:'YlOrRd'
+  }],{
+    xaxis:{ title:'Horizontal Break (in)' },
+    yaxis:{ title:'Vertical Break (in)' },
+    margin:{ t:30,l:50 }
+  });
+}
+
+// 6) Pitch Tunneling Profile
+function drawTunnelProfile(rows) {
+  // pick two types to overlay: Four-Seam vs Slider
+  const types = ['Four-Seam','Slider'];
+  const traces = types.map(pt=>{
+    const subset = rows.filter(r=>r.AutoPitchType===pt);
+    const ext = subset.map(r=>parseFloat(r.Extension)),
+          vb  = subset.map(r=>parseFloat(r.InducedVertBreak));
+    return {
+      x: ext, y: vb, mode:'lines+markers', type:'scatter',
+      name:pt,
+      marker:{ size:4, color:PTYPE_COLORS[pt]||'#666' }
+    };
+  });
+  Plotly.newPlot('tunnelProfile', traces, {
+    xaxis:{ title:'Extension (ft)' },
+    yaxis:{ title:'Vert Break (in)' },
+    margin:{ t:30,l:50 }
+  });
+}
+
+// 7) Zone-Based Results Table
+function drawZoneResultsTable(rows) {
+  // define 3×3 grid
+  const xCuts = [-0.708, -0.236, 0.236, 0.708],
+        yCuts = [1.5, 2.166, 2.833, 3.5];
+  let html = `<table style="border-collapse:collapse;width:100%;">
+    <thead>
+      <tr>
+        <th style="border:1px solid #ccc;padding:4px;">Zone</th>
+        <th style="border:1px solid #ccc;padding:4px;">ABs</th>
+        <th style="border:1px solid #ccc;padding:4px;">AVG</th>
+      </tr>
+    </thead><tbody>`;
+  for(let i=0;i<3;i++){
+    for(let j=0;j<3;j++){
+      const cell = rows.filter(r=>{
+        const x=parseFloat(r.PlateLocSide),
+              y=parseFloat(r.PlateLocHeight);
+        return x>=xCuts[j]&&x<xCuts[j+1]&&y>=yCuts[i]&&y<yCuts[i+1];
+      });
+      const ab = cell.length;
+      const hits = cell.filter(r=>r.PlayResult==='Single'||r.PlayResult==='Double'||r.PlayResult==='Triple'||r.PlayResult==='HomeRun').length;
+      const avg = ab? (hits/ab).toFixed(3): '—';
+      html+=`<tr>
+        <td style="border:1px solid #ccc;padding:4px;">(${i+1},${j+1})</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${ab}</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${avg}</td>
+      </tr>`;
+    }
+  }
+  html+=`</tbody></table>`;
+  document.getElementById('zoneResultsTable').innerHTML = html;
+}
+
+// 8) Count-Sequencing Sunburst
+function drawCountSequencing(rows) {
+  // build parent-child counts
+  const trans = {};
+  const byPA = {};
+  rows.forEach(r=>{
+    const key = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    byPA[key] = byPA[key]||[];
+    byPA[key].push(r);
+  });
+  Object.values(byPA).forEach(arr=>{
+    arr.sort((a,b)=>a.PitchofPA-b.PitchofPA);
+    for(let i=0;i<arr.length-1;i++){
+      const p = arr[i].AutoPitchType||'undefined';
+      const n = arr[i+1].AutoPitchType||'undefined';
+      const k = `${p}→${n}`;
+      trans[k] = (trans[k]||0)+1;
+    }
+  });
+  // sunburst arrays
+  const ids=[], labels=[], parents=[], values=[];
+  const parentTotals = {};
+  for(let k in trans){
+    const [p,n]=k.split('→');
+    parentTotals[p]=(parentTotals[p]||0)+trans[k];
+  }
+  Object.entries(parentTotals).forEach(([p,sum])=>{
+    ids.push(p); labels.push(p); parents.push(''); values.push(sum);
+  });
+  Object.entries(trans).forEach(([k,v])=>{
+    const [p,n] = k.split('→'),
+          id = `${p}|${n}`;
+    ids.push(id);
+    labels.push(n);
+    parents.push(p);
+    values.push(v);
+  });
+  Plotly.newPlot('countSequencing',[{
+    type:'sunburst', ids, labels, parents, values,
+    marker:{colors:ids.map(i=>PTYPE_COLORS[i.split('|').pop()]||'#ccc')}
+  }],{margin:{t:30,l:0}});
+}
+
+// 10) Exit-Velocity Allowed by Pitch Type
+function drawExitVelByPitch(rows) {
+  const sums={}, counts={};
+  rows.forEach(r=>{
+    const pt = r.AutoPitchType||'undefined',
+          ev = parseFloat(r.ExitSpeed);
+    if(isNaN(ev)) return;
+    sums[pt]=(sums[pt]||0)+ev;
+    counts[pt]=(counts[pt]||0)+1;
+  });
+  const types=Object.keys(sums).sort();
+  const avg=types.map(t=>sums[t]/counts[t]);
+  Plotly.newPlot('exitVelByPitch',[{
+    x: types, y: avg, type:'bar',
+    marker:{color:types.map(t=>PTYPE_COLORS[t]||'#666')}
+  }],{
+    yaxis:{title:'Avg Exit Velocity (mph)'},
+    margin:{t:30,l:50}
+  });
+}
+
 
 function drawSunburst(f) {
   // 1) Build transitions
@@ -1408,6 +1622,9 @@ drawSunburst(f);
   drawRunValue(f);
   drawInningTrend(f);
   drawZoneAccuracy(f);
+
+  drawSpinAxisRose(f);
+drawExitVelByPitch(f);
 
 }
 

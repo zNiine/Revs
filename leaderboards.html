@@ -39,6 +39,62 @@
     html {
     scroll-behavior: smooth;
   }
+
+  /* Card style */
+.card {
+  margin-bottom: 1.5rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  padding: 0.5rem 1rem 1rem;
+  background: #fff;
+}
+
+/* Style for the summary bar */
+.card > summary {
+  cursor: pointer;
+  outline: none;
+  padding: 0.5rem 0;
+}
+.card > summary:hover {
+  background: #fafafa;
+}
+
+/* Table improvements */
+.leaderboard table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+.leaderboard th, .leaderboard td {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+}
+.leaderboard tbody tr:nth-child(odd) {
+  background: #f9f9f9;
+}
+
+/* Sticky header */
+.leaderboard thead th {
+  position: sticky;
+  top: 0;
+  background: #eee;
+  z-index: 1;
+}
+
+/* Tighter filter bar */
+.card .filters {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Shrink back‐to‐top button */
+.back-to-top {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
+}
+
   </style>
 </head>
 <body>
@@ -78,7 +134,6 @@
     <li><a href="#batter-hh">Batter HardHit %</a></li>
   </ul>
 </nav>
-
   <main>
     <div class="global-filters">
       <label for="time-filter">Time Range:</label>
@@ -86,248 +141,287 @@
         <option value="0" selected>All Time</option>
         <option value="3">Yesterday</option>
         <option value="5">Last 3 Days</option>
-        <option value="9" >Last 7 Days</option>
+        <option value="9">Last 7 Days</option>
         <option value="17">Last 15 Days</option>
         <option value="30">Last 30 Days</option>
       </select>
     </div>
 
-    <!-- 1. HomeRun Distance -->
-    <div class="leaderboard" id="hr-distance">
-      <h2>1. HomeRun Distance    <a href="#top" class="back-to-top">Back to Top</a>
-
-</h2>
-      <div class="filters">
-        <input type="text" id="hr-team-filter" placeholder="Filter by team" list="team-suggestions" />
-        <input type="text" id="hr-player-filter" placeholder="Filter by player" list="player-suggestions" />
+    <!-- 1. Home Run Distance -->
+    <details open class="card">
+      <summary>
+        <h2>
+          1. Home Run Distance
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="hr-distance">
+        <div class="filters">
+          <input type="text" id="hr-team-filter" placeholder="Filter by team" list="team-suggestions" />
+          <input type="text" id="hr-player-filter" placeholder="Filter by player" list="player-suggestions" />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Team</th><th>Batter</th><th>Pitcher</th><th>Exit Vel</th>
+              <th>Launch Ang</th><th>Distance</th><th>AutoPitchType</th><th>Date</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
-      <table>
-        <thead>
-          <tr><th>Team</th><th>Batter</th><th>Pitcher</th><th>Exit Vel</th><th>Launch Ang</th><th>Distance</th><th>AutoPitchType</th><th>Date</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+    </details>
 
-    <!-- 2. Fastest Exit Velocity -->
-    <div class="leaderboard" id="ev-speed">
-      <h2>2. Fastest Exit Velocity    <a href="#top" class="back-to-top">Back to Top</a>
-
-</h2>
-      <div class="filters">
-        <input type="text" id="ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
-        <input type="text" id="ev-player-filter" placeholder="Filter by player" list="player-suggestions" />
+    <!-- 2. Exit Velocity -->
+    <details open class="card">
+      <summary>
+        <h2>
+          2. Exit Velocity
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="ev-speed">
+        <div class="filters">
+          <input type="text" id="ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
+          <input type="text" id="ev-player-filter" placeholder="Filter by player" list="player-suggestions" />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Team</th><th>Batter</th><th>Pitcher</th><th>Exit Vel</th>
+              <th>Launch Ang</th><th>PlayResult</th><th>AutoPitchType</th><th>Date</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
-      <table>
-        <thead>
-          <tr><th>Team</th><th>Batter</th><th>Pitcher</th><th>Exit Vel</th><th>Launch Ang</th><th>PlayResult</th><th>AutoPitchType</th><th>Date</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+    </details>
 
     <!-- 3. Chase Rate -->
-    <div class="leaderboard" id="chase-rate">
-      <h2>3. Chase Rate   <a href="#top" class="back-to-top">Back to Top</a>
-
-</h2>
-      <div class="filters">
-        <input type="text" id="chase-team-filter" placeholder="Filter by team" list="team-suggestions" />
-        <label for="chase-min-filter">Min Outside Pitches:</label>
-        <input type="number" id="chase-min-filter" value="20" min="1" />
+    <details open class="card">
+      <summary>
+        <h2>
+          3. Chase Rate
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="chase-rate">
+        <div class="filters">
+          <input type="text" id="chase-team-filter" placeholder="Filter by team" list="team-suggestions" />
+          <label for="chase-min-filter">Min Outside Pitches:</label>
+          <input type="number" id="chase-min-filter" value="20" min="1" />
+        </div>
+        <table>
+          <thead>
+            <tr><th>Player</th><th>Chase Rate</th><th>Total Outside</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
-      <table>
-        <thead>
-          <tr><th>Player</th><th>Chase Rate</th><th>Total Outside</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+    </details>
 
-    <!-- 4. Fastest Release Speed -->
-    <div class="leaderboard" id="release-speed">
-      <h2>4. Fastest Release Speed    <a href="#top" class="back-to-top">Back to Top</a>
-
-</h2>
-      <div class="filters">
-        <input type="text" id="rel-team-filter" placeholder="Filter by team" list="team-suggestions" />
+    <!-- 4. Release Speed -->
+    <details open class="card">
+      <summary>
+        <h2>
+          4. Release Speed
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="release-speed">
+        <div class="filters">
+          <input type="text" id="rel-team-filter" placeholder="Filter by team" list="team-suggestions" />
+        </div>
+        <table>
+          <thead>
+            <tr><th>Pitcher</th><th>Release Speed</th><th>PitchCall</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
-      <table>
-        <thead>
-          <tr><th>Pitcher</th><th>Release Speed</th><th>PitchCall</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+    </details>
 
-    <!-- 8. Batter Run Expectancy by Pitch Type -->
-<div class="leaderboard" id="batter-run-exp">
-  <h2>8. Batter Run Expectancy by Pitch Type    <a href="#top" class="back-to-top">Back to Top</a>
-
-</h2>
-  <div class="filters">
-    <input type="text" id="bre-team-filter"    placeholder="Filter by team"   list="team-suggestions" />
-    <input type="text" id="bre-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Batter</th>
-        <th>Pitch Type</th>
-        <th>Avg Run Value</th>
-        <th>Count</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
-
-<div class="leaderboard" id="pitch-run-exp">
-  <h2>9. Most Effective Pitches (Lowest Avg Run Value)   <a href="#top" class="back-to-top">Back to Top</a>
-
-</h2>
-  <div class="filters">
-    <input type="text" id="pre-team-filter"    placeholder="Filter by team"   list="team-suggestions" />
-    <input type="text" id="pre-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th data-key="Pitcher">Pitcher</th>
-        <th data-key="Pitch Type">Pitch Type</th>
-        <th data-key="AvgRunValue">Avg Run Value</th>
-        <th data-key="Count">Count</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
-
-    <div class="leaderboard" id="catcher-stats">
-      <h2>5. Average Catcher Stats    <a href="#top" class="back-to-top">Back to Top</a>
-
-</h2>
-      <div class="filters">
-    <input type="text" id="catcher-player-filter" placeholder="Filter by catcher" list="player-suggestions" />
-    <input type="text" id="catcher-team-filter"   placeholder="Filter by team"    list="team-suggestions"  />
-  </div>
-      <table>
-        <thead>
-          <tr>
-            <th data-key="Catcher">Catcher</th>
-            <th data-key="ExchangeTime">Team</th>
-
-            <th data-key="PopTime">Avg PopTime</th>
-            <th data-key="ExchangeTime">Avg ExchangeTime</th>
-            <th data-key="ThrowSpeed">Avg ThrowSpeed</th>
-            <th data-key="Attempts">Attempts</th>
-
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-   
-
-    <!-- 6. Average Exit Velocity by Batter -->
-    <div class="leaderboard" id="avg-ev">
-      <h2>6. Average Exit Velocity by Batter   <a href="#top" class="back-to-top">Back to Top</a>
-
-</h2>
-      <div class="filters">
-        <input type="text" id="avg-ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
+    <!-- 5. Catcher Stats -->
+    <details open class="card">
+      <summary>
+        <h2>
+          5. Catcher Stats
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="catcher-stats">
+        <div class="filters">
+          <input type="text" id="catcher-player-filter" placeholder="Filter by catcher" list="player-suggestions" />
+          <input type="text" id="catcher-team-filter" placeholder="Filter by team" list="team-suggestions" />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Catcher</th><th>Team</th><th>Avg PopTime</th>
+              <th>Avg ExchangeTime</th><th>Avg ThrowSpeed</th><th>Attempts</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
-      <table>
-        <thead>
-          <tr><th>Batter</th><th>Team</th><th>Avg Exit Velocity</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-<!-- 10. Spin Efficiency -->
-<div class="leaderboard" id="spin-eff">
-  <h2>
-    10. Spin Efficiency
-    <a href="#top" class="back-to-top">Back to Top</a>
-  </h2>
-  <div class="filters">
-    <input type="text" id="seam-team-filter"    placeholder="Filter by team"    list="team-suggestions" />
-    <input type="text" id="seam-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th data-key="Pitcher">Pitcher</th>
-        <th data-key="PitchType">Pitch Type</th>
-        <th data-key="SpinEff">Spin Eff. (in/1k rpm)</th>
-        <th data-key="Count">Count</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
+    </details>
 
-<!-- 11. Pitcher HardHit% -->
-<div class="leaderboard" id="pitcher-hh">
-  <h2>
-    11. Pitcher HardHit %
-    <a href="#top" class="back-to-top">Back to Top</a>
-  </h2>
-  <div class="filters">
-    <input type="text" id="hh-p-team-filter"    placeholder="Filter by team"    list="team-suggestions" />
-    <input type="text" id="hh-p-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
-    <label for="hh-threshold">Threshold:</label>
-    <input type="number" id="hh-threshold" value="95" min="0" style="width:4rem"/> mph
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th data-key="Pitcher">Pitcher</th>
-        <th data-key="HHPct">HardHit %</th>
-        <th data-key="Count">Count</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
+    <!-- 6. Avg Exit Vel by Batter -->
+    <details open class="card">
+      <summary>
+        <h2>
+          6. Avg Exit Vel by Batter
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="avg-ev">
+        <div class="filters">
+          <input type="text" id="avg-ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
+        </div>
+        <table>
+          <thead>
+            <tr><th>Batter</th><th>Team</th><th>Avg Exit Velocity</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
 
-<!-- 12. Batter HardHit% -->
-<div class="leaderboard" id="batter-hh">
-  <h2>
-    12. Batter HardHit %
-    <a href="#top" class="back-to-top">Back to Top</a>
-  </h2>
-  <div class="filters">
-    <input type="text" id="hh-b-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
-    <label for="hh-b-threshold">Threshold:</label>
-    <input type="number" id="hh-b-threshold" value="95" min="0" style="width:4rem"/> mph
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th data-key="Batter">Batter</th>
-        <th data-key="HHPct">HardHit %</th>
-        <th data-key="Count">Count</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
+    <!-- 7. Umpire Accuracy -->
+    <details open class="card">
+      <summary>
+        <h2>
+          7. Umpire Accuracy
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="umpire-accuracy">
+        <table>
+          <thead>
+            <tr><th>Umpire</th><th>Accuracy</th><th>Total Calls</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
 
+    <!-- 8. Batter Run Expectancy -->
+    <details open class="card">
+      <summary>
+        <h2>
+          8. Batter Run Expectancy
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="batter-run-exp">
+        <div class="filters">
+          <input type="text" id="bre-team-filter" placeholder="Filter by team" list="team-suggestions" />
+          <input type="text" id="bre-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Batter</th><th>Pitch Type</th><th>Avg Run Value</th><th>Count</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
 
-     <!-- 5. Most Accurate Umpire -->
-    <div class="leaderboard" id="umpire-accuracy">
-      <h2>7. Most Accurate Umpire   <a href="#top" class="back-to-top">Back to Top</a>
+    <!-- 9. Pitcher Run Expectancy -->
+    <details open class="card">
+      <summary>
+        <h2>
+          9. Pitcher Run Expectancy
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="pitch-run-exp">
+        <div class="filters">
+          <input type="text" id="pre-team-filter" placeholder="Filter by team" list="team-suggestions" />
+          <input type="text" id="pre-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Pitcher</th><th>Pitch Type</th><th>Avg Run Value</th><th>Count</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
 
-</h2>
-      <table>
-        <thead>
-          <tr><th>Umpire</th><th data-key="Accuracy">Accuracy</th><th>Total Calls</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+    <!-- 10. Spin Efficiency -->
+    <details open class="card">
+      <summary>
+        <h2>
+          10. Spin Efficiency
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="spin-eff">
+        <div class="filters">
+          <input type="text" id="seam-team-filter" placeholder="Filter by team" list="team-suggestions" />
+          <input type="text" id="seam-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
+        </div>
+        <table>
+          <thead>
+            <tr><th>Pitcher</th><th>Pitch Type</th><th>Spin Eff.</th><th>Count</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- 11. Pitcher HardHit % -->
+    <details open class="card">
+      <summary>
+        <h2>
+          11. Pitcher HardHit %
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="pitcher-hh">
+        <div class="filters">
+          <input type="text" id="hh-p-team-filter" placeholder="Filter by team" list="team-suggestions" />
+          <input type="text" id="hh-p-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
+          <label for="hh-threshold">Threshold:</label>
+          <input type="number" id="hh-threshold" value="95" min="0" style="width:4rem"/> mph
+        </div>
+        <table>
+          <thead>
+            <tr><th>Pitcher</th><th>HardHit %</th><th>Count</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- 12. Batter HardHit % -->
+    <details open class="card">
+      <summary>
+        <h2>
+          12. Batter HardHit %
+          <a href="#top" class="back-to-top">↑</a>
+        </h2>
+      </summary>
+      <div class="leaderboard" id="batter-hh">
+        <div class="filters">
+          <input type="text" id="hh-b-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
+          <label for="hh-b-threshold">Threshold:</label>
+          <input type="number" id="hh-b-threshold" value="95" min="0" style="width:4rem"/> mph
+        </div>
+        <table>
+          <thead>
+            <tr><th>Batter</th><th>HardHit %</th><th>Count</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
+
   </main>
 
   <datalist id="team-suggestions"></datalist>
