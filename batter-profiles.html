@@ -80,6 +80,21 @@
             cursor: pointer;
         }
 
+        #sprayCanvas { border: 1px solid #ccc; background: #e8f5e9; display: block; margin: 1rem auto; }
+        #parkSelect2 { margin-bottom: 0.5rem; }
+
+
+        #tooltip {
+            position: fixed;
+            background: rgba(0,0,0,0.75);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 12px;
+            display: none;
+            z-index: 1000;
+        }
         .main {
             flex: 1;
             padding: 1rem;
@@ -215,9 +230,24 @@
                 <div id="atBatPitchTable"></div>
             </div>
 
-            <h3>Spray Chart</h3>
-            <div id="sprayChart" style="width:600px; height:600px; margin:auto;"></div>
+             <label for="parkSelect2">Ballpark:</label>
+                <div id="tooltip"></div>
 
+            <select id="parkSelect2">
+                <option value="default">-- Select Park --</option>
+      <option value="Meritus Park">Meritus Park</option>
+      <option value="Wellspan Park">Wellspan Park</option>
+      <option value="CaroMont Health Park">CaroMont Health Park</option>
+      <option value="Penn Medicine Park">Penn Medicine Park</option>
+      <option value="Fairfield Properties BallPark">Fairfield Properties BallPark</option>
+      <option value="SIUH Community Park">SIUH Community Park</option>
+      <option value="GoMart BallPark">GoMart BallPark</option>
+      <option value="Truist Point">Truist Point</option>
+      <option value="Legends Field">Legends Field</option>
+      <option value="Regency Furniture Stadium">Regency Furniture Stadium</option>
+    
+            </select>
+            <canvas id="sprayCanvas" width="700" height="600"></canvas>
             <div id="trajectoryChart"></div>
 
             <h3>Batted Ball Table</h3>
@@ -682,6 +712,232 @@ function plotWhiffPct(rows) {
 }
 
 
+
+// 4) Batted-Ball Spray-WAZE (feet + correct hover)
+function drawParkSprayChart(rows) {
+  const hits = rows
+    .filter(r => r.PitchCall==='InPlay' && r.PlayResult!=='Undefined')
+    .map(r => ({
+      x: parseFloat(r.PositionAt110X),
+      y: parseFloat(r.PositionAt110Y),
+      ev: parseFloat(r.ExitSpeed),
+      la: parseFloat(r.Angle)
+    }))
+    .filter(p => !isNaN(p.x) && !isNaN(p.y));
+
+  const container = document.getElementById('parkSprayChart');
+  if (!hits.length) {
+    container.innerHTML = '<em>No batted-ball data</em>';
+    return;
+  }
+
+  // scatter with customdata for hover
+  const trace = {
+    x: hits.map(p => p.x),
+    y: hits.map(p => p.y),
+    customdata: hits.map(p => [p.ev, p.la]),
+    hovertemplate:
+      'Exit Vel: %{customdata[0]:.0f} mph<br>' +
+      'Launch Ang: %{customdata[1]:.1f}°<extra></extra>',
+    mode: 'markers',
+    type: 'scatter',
+    marker: {
+      size: hits.map(p => Math.min((p.ev||70)/2, 30)),
+      color: hits.map(p => p.la),
+      colorscale: 'Viridis',
+      showscale: true,
+      colorbar: { title: 'Launch Angle (°)' },
+      opacity: 0.8,
+      line: { width: 1, color: '#333' }
+    }
+  };
+
+  Plotly.newPlot(container, [trace], {
+    images: [{
+      // replace with your actual park diagram URL
+      source: 'assets/minor-league-park.png',
+      xref: 'x', yref: 'y',
+      x: Math.min(...trace.x), y: Math.min(...trace.y),
+      xanchor: 'left', yanchor: 'bottom',
+      sizex: Math.max(...trace.x) - Math.min(...trace.x),
+      sizey: Math.max(...trace.y) - Math.min(...trace.y),
+      sizing: 'stretch', layer: 'below', opacity: 0.7
+    }],
+    xaxis: { title: 'Feet from Home Plate (X)', scaleanchor: 'y', scaleratio: 1 },
+    yaxis: { title: 'Feet from Home Plate (Y)' },
+    margin: { t: 30, l: 50 }
+  });
+}
+
+const parkShapes = {
+      default: {
+        leftFoul: 325, leftCenter: (325+400)/2, center: 400,
+        rightCenter: (400+325)/2, rightFoul: 325
+      },
+      "Meritus Park": {
+        leftFoul: 346, leftCenter: (346+387)/2, center: 400,
+        rightCenter: (400+360)/2, rightFoul: 325
+      },
+      "Wellspan Park": {
+        leftFoul: 300, leftCenter: (300+405)/2, center: 405,
+        rightCenter: (405+326)/2, rightFoul: 326
+      },
+      "CaroMont Health Park": {
+        leftFoul: 315, leftCenter: 361, center: 400,
+        rightCenter: 367, rightFoul: 325
+      },
+      "Penn Medicine Park": {
+        leftFoul: 320, leftCenter: 409, center: 400,
+        rightCenter: 363, rightFoul: 300
+      },
+      "Fairfield Properties BallPark": {
+        leftFoul: 325, leftCenter: (325+400)/2, center: 400,
+        rightCenter: (400+325)/2, rightFoul: 325
+      },
+      "SIUH Community Park": {
+        leftFoul: 320, leftCenter: (320+390)/2, center: 390,
+        rightCenter: (390+318)/2, rightFoul: 318
+      },
+      "GoMart BallPark": {
+        leftFoul: 330, leftCenter: (330+400)/2, center: 400,
+        rightCenter: (400+320)/2, rightFoul: 320
+      },
+      "Truist Point": {
+        leftFoul: 336, leftCenter: 363, center: 400,
+        rightCenter: 366, rightFoul: 339
+      },
+      "Legends Field": {
+        leftFoul: 320, leftCenter: (320+401)/2, center: 401,
+        rightCenter: (401+318)/2, rightFoul: 318
+      },
+      "Regency Furniture Stadium": {
+        leftFoul: 310, leftCenter: (310+400)/2, center: 400,
+        rightCenter: (400+325)/2, rightFoul: 325
+      }
+    };
+
+   
+const canvas = document.getElementById('sprayCanvas');
+    const ctx = canvas.getContext('2d');
+    const parkSel = document.getElementById('parkSelect2');
+    let hitCircles = [];
+        const tooltip = document.getElementById('tooltip');
+
+
+function drawSprayCanvas(rows) {
+      // clear
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // dimensions
+      const park = parkShapes[parkSel.value] || parkShapes.default;
+      const origin = { x:canvas.width/2, y:canvas.height-20 };
+      const scale = (canvas.height-40)/park.center;
+      // foul lines
+      const ang = Math.PI/4;
+      ctx.strokeStyle='#888'; ctx.lineWidth=1.5; ctx.beginPath();
+      ctx.moveTo(origin.x,origin.y);
+      ctx.lineTo(origin.x+Math.sin(-ang)*park.leftFoul*scale, origin.y-Math.cos(-ang)*park.leftFoul*scale);
+      ctx.moveTo(origin.x,origin.y);
+      ctx.lineTo(origin.x+Math.sin(ang)*park.rightFoul*scale, origin.y-Math.cos(ang)*park.rightFoul*scale);
+      ctx.stroke();
+      // outfield wall (5 points)
+      const angles=[-45,-22.5,0,22.5,45];
+      const radii=[park.leftFoul,park.leftCenter,park.center,park.rightCenter,park.rightFoul];
+      ctx.strokeStyle='#555'; ctx.lineWidth=3; ctx.beginPath();
+      angles.forEach((d,i)=>{
+        const rad=d*Math.PI/180;
+        const dx=Math.sin(rad)*radii[i]*scale;
+        const dy=Math.cos(rad)*radii[i]*scale;
+        const x=origin.x+dx, y=origin.y-dy;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }); ctx.stroke();
+      // fence labels
+      ctx.fillStyle='#000'; ctx.font='12px sans-serif';
+      angles.forEach((d,i)=>{
+        const rad=d*Math.PI/180;
+        const dx=Math.sin(rad)*radii[i]*scale;
+        const dy=Math.cos(rad)*radii[i]*scale;
+        const ptX=origin.x+dx, ptY=origin.y-dy;
+        ctx.fillText(Math.round(radii[i]) + "'", ptX + (d<0?-25:5), ptY + 15);
+      });
+      // infield diamond
+      ctx.strokeStyle='#444'; ctx.lineWidth=2; ctx.beginPath();
+      const bases=[
+        {x:0,z:0},
+        {x:90*Math.cos(Math.PI/4),z:90*Math.sin(Math.PI/4)},
+        {x:90*Math.sqrt(2),z:0},
+        {x:90*Math.cos(Math.PI/4),z:-90*Math.sin(Math.PI/4)}
+      ];
+      bases.forEach((pt,i)=>{
+        const x=origin.x+pt.z*scale, y=origin.y-pt.x*scale;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }); ctx.closePath(); ctx.stroke();
+      // base squares
+      ctx.fillStyle='#fff';
+      bases.forEach(pt=>{
+        const x=origin.x+pt.z*scale, y=origin.y-pt.x*scale;
+        ctx.fillRect(x-6,y-6,12,12);
+      });
+      // infield arc
+      const extraC=55, extraM=28.5;
+      ctx.strokeStyle='#aaa'; ctx.lineWidth=2; ctx.beginPath();
+      for(let d=-45;d<=45;d++){
+        const rad=d*Math.PI/180;
+        const r0=90+extraC, r1=90*Math.sqrt(2)+extraM;
+        const t=1-Math.abs(d)/45;
+        const r=r0+t*(r1-r0);
+        const x=origin.x+Math.sin(rad)*r*scale;
+        const y=origin.y-Math.cos(rad)*r*scale;
+        if(d===-45) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+      // plot batted balls
+       const hits = rows.filter(r => r.PitchCall==='InPlay');
+      hits.forEach((r,i) => {
+        const dir = parseFloat(r.Direction), dist = parseFloat(r.Distance), ev = parseFloat(r.ExitSpeed), la = parseFloat(r.Angle);
+        if (isNaN(dir)||isNaN(dist)) return;
+        const rad = dir * Math.PI/180;
+        const dpx = Math.min(dist, park.center) * scale;
+        const x = origin.x + Math.sin(rad)*dpx;
+        const y = origin.y - Math.cos(rad)*dpx;
+        const size = isNaN(ev)?6:Math.min(ev/2,15);
+        // draw circle
+        ctx.fillStyle='rgba(220,50,50,0.7)';
+        ctx.beginPath(); ctx.arc(x,y,size,0,2*Math.PI); ctx.fill();
+        // draw number
+        ctx.fillStyle='#000'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(i+1, x, y);
+        // store for hover
+        hitCircles.push({ x, y, r: size, data: { distance:dist, ev:ev, la:la }, index: i+1 });
+      });
+    }
+
+    function handleMouseMove(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      let found = null;
+      for (const c of hitCircles) {
+        const dx = mx - c.x, dy = my - c.y;
+        if (dx*dx + dy*dy <= c.r*c.r) { found = c; break; }
+      }
+      if (found) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX + 10) + 'px';
+        tooltip.style.top = (e.clientY + 10) + 'px';
+        tooltip.innerHTML =
+          `#${found.index}<br>` +
+          `Dist: ${found.data.distance.toFixed(1)} ft<br>` +
+          `Exit: ${found.data.ev.toFixed(1)} mph<br>` +
+          `LA: ${found.data.la.toFixed(1)}°`;
+      } else {
+        tooltip.style.display = 'none';
+      }
+    }
+
+    canvas.addEventListener('mousemove', handleMouseMove);
+
+
+
 // 7) Radar Chart
 function plotRadarMetrics(rows){
   const metrics={};
@@ -764,7 +1020,6 @@ function plotRadarMetrics(rows){
             const at = document.getElementById('atBatFilter').value; if (at) f = f.filter(r => `${r.Date.toISOString().slice(0, 10)} PA${r.PAofInning} Inning${r.Inning}` === at);
 
             plotPlate(f);
-            plotSpray(f);
             renderTable(f);
             renderAtBatDetails(f);
               plotExitHist(f);
@@ -776,9 +1031,19 @@ function plotRadarMetrics(rows){
   plotZoneHeatmaps(f);
   plotPitchMix(f)
   plotSwingPct(f);
+   parkSelect2.addEventListener('change', () => drawSprayCanvas(f));
+      updateSpray(f);
+
+
     plotHardHitPct(f);
     plotWhiffPct(f);    plotRadarMetrics(f);
         }
+
+          function updateSpray(rows) {
+      currentFiltered = rows;
+      drawSprayCanvas(rows);
+    }
+
 
         function onPitcherChange() {
             applyFilters();
