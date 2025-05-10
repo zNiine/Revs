@@ -222,7 +222,76 @@
 
             <h3>Batted Ball Table</h3>
             <div id="battedBallTable"></div>
-        </div>
+
+              <!-- … existing battedBallTable … -->
+
+  <h3> Exit-Velocity Distribution</h3>
+  <div id="exitHist" style="width:600px;height:400px;margin:auto;"></div>
+
+  <h3> Launch Angle vs Exit Velocity (Density)</h3>
+  <div id="angleVelDensity" style="width:600px;height:400px;margin:auto;"></div>
+
+  
+  <h3> Plate Discipline (9-Cell Swing% & Contact%)</h3>
+  <div style="display:flex;gap:2rem;justify-content:center;">
+    <div>
+      <strong>Swing %</strong>
+      <div id="swingHeatmap" style="width:300px;height:300px;"></div>
+    </div>
+    <div>
+      <strong>Contact %</strong>
+      <div id="contactHeatmap" style="width:300px;height:300px;"></div>
+    </div>
+  </div>
+
+
+  <h3> Game-by-Game Trends</h3>
+  <div id="gameTrends" style="width:700px;height:400px;margin:auto;"></div>
+
+  <h3> Batted-Ball Types</h3>
+  <div id="bbTypes" style="width:500px;height:350px;margin:auto;"></div>
+
+<div style="display:flex; align-items:flex-start; gap:2rem; margin:auto;">
+  <!-- 10) Statcast bar chart -->
+  <div id="statcastMetrics" style="width:600px; height:350px;"></div>
+  <!-- league rank & percentile info -->
+  <div id="statcastInfo" style="font-size:0.9rem; line-height:1.4;"></div>
+</div>
+
+<h3>Zone BA / SLG Heatmap</h3>
+<div id="zoneHeatmap" style="display:flex; gap:2rem; justify-content:center;">
+  <div id="baHeatmap" style="width:300px;height:300px;"></div>
+  <div id="slgHeatmap" style="width:300px;height:300px;"></div>
+</div>
+
+
+
+<!-- 5) Pitch Mix Seen & Whiff/HardHit % by Type -->
+<h3>Pitch Mix & Swing% / HardHit% / Whiff%</h3>
+<div style="display:flex; gap:2rem; justify-content:center; flex-wrap:wrap;">
+  <div id="pitchMixPie" style="width:550px;height:550px;"></div>
+  <div id="swingPctChart" style="width:550px;height:550px;"></div>
+  <div id="hardHitPctChart" style="width:550px;height:550px;"></div>
+  <div id="whiffPctChart" style="width:550px;height:550px;"></div>
+</div>
+<!-- Explanation of Pitch Type Charts -->
+<div class="chart-description" style="max-width:800px;margin:0.5rem auto;padding:0.75rem;background:#fafafa;border:1px solid #ddd;border-radius:4px;text-align:center;">
+  <strong>Charts Explained:</strong><br>
+  • <em>Pitch Mix</em>: distribution of all pitches seen.<br>
+  • <em>Swing%</em>: % of those pitches swung at.<br>
+  • <em>HardHit%</em>: % of swings resulting in exit velocity ≥ 95 mph.<br>
+  • <em>Whiff%</em>: % of swings that miss (swinging strikes) on that pitch type.<br>
+</div>
+<h3>Profile Radar</h3>
+<div id="radarChart" style="width:600px;height:600px;margin:auto;"></div>
+
+<!-- Explanation of the radial metrics -->
+<div class="metric-description" style="max-width:600px;margin:1rem auto;padding:1rem;background:#fafafa;border:1px solid #ddd;border-radius:4px;">
+  <strong>O-Swing %:</strong> Percentage of pitches thrown <em>outside</em> the strike zone that the batter swings at.<br>
+  <strong>Z-Swing %:</strong> Percentage of pitches thrown <em>inside</em> the strike zone that the batter swings at.<br>
+  <strong>Z-Contact %:</strong> Percentage of swings on pitches <em>inside</em> the strike zone that result in contact (i.e., not a miss).<br>
+</div>
+
     </div>
 
     <script>
@@ -239,6 +308,417 @@
                  populateSuggestions();
                  initDashboard(); } });
         }
+
+        // helper to bin into 9 strike-zone cells
+function zoneCell(x,y){
+  // x in [-.708,.708], y in [1.5,3.5]
+  const col = Math.min(2, Math.max(0, Math.floor((x + .708) / (2*.708/3))));
+  const row = Math.min(2, Math.max(0, Math.floor((y - 1.5)  / (2/3))));
+  return `${row}-${col}`;
+}
+
+
+
+function plotExitHist(rows){
+  const ev = rows.map(r=>parseFloat(r.ExitSpeed)).filter(n=>!isNaN(n));
+  const mean = ev.reduce((a,b)=>a+b,0)/ev.length;
+  const sorted=ev.slice().sort((a,b)=>a-b);
+  const mid = sorted[Math.floor(sorted.length/2)];
+  Plotly.newPlot('exitHist',[{
+    x: ev, type:'histogram', nbinsx:30, marker:{color:'lightblue'}
+  }],{
+    shapes:[
+      { type:'line', x0:mean, x1:mean, y0:0, y1:Math.max(...ev)/2, line:{dash:'dash',color:'red'}},
+      { type:'line', x0:mid,   x1:mid,   y0:0, y1:Math.max(...ev)/2, line:{dash:'dot',color:'green'}}
+    ],
+    xaxis:{title:'Exit Velocity (mph)'}, yaxis:{title:'Count'}
+  });
+}
+
+function plotAngleVelDensity(rows){
+  const xs = rows.map(r=>parseFloat(r.ExitSpeed));
+  const ys = rows.map(r=>parseFloat(r.Angle));
+  Plotly.newPlot('angleVelDensity',[{
+    x: xs, y: ys, type:'histogram2dcontour', colorscale:'YlGnBu',
+    contours:{showlabels:false}, nbinsx:30, nbinsy:30
+  }],{
+    xaxis:{title:'Exit Velocity'}, yaxis:{title:'Launch Angle'}
+  });
+}
+
+function plotSprayZonesDensity(rows){
+  // density of endpoints
+  const xs = rows.map(r=>parseFloat(r.PositionAt110X)), 
+        ys = rows.map(r=>parseFloat(r.PositionAt110Y));
+  Plotly.newPlot('sprayZoneDensity',[{
+    x: xs, y: ys, type:'histogram2d', colorscale:'Hot',
+    xbins:{size:50}, ybins:{size:50}
+  }],{
+    xaxis:{title:'X(ft)'}, yaxis:{title:'Y(ft)'}
+  });
+  // small multiples by pitch type
+  const byType = {};
+  rows.forEach(r=>{
+    const t = r.AutoPitchType||'Unknown';
+    byType[t] = byType[t]||[];
+    byType[t].push(r);
+  });
+  const container = document.getElementById('sprayByType');
+  container.innerHTML='';
+  Object.entries(byType).forEach(([t,arr])=>{
+    const d = document.createElement('div');
+    d.style.width='200px'; d.style.height='200px';
+    d.innerHTML=`<strong>${t}</strong><div id="spray-${t}"></div>`;
+    container.appendChild(d);
+    Plotly.newPlot(`spray-${t}`,[{
+      x: arr.map(r=>parseFloat(r.PositionAt110X)),
+      y: arr.map(r=>parseFloat(r.PositionAt110Y)),
+      mode:'markers', marker:{size:4,opacity:0.6}
+    }],{margin:{t:20,b:20,l:20,r:20}});
+  });
+}
+
+function plotDiscipline(rows){
+  const swingMap={},contactMap={},totalMap={};
+  rows.forEach(r=>{
+    const z = zoneCell(parseFloat(r.PlateLocSide),parseFloat(r.PlateLocHeight));
+    totalMap[z]=(totalMap[z]||0)+1;
+    if(r.PitchCall!=='StrikeCalled'&&r.PitchCall!=='BallCalled'){
+      swingMap[z]=(swingMap[z]||0)+1;
+      if(r.PitchCall==='InPlay') contactMap[z]=(contactMap[z]||0)+1;
+    }
+  });
+  const zLabels = [['0-0','0-1','0-2'],['1-0','1-1','1-2'],['2-0','2-1','2-2']];
+  ['swingHeatmap','contactHeatmap'].forEach((id,i)=>{
+    const zData = zLabels.map(row=>row.map(z=>{
+      const tot = totalMap[z]||1,
+            val = i===0
+              ? (swingMap[z]||0)/tot*100
+              : (contactMap[z]||0)/(swingMap[z]||1)*100;
+      return +val.toFixed(1);
+    }));
+
+    Plotly.newPlot(id,[{
+      z: zData,
+      x: ['L','M','R'],
+      y: ['Low','Mid','High'],
+      type: 'heatmap',
+      colorscale: 'Blues',
+      reversescale: (i===1)
+    }],{
+      margin:{t:20,b:20},
+      // **overlay a border around the whole 3×3 zone**
+      shapes:[{
+        type: 'rect',
+        xref: 'x', yref: 'y',
+        x0: -0.5, x1:  2.5,
+        y0: -0.5, y1:  2.5,
+        line: { color: 'black', width: 2 }
+      }]
+    });
+  });
+}
+
+function plotCountSplits(rows){
+  const stats={},evs={};
+  rows.forEach(r=>{
+    const key = `${r.Balls}-${r.Strikes}`;
+    stats[key]=stats[key]||{pa:0,h:0};
+    evs[key]=evs[key]||[];
+    stats[key].pa++;
+    if(r.PitchCall==='InPlay'&&r.PlayResult!=='Out') stats[key].h++;
+    const v=parseFloat(r.ExitSpeed);
+    if(!isNaN(v)) evs[key].push(v);
+  });
+  const counts=Object.keys(stats).sort();
+  const avg=counts.map(k=>+(stats[k].h/stats[k].pa).toFixed(3));
+  Plotly.newPlot('countAvg',[{
+    x:counts,y:avg,type:'bar',marker:{color:'orange'}
+  }],{xaxis:{title:'Count'},yaxis:{title:'AVG'}});
+  Plotly.newPlot('countExitVel',counts.map(k=>({
+    y:evs[k], type:'box', name:k
+  })),{yaxis:{title:'Exit Velocity'}});
+}
+
+function plotGameTrends(rows){
+  // group by date
+  const map={};
+  rows.forEach(r=>{
+    const d=r.Date.toISOString().slice(0,10);
+    map[d]=map[d]||{ev:[],hh:[],pa:0};
+    const v=parseFloat(r.ExitSpeed);
+    map[d].pa++;
+    if(!isNaN(v)){ map[d].ev.push(v); if(v>=95) map[d].hh.push(v); }
+  });
+  const dates=Object.keys(map).sort();
+  const avgEV=dates.map(d=>map[d].ev.reduce((a,b)=>a+b,0)/map[d].ev.length);
+  const hhPct=dates.map(d=>+((map[d].hh.length/map[d].pa)*100).toFixed(1));
+  Plotly.newPlot('gameTrends',[
+    { x:dates,y:avgEV,mode:'lines+markers',name:'Avg EV' },
+    { x:dates,y:hhPct,mode:'lines+markers',name:'HardHit %', yaxis:'y2' }
+  ],{
+    xaxis:{tickangle:-45}, 
+    yaxis:{title:'Avg EV'}, 
+    yaxis2:{overlaying:'y',side:'right',title:'HardHit %'}
+  });
+}
+
+function plotBBTypes(rows){
+  // initialize only the four categories
+  const cnt = { GroundBall: 0, FlyBall: 0, LineDrive: 0, PopOut: 0 };
+
+  rows.forEach(r => {
+    let t = r.TaggedHitType;
+    // normalize common variants
+    if (t === 'Popup' || t === 'PopUp' || t === 'PopFly') t = 'PopOut';
+
+    // count only if it’s one of our four
+    if (cnt.hasOwnProperty(t)) {
+      cnt[t]++;
+    }
+  });
+
+  Plotly.newPlot('bbTypes',[{
+    labels: Object.keys(cnt),
+    values: Object.values(cnt),
+    type: 'pie'
+  }]);
+}
+
+function plotStatcast(rows) {
+  // 1) only the batted‐ball events for this batter
+  const batted = rows.filter(r => r.PitchCall === 'InPlay');
+  const myTotal = batted.length;
+  if (!myTotal) {
+    document.getElementById('statcastMetrics').innerHTML =
+      '<em>No batted balls to compute metrics.</em>';
+    document.getElementById('statcastInfo').innerHTML = '';
+    return;
+  }
+
+  // 2) compute this batter’s percentages
+  const barrelCount = batted.filter(r => {
+    const ev = parseFloat(r.ExitSpeed), la = parseFloat(r.Angle);
+    return !isNaN(ev) && !isNaN(la) && ev >= 98 && la >= 26 && la <= 32;
+  }).length;
+  const sweetCount = batted.filter(r => {
+    const ev = parseFloat(r.ExitSpeed);
+    return !isNaN(ev) && ev >= 90 && ev < 98;
+  }).length;
+
+  const myBarrelPct = barrelCount / myTotal * 100;
+  const mySweetPct  = sweetCount  / myTotal * 100;
+
+  // 3) build league‐wide metrics
+  //    group allData by Batter, counting their batted-ball Barrel% & Sweet%
+  const leagueMap = {};
+  allData
+    .filter(r => r.PitchCall === 'InPlay')
+    .forEach(r => {
+      const bat = r.Batter;
+      if (!leagueMap[bat]) leagueMap[bat] = { total:0, barrel:0, sweet:0 };
+      leagueMap[bat].total++;
+      const ev = parseFloat(r.ExitSpeed), la = parseFloat(r.Angle);
+      if (!isNaN(ev) && !isNaN(la) && ev >= 98 && la >= 26 && la <= 32) {
+        leagueMap[bat].barrel++;
+      } else if (!isNaN(ev) && ev >= 90 && ev < 98) {
+        leagueMap[bat].sweet++;
+      }
+    });
+
+  // convert to arrays of percentages
+  const leagueBarrels = [], leagueSweets = [];
+  Object.entries(leagueMap).forEach(([bat, stats]) => {
+    if (stats.total < 10) return; // skip tiny samples
+    leagueBarrels.push({ bat, pct: stats.barrel / stats.total * 100 });
+    leagueSweets .push({ bat, pct: stats.sweet  / stats.total * 100 });
+  });
+
+  // 4) sort descending and find rank
+  leagueBarrels.sort((a,b) => b.pct - a.pct);
+  leagueSweets .sort((a,b) => b.pct - a.pct);
+
+  const Nbarrel = leagueBarrels.length,
+        Nsweet  = leagueSweets.length;
+
+  const rankBarrel = leagueBarrels.findIndex(x => x.bat === playerName) + 1,
+        rankSweet  = leagueSweets .findIndex(x => x.bat === playerName) + 1;
+
+  // percentile: (1 − (rank−1)/(N−1))×100
+  const pctBarrel = Nbarrel>1
+    ? (1 - (rankBarrel - 1)/(Nbarrel - 1)) * 100
+    : 100;
+  const pctSweet = Nsweet>1
+    ? (1 - (rankSweet  - 1)/(Nsweet  - 1)) * 100
+    : 100;
+
+  // 5) draw the bar chart exactly as before
+  Plotly.newPlot('statcastMetrics', [{
+    x: ['Barrel %', 'SweetSpot %'],
+    y: [myBarrelPct, mySweetPct],
+    type: 'bar',
+    marker: { color: ['#d62728','#ff7f0e'] }
+  }], {
+    yaxis: { title: '% of Batted Balls' },
+    margin: { t:30, b:50 }
+  });
+
+  // 6) fill in the league‐info panel
+  document.getElementById('statcastInfo').innerHTML = `
+    <div><strong>Barrel %:</strong>
+      Rank ${rankBarrel}/${Nbarrel}
+      (${pctBarrel.toFixed(0)}<sup>th</sup> percentile)
+    </div>
+    <div><strong>SweetSpot %:</strong>
+      Rank ${rankSweet}/${Nsweet}
+      (${pctSweet.toFixed(0)}<sup>th</sup> percentile)
+    </div>`;
+}
+
+
+// 1) Zone Heatmaps
+function plotZoneHeatmaps(rows) {
+  // bin 5x5 grid
+  const baGrid = Array.from({length:5},()=>Array(5).fill(0));
+  const paGrid = Array.from({length:5},()=>Array(5).fill(0));
+  rows.filter(r=>r.PitchCall==='InPlay').forEach(r=>{
+    const x=parseFloat(r.PlateLocSide), y=parseFloat(r.PlateLocHeight);
+    if(isNaN(x)||isNaN(y)) return;
+    const col=Math.min(4, Math.max(0, Math.floor((x+0.708)/(2*0.708/5))));
+    const row=Math.min(4, Math.max(0, Math.floor((y-1.5)/(2/5))));
+    paGrid[row][col]++;
+    if(r.PlayResult!=='Out') baGrid[row][col]++;
+  });
+  const baPct = baGrid.map((r,i)=>r.map((v,j)=>+((v/paGrid[i][j]||0)*100).toFixed(1)));
+  Plotly.newPlot('baHeatmap',[{z:baPct, x: [...Array(5).keys()], y: [...Array(5).keys()], type:'heatmap'}],{title:'BA %'});
+
+  const slgGrid = Array.from({length:5},()=>Array(5).fill(0));
+  // for SLG need total bases: 1B=1,2B=2,3B=3,HR=4, Out=0
+  rows.filter(r=>r.PitchCall==='InPlay').forEach(r=>{
+    const x=parseFloat(r.PlateLocSide), y=parseFloat(r.PlateLocHeight);
+    if(isNaN(x)||isNaN(y)) return;
+    const col=Math.min(4, Math.max(0, Math.floor((x+0.708)/(2*0.708/5))));
+    const row=Math.min(4, Math.max(0, Math.floor((y-1.5)/(2/5))));
+    let bases = 0;
+    if(r.PlayResult==='Single') bases=1;
+    else if(r.PlayResult==='Double') bases=2;
+    else if(r.PlayResult==='Triple') bases=3;
+    else if(r.PlayResult==='HomeRun') bases=4;
+    slgGrid[row][col] += bases;
+  });
+  const slgPct = slgGrid.map((r,i)=>r.map((v,j)=>+((v/paGrid[i][j]||0)).toFixed(3)));
+  Plotly.newPlot('slgHeatmap',[{z:slgPct, x: [...Array(5).keys()], y: [...Array(5).keys()], type:'heatmap'}],{title:'SLG'});
+}
+
+// 2) Spray Breakdown
+function plotSprayBreakdown(rows) {
+  const counts={Pull:0,Center:0,Oppo:0};
+  rows.filter(r=>r.PitchCall==='InPlay').forEach(r=>{
+    const d=parseFloat(r.Direction);
+    if(isNaN(d)) return;
+    if(d>=225&&d<315) counts.Pull++;
+    else if(d>=45&&d<135) counts.Oppo++;
+    else counts.Center++;
+  });
+  Plotly.newPlot('sprayBreakdown',[{x:Object.keys(counts), y:Object.values(counts), type:'bar'}],{yaxis:{title:'Count'}});
+}
+
+// 5) Pitch Mix & Rates
+
+function plotPitchMix(rows) {
+  const mix = {};
+  rows.forEach(r => {
+    const type = r.AutoPitchType || 'Unknown';
+    mix[type] = (mix[type] || 0) + 1;
+  });
+  Plotly.newPlot('pitchMixPie', [{ labels: Object.keys(mix), values: Object.values(mix), type: 'pie' }], { title: 'Pitch Mix' });
+}
+// 5a) Swing % Chart
+function plotSwingPct(rows) {
+  const mix = {}, swingCount = {};
+  rows.forEach(r => {
+    const type = r.AutoPitchType || 'Unknown';
+    mix[type] = (mix[type] || 0) + 1;
+    if (r.PitchCall !== 'BallCalled' && r.PitchCall !== 'StrikeCalled') {
+      swingCount[type] = (swingCount[type] || 0) + 1;
+    }
+  });
+  const types = Object.keys(mix);
+  const swingPct = types.map(t => (swingCount[t] || 0) / mix[t] * 100);
+  Plotly.newPlot('swingPctChart', [{ r: swingPct, theta: types, type: 'scatterpolar', fill: 'toself' }], { polar: { radialaxis: { range: [0,100] } }, title: 'Swing%' });
+}
+// 5b) HardHit % Chart
+function plotHardHitPct(rows) {
+  const swingCount = {}, hhCount = {};
+  rows.forEach(r => {
+    const type = r.AutoPitchType || 'Unknown';
+    if (r.PitchCall !== 'BallCalled' && r.PitchCall !== 'StrikeCalled') {
+      swingCount[type] = (swingCount[type] || 0) + 1;
+      if (r.PitchCall === 'InPlay') {
+        const ev = parseFloat(r.ExitSpeed);
+        if (!isNaN(ev) && ev >= 95) hhCount[type] = (hhCount[type] || 0) + 1;
+      }
+    }
+  });
+  const types = Object.keys(swingCount);
+  const hardPct = types.map(t => (hhCount[t] || 0) / swingCount[t] * 100);
+  Plotly.newPlot('hardHitPctChart', [{ r: hardPct, theta: types, type: 'scatterpolar', fill: 'toself' }], { polar: { radialaxis: { range: [0,100] } }, title: 'HardHit%' });
+}
+// 5c) Whiff % Chart
+function plotWhiffPct(rows) {
+  const swingCount = {}, whiffCount = {};
+  rows.forEach(r => {
+    const type = r.AutoPitchType || 'Unknown';
+    if (r.PitchCall === 'StrikeSwinging') {
+      whiffCount[type] = (whiffCount[type] || 0) + 1;
+    }
+    if (r.PitchCall !== 'BallCalled' && r.PitchCall !== 'StrikeCalled') {
+      swingCount[type] = (swingCount[type] || 0) + 1;
+    }
+  });
+  const types = Object.keys(swingCount);
+  const whiffPct = types.map(t => (whiffCount[t] || 0) / swingCount[t] * 100);
+  Plotly.newPlot('whiffPctChart', [{ r: whiffPct, theta: types, type: 'scatterpolar', fill: 'toself' }], { polar: { radialaxis: { range: [0,100] } }, title: 'Whiff%' });
+}
+
+
+// 7) Radar Chart
+function plotRadarMetrics(rows){
+  const metrics={};
+  const f=rows.filter(r=>r.PitchCall==='InPlay');
+  const tot=f.length;
+  // Barrel%
+  metrics['Barrel%']=f.filter(r=>parseFloat(r.ExitSpeed)>=98&&parseFloat(r.Angle)>=26&&parseFloat(r.Angle)<=32).length/tot*100;
+  // Sweet%
+  metrics['Sweet%']=f.filter(r=>parseFloat(r.ExitSpeed)>=90&&parseFloat(r.ExitSpeed)<98).length/tot*100;
+  // O-Swing%
+  let oz=0,os=0,iz=0,isw=0,ic=0;
+  rows.forEach(r=>{
+    const h=parseFloat(r.PlateLocHeight), s=parseFloat(r.PlateLocSide);
+    const inZ=h>=1.5&&h<=3.5&&s>=-0.708&&s<=0.708;
+    if(inZ){ iz++; if(r.PitchCall!=='BallCalled'&&r.PitchCall!=='StrikeCalled'){ isw++; if(r.PitchCall==='InPlay') ic++; }}
+    else { oz++; if(r.PitchCall!=='BallCalled'&&r.PitchCall!=='StrikeCalled') os++; }
+  });
+  metrics['O-Swing%']=oz?os/oz*100:0;
+  metrics['Z-Swing%']=iz?isw/iz*100:0;
+  metrics['Z-Contact%']=isw?ic/isw*100:0;
+
+  const names=Object.keys(metrics);
+  const vals=names.map(k=>metrics[k].toFixed(1));
+  Plotly.newPlot('radarChart',[{
+    type:'scatterpolar', r:vals, theta:names, fill:'toself'
+  }],{polar:{radialaxis:{visible:true,range:[0,100]}},showlegend:false});
+}
+
+
+// call them at end of applyFilters
+
+  // …existing code…
+  
+
+  // after your existing plotPlate/plotSpray/renderTable/renderAtBatDetails:
+
+
 
         function initDashboard() {
             playerName = new URLSearchParams(location.search).get('player') || '';
@@ -287,6 +767,17 @@
             plotSpray(f);
             renderTable(f);
             renderAtBatDetails(f);
+              plotExitHist(f);
+  plotAngleVelDensity(f);
+  plotDiscipline(f);
+  plotGameTrends(f);
+  plotBBTypes(f)
+  plotStatcast(f);
+  plotZoneHeatmaps(f);
+  plotPitchMix(f)
+  plotSwingPct(f);
+    plotHardHitPct(f);
+    plotWhiffPct(f);    plotRadarMetrics(f);
         }
 
         function onPitcherChange() {
@@ -422,7 +913,7 @@
           x: 0, y: 0,
           xanchor: 'center', yanchor: 'bottom',
           sizex: 2 * F,
-          sizey: F * 1.12,
+          sizey: F * .95,
           sizing: 'stretch',
           layer: 'below',
           opacity: 0.8

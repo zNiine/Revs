@@ -270,6 +270,8 @@
 
 </div>
 
+
+
 <h3>Pitch Type Location</h3>
 <div style="margin-bottom:0.5rem;">
   <label for="heatmapSideFilter">Batter Side:</label>
@@ -349,6 +351,77 @@
 <h3>Exit-Velocity Allowed by Pitch Type</h3>
 <div id="exitVelByPitch" style="width:100%;height:400px;margin:auto;"></div>
 
+<!-- Batted-Ball Spray-WAZE (now feet + fixed hover) -->
+
+<!-- Spin-Rate Distribution & Percentile (with pitch-type toggle) -->
+<h3>Spin-Rate Distribution &amp; Percentile</h3>
+<div style="text-align:center;margin-bottom:0.5rem;">
+  <label for="spinTypeToggle">Pitch Type:</label>
+  <select id="spinTypeToggle" onchange="drawSpinPercentile()">
+    <!-- will be populated in initDashboard() -->
+  </select>
+</div>
+<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
+  <div id="spinDistChart" style="width:600px;height:400px;"></div>
+  <div id="spinPercentile" style="font-size:1.2rem; padding:1rem;"></div>
+</div>
+
+
+<!-- Fastball Velocity Distribution & Percentile -->
+<h3>Fastball Velocity Distribution &amp; Percentile</h3>
+<div style="text-align:center;margin-bottom:0.5rem;">
+  <label for="veloTypeToggle">Pitch Type:</label>
+  <select id="veloTypeToggle" onchange="drawVeloPercentile()">
+    <option>Four-Seam</option>
+    <option>Sinker</option>
+  </select>
+</div>
+<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
+  <div id="veloDistChart" style="width:500px;height:300px;"></div>
+  <div id="veloPercentile" style="font-size:1.1rem;max-width:200px;"></div>
+</div>
+
+<!-- Avg Exit Velocity Distribution & Percentile -->
+<h3>Avg Exit-Velocity Distribution &amp; Percentile</h3>
+<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
+  <div id="exitDistChart" style="width:500px;height:300px;"></div>
+  <div id="exitVelPercentile" style="font-size:1.1rem;max-width:200px;"></div>
+</div>
+
+<!-- Chase Rate Distribution & Percentile -->
+<h3>Chase Rate Distribution &amp; Percentile</h3>
+<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
+  <div id="chaseDistChart" style="width:500px;height:300px;"></div>
+  <div id="chasePercentile" style="font-size:1.1rem;max-width:200px;"></div>
+</div>
+
+<!-- Whiff Rate Distribution & Percentile -->
+<h3>Whiff Rate Distribution &amp; Percentile</h3>
+<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
+  <div id="whiffDistChart" style="width:500px;height:300px;"></div>
+  <div id="whiffPercentile" style="font-size:1.1rem;max-width:200px;"></div>
+</div>
+
+
+<!-- Hard-Hit % Distribution & Percentile -->
+<h3>Hard-Hit % Distribution &amp; Percentile</h3>
+<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
+  <div id="hhDistChart" style="width:500px;height:300px;"></div>
+  <div id="hhPercentile" style="font-size:1.1rem;max-width:200px;"></div>
+</div>
+
+
+
+
+<!-- 10. Stuff+ Score Gauge -->
+<h3>“Stuff+” Score</h3>
+<div id="stuffGauge" style="width:350px; height:190px; margin:auto;"></div>
+<p id="stuffDesc" style="max-width:400px; margin:0.5rem auto; font-size:0.9rem; color:#333;">
+  <!-- description will be injected here -->
+</p>
+
+
+
 
         </div>
 
@@ -415,7 +488,596 @@ const PTYPE_COLORS = {};
 })();
 
 
+
+
 function pnum(v){ const n=parseFloat(v); return isNaN(n)?null:n; }
+
+
+// helper: percentile & rank
+function computeLeaguePercentile(values, mine) {
+  values.sort((a,b)=>a-b);
+  const n = values.length;
+  const better = values.filter(v=>v < mine).length;
+  const pct = Math.round((better / n) * 100);
+  const rank = n - better;           // 1 = best
+  return { pct, rank, total: n };
+}
+
+function drawTunnelingEfficiency(rows) {
+  // 1) Identify unique pitch types
+  const types = [...new Set(rows.map(r => r.AutoPitchType))].filter(t => t);
+
+  // 2) Prepare two arrays of traces
+  const tracesX = [], tracesY = [];
+
+  types.forEach(pt => {
+    // Filter rows for this pitch
+    const subset = rows.filter(r => r.AutoPitchType === pt)
+      .map(r => ({
+        ext: parseFloat(r.Extension),
+        hb : parseFloat(r.HorzBreak),
+        vb : parseFloat(r.InducedVertBreak)
+      }))
+      .filter(p => !isNaN(p.ext) && !isNaN(p.hb) && !isNaN(p.vb));
+
+    if (!subset.length) return;  // skip if no data
+
+    // X-panel: extension vs horizontal break
+    tracesX.push({
+      x: subset.map(p => p.ext),
+      y: subset.map(p => p.hb),
+      type: 'histogram2dcontour',
+      colorscale: 'Blues',
+      contours: { coloring: 'heatmap' },
+      name: pt,
+      showscale: false,
+      hovertemplate: `%{x:.2f} ft ext<br>%{y:.2f} in HB<extra>${pt}</extra>`,
+      marker: { color: PTYPE_COLORS[pt] || '#666' }
+    });
+
+    // Y-panel: extension vs vertical break
+    tracesY.push({
+      x: subset.map(p => p.ext),
+      y: subset.map(p => p.vb),
+      type: 'histogram2dcontour',
+      colorscale: 'Reds',
+      contours: { coloring: 'heatmap' },
+      name: pt,
+      showscale: false,
+      hovertemplate: `%{x:.2f} ft ext<br>%{y:.2f} in VB<extra>${pt}</extra>`,
+      marker: { color: PTYPE_COLORS[pt] || '#666' }
+    });
+  });
+
+  // 3) Plot both panels in one go
+  Plotly.newPlot('tunnelEffX', tracesX, {
+    xaxis: { title: 'Extension (ft)' },
+    yaxis: { title: 'Horizontal Break (in)' },
+    margin: { t: 30, l: 50 },
+    legend: { orientation: 'h' }
+  });
+
+  Plotly.newPlot('tunnelEffY', tracesY, {
+    xaxis: { title: 'Extension (ft)' },
+    yaxis: { title: 'Vertical Break (in)' },
+    margin: { t: 30, l: 50 },
+    legend: { orientation: 'h' }
+  });
+}
+
+
+
+// 7) Pitch-Sequencing Network Graph (Sankey)
+function drawSequenceNetwork(rows) {
+  const byPA = {};
+  rows.forEach(r=>{
+    const key = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    (byPA[key] = byPA[key]||[]).push(r);
+  });
+
+  const transitions = {};
+  Object.values(byPA).forEach(arr=>{
+    arr.sort((a,b)=>a.PitchofPA-b.PitchofPA);
+    for(let i=0;i<arr.length-1;i++){
+      const s = arr[i].AutoPitchType||'undef';
+      const t = arr[i+1].AutoPitchType||'undef';
+      transitions[`${s}|${t}`] = (transitions[`${s}|${t}`]||0)+1;
+    }
+  });
+
+  const labels = [...new Set(Object.keys(transitions)
+    .flatMap(k=>k.split('|')))];
+  const source = [], target = [], value = [];
+  Object.entries(transitions).forEach(([k,v])=>{
+    const [s,t] = k.split('|');
+    source.push(labels.indexOf(s));
+    target.push(labels.indexOf(t));
+    value.push(v);
+  });
+
+  Plotly.newPlot('sequenceSankey',[{
+    type:'sankey',
+    orientation:'h',
+    node:{label:labels, color:labels.map(l=>PTYPE_COLORS[l]||'#ccc')},
+    link:{source,target,value}
+  }],{margin:{t:10,l:50,r:50,b:10}});
+}
+
+// 8) Exit-Velocity vs Launch-Angle Contours by Pitch
+function drawEvLaContour(rows) {
+  const types = [...new Set(rows.map(r=>r.AutoPitchType))];
+  const traces = types.map(pt=>{
+    const pts = rows.filter(r=>r.AutoPitchType===pt)
+      .map(r=>({
+        ev: parseFloat(r.ExitSpeed),
+        la: parseFloat(r.Angle)
+      }))
+      .filter(p=>!isNaN(p.ev)&&!isNaN(p.la));
+    return {
+      x: pts.map(p=>p.ev),
+      y: pts.map(p=>p.la),
+      type:'histogram2dcontour',
+      colorscale:'Viridis',
+      name:pt,
+      contours:{ coloring:'heatmap' },
+      showscale:false
+    };
+  });
+
+  Plotly.newPlot('evLaContour', traces, {
+    xaxis:{title:'Exit Velocity (mph)'},
+    yaxis:{title:'Launch Angle (°)'},
+    margin:{t:30,l:50}
+  });
+}
+
+function drawStuffGauge(rows) {
+  // 1) Map each PA key to its pitcher
+  const paPitcher = {};
+  allData.forEach(r => {
+    if (!r.Pitcher) return;
+    const paKey = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    paPitcher[paKey] = r.Pitcher;
+  });
+
+  // 2) Initialize a rates record for every pitcher we saw
+  const rates = {};
+  Object.values(paPitcher).forEach(pit => {
+    rates[pit] = { pa: 0, k: 0, bb: 0 };
+  });
+
+  // 3) Tally PAs, Strikeouts, and Walks
+  Object.entries(paPitcher).forEach(([paKey, pit]) => {
+    rates[pit].pa++;
+  });
+  allData.forEach(r => {
+    const paKey = `${r.GameID}|${r.Date}|${r.PAofInning}`;    
+    const pit   = paPitcher[paKey];
+    if (!pit) return;
+
+    // use the exact column values
+    if (r.KorBB === 'Strikeout') rates[pit].k++;
+    if (r.KorBB === 'Walk')      rates[pit].bb++;
+  });
+
+  // 4) Build the league arrays for each metric
+  const arrs = {
+    'RelSpeed':         allData.map(r => parseFloat(r.RelSpeed)),
+    'SpinRate':         allData.map(r => parseFloat(r.SpinRate)),
+    'InducedVertBreak': allData.map(r => parseFloat(r.InducedVertBreak)),
+    'HorzBreak':        allData.map(r => parseFloat(r.HorzBreak)),
+    'K%':  [], 
+    'BB%': []
+  };
+  Object.values(rates).forEach(o => {
+    arrs['K%'].push( o.pa ? o.k  / o.pa * 100 : 0 );
+    arrs['BB%'].push(o.pa ? o.bb / o.pa * 100 : 0 );
+  });
+
+  // 5) Compute league mean & sd
+  const metrics = ['RelSpeed','SpinRate','InducedVertBreak','HorzBreak','K%','BB%'];
+  const leagueStats = {};
+  metrics.forEach(m => {
+    const vals = arrs[m].filter(v => !isNaN(v));
+    const mean = vals.reduce((s,v)=>s+v,0)/vals.length;
+    const sd   = Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/vals.length);
+    leagueStats[m] = { mean, sd };
+  });
+
+  // 6) Compute *this* pitcher’s averages
+  const mine = {};
+  // K% & BB% from our rates table
+  const me = rates[playerName] || { pa:0, k:0, bb:0 };
+  mine['K%']  = me.pa ? me.k  / me.pa * 100 : 0;
+  mine['BB%'] = me.pa ? me.bb / me.pa * 100 : 0;
+  ['RelSpeed','SpinRate','InducedVertBreak','HorzBreak'].forEach(m => {
+    const vals = rows.map(r => parseFloat(r[m])).filter(v=>!isNaN(v));
+    mine[m] = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0;
+  });
+
+  // 7) Z–score average → Stuff+
+  const zsum = metrics.reduce((s,m) => {
+    const { mean, sd } = leagueStats[m];
+    return s + ((mine[m] - mean) / sd);
+  }, 0);
+  const stuff = zsum / metrics.length * 10 + 100;
+
+  // 8) Draw the gauge
+  Plotly.newPlot('stuffGauge',[{
+    type: 'indicator',
+    mode: 'gauge+number',
+    value: stuff,
+    title: { text: `Stuff+ (${playerName})` },
+    gauge: {
+      axis: { range: [60,140] },
+      bar: { color: '#444' },
+      steps: [
+        { range: [60,90],  color: '#ffcccc' },
+        { range: [90,110], color: '#ccffcc' },
+        { range: [110,140],color: '#ccccff' }
+      ]
+    }
+  }],{ margin:{ t:30,b:0 }});
+
+     document.getElementById('stuffDesc').textContent =
+    'Stuff+ aggregates six key pitch metrics—release speed, spin rate, vertical break, ' +
+    'horizontal break, strikeout rate (K%), and walk rate (BB%)—by first converting each ' +
+    'raw value into a z-score (subtracting the league mean and dividing by the league standard ' +
+    'deviation). A z-score tells you how many standard deviations a pitcher’s value is above ' +
+    'or below the league average. Those six z-scores are then averaged and scaled so that ' +
+    'a Stuff+ of 100 is exactly league average, and each 10 points represents one standard ' +
+    'deviation above (or below) average. For example, a Stuff+ of 110 is one standard deviation ' +
+    'better than the average pitcher, while 90 is one standard deviation below.';
+}
+
+// 1) Fastball Velocity
+function drawVeloPercentile() {
+  const pt = document.getElementById('veloTypeToggle').value;
+  const leagueMap = {}; 
+  allData.forEach(r => {
+    if (r.AutoPitchType !== pt) return;
+    const p = r.Pitcher, v = parseFloat(r.RelSpeed);
+    if (isNaN(v)) return;
+    leagueMap[p] = leagueMap[p]||{sum:0,c:0};
+    leagueMap[p].sum += v;
+    leagueMap[p].c   += 1;
+  });
+  const league = Object.values(leagueMap).map(o=>o.sum/o.c);
+
+  const mineArr = allData
+    .filter(r=>r.Pitcher===playerName && r.AutoPitchType===pt)
+    .map(r=>parseFloat(r.RelSpeed))
+    .filter(v=>!isNaN(v));
+  const mine = mineArr.length
+    ? mineArr.reduce((s,v)=>s+v,0)/mineArr.length
+    : NaN;
+
+  const {pct,rank,total} = computeLeaguePercentile(league, mine);
+
+  Plotly.newPlot('veloDistChart',[{
+    x: league, type: 'histogram',
+    marker:{color:PTYPE_COLORS[pt]||'#333'}, nbinsx:30
+  }],{
+    xaxis:{title:`Avg ${pt} Velocity (mph)`}, margin:{t:20,l:40}
+  });
+
+  document.getElementById('veloPercentile').innerHTML =
+    mineArr.length
+      ? `<strong>${playerName}</strong>: ${mine.toFixed(1)} mph<br>
+         Percentile: <strong>${pct}th</strong><br>
+         Rank: <strong>${rank}/${total}</strong>`
+      : '<em>No data</em>';
+}
+
+// 2) Avg Exit-Velocity
+function drawExitVelPercentile() {
+  const lm = {};
+  allData.forEach(r => {
+    if (r.PitchCall!=='InPlay') return;
+    const p = r.Pitcher, ev = parseFloat(r.ExitSpeed);
+    if (isNaN(ev)) return;
+    lm[p] = lm[p]||{sum:0,c:0};
+    lm[p].sum += ev; lm[p].c++;
+  });
+  const league = Object.values(lm).map(o=>o.sum/o.c);
+
+  const mineArr = allData
+    .filter(r=>r.Pitcher===playerName && r.PitchCall==='InPlay')
+    .map(r=>parseFloat(r.ExitSpeed))
+    .filter(v=>!isNaN(v));
+  const mine = mineArr.length
+    ? mineArr.reduce((s,v)=>s+v,0)/mineArr.length
+    : NaN;
+
+  const {pct,rank,total} = computeLeaguePercentile(league, mine);
+
+  Plotly.newPlot('exitDistChart',[{
+    x: league, type:'histogram', nbinsx:30, marker:{color:'#444'}
+  }],{ xaxis:{title:'Avg Exit Velocity (mph)'}, margin:{t:20,l:40}});
+
+  document.getElementById('exitVelPercentile').innerHTML =
+    mineArr.length
+      ? `<strong>${playerName}</strong>: ${mine.toFixed(1)} mph<br>
+         Percentile: <strong>${pct}th</strong><br>
+         Rank: <strong>${rank}/${total}</strong>`
+      : '<em>No data</em>';
+}
+
+// 3) Chase Rate
+function drawChasePercentile() {
+  const map = {};
+  allData.forEach(r => {
+    const h = parseFloat(r.PlateLocHeight),
+          s = parseFloat(r.PlateLocSide);
+    const outZone = h<1.5||h>3.5||s<-0.83||s>0.83;
+    if (!outZone) return;
+    const p = r.Pitcher;
+    map[p] = map[p]||{out:0,ch:0};
+    map[p].out++;
+    if (r.PitchCall!=='StrikeCalled' && r.PitchCall!=='BallCalled') map[p].ch++;
+  });
+  const league = Object.values(map)
+    .map(o=>o.out? o.ch/o.out*100 : null)
+    .filter(v=>v!=null);
+
+  const mineStats = map[playerName]||{out:0,ch:0};
+  const mine = mineStats.out? mineStats.ch/mineStats.out*100 : NaN;
+  const {pct,rank,total} = computeLeaguePercentile(league, mine);
+
+  Plotly.newPlot('chaseDistChart',[{
+    x: league, type:'histogram', nbinsx:30, marker:{color:'#FF7F0E'}
+  }],{ xaxis:{title:'Chase Rate (%)'}, margin:{t:20,l:40}});
+
+  document.getElementById('chasePercentile').innerHTML =
+    mineStats.out
+      ? `<strong>${playerName}</strong>: ${mine.toFixed(1)}%<br>
+         Percentile: <strong>${pct}th</strong><br>
+         Rank: <strong>${rank}/${total}</strong>`
+      : '<em>No data</em>';
+}
+
+// 4) Whiff Rate
+function drawWhiffPercentile() {
+  const map={};
+  allData.forEach(r=>{
+    const p=r.Pitcher, c=r.PitchCall;
+    if(c==='StrikeSwinging'){
+      map[p]=map[p]||{swing:0,wh:0};
+      map[p].swing++; map[p].wh++;
+    } else if(c==='FoulBallNotFieldable'||c==='InPlay'){
+      map[p]=map[p]||{swing:0,wh:0};
+      map[p].swing++;
+    }
+  });
+  const league = Object.values(map)
+    .map(o=>o.swing? o.wh/o.swing*100 : null)
+    .filter(v=>v!=null);
+
+  const mineStats = map[playerName]||{swing:0,wh:0};
+  const mine = mineStats.swing? mineStats.wh/mineStats.swing*100 : NaN;
+  const {pct,rank,total} = computeLeaguePercentile(league, mine);
+
+  Plotly.newPlot('whiffDistChart',[{
+    x: league, type:'histogram', nbinsx:30, marker:{color:'#1F77B4'}
+  }],{ xaxis:{title:'Whiff Rate (%)'}, margin:{t:20,l:40}});
+
+  document.getElementById('whiffPercentile').innerHTML =
+    mineStats.swing
+      ? `<strong>${playerName}</strong>: ${mine.toFixed(1)}%<br>
+         Percentile: <strong>${pct}th</strong><br>
+         Rank: <strong>${rank}/${total}</strong>`
+      : '<em>No data</em>';
+}
+
+
+function drawKPercentile() {
+  // 1) Map each PA to its pitcher
+  const paPitcher = {};
+  allData.forEach(r => {
+    if (!r.Pitcher) return;
+    const paKey = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    paPitcher[paKey] = r.Pitcher;
+  });
+
+  // 2) Initialize per‐pitcher counts
+  const stats = {};
+  Object.values(paPitcher).forEach(p => {
+    stats[p] = { pa: 0, k: 0 };
+  });
+
+  // 3) Tally total PAs
+  Object.values(paPitcher).forEach(p => {
+    stats[p].pa++;
+  });
+
+  // 4) Tally strikeouts using the full word
+  allData.forEach(r => {
+    const paKey = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    const pit   = paPitcher[paKey];
+    if (!pit) return;
+    if (r.KorBB === 'Strikeout') {
+      stats[pit].k++;
+    }
+  });
+
+  // 5) Build league array of K%
+  const leagueKp = Object.values(stats)
+    .map(o => o.pa ? (o.k / o.pa * 100) : 0);
+
+  // 6) Compute this pitcher’s K%
+  const me = stats[playerName] || { pa:0, k:0 };
+  const myKpct = me.pa ? (me.k / me.pa * 100) : 0;
+
+  // 7) Percentile + rank helper
+  function percentileAndRank(arr, value) {
+    const sorted = arr.slice().sort((a,b)=>a-b);
+    const idx = sorted.findIndex(x=>x >= value);
+    const pct = Math.round((idx < 0 ? arr.length : idx) / arr.length * 100);
+    const rank = sorted.filter(x=>x > value).length + 1;
+    return { pct, rank, total: arr.length };
+  }
+  const { pct, rank, total } = percentileAndRank(leagueKp, myKpct);
+
+  // 8) Draw histogram
+  Plotly.newPlot('kDistChart', [{
+    x: leagueKp,
+    type: 'histogram',
+    nbinsx: 30,
+    marker: { color: PTYPE_COLORS['Four-Seam'] || '#444' }
+  }], {
+    xaxis: { title: 'K% per PA' },
+    margin: { t: 20, l: 40 }
+  });
+
+  // 9) Display text
+  document.getElementById('kPercentile').innerHTML = me.pa
+    ? `<strong>${playerName}</strong>: ${myKpct.toFixed(1)}% K<br>
+       Percentile: <strong>${pct}th</strong><br>
+       Rank: <strong>${rank}/${total}</strong>`
+    : `<em>${playerName} has no PAs</em>`;
+}
+
+  
+
+
+// 6) Hard-Hit %
+function drawHardHitPercentile() {
+  const map={};
+  allData.forEach(r=>{
+    if(r.PlayResult==='Undefined'||r.PitchCall!=='InPlay') return;
+    const p=r.Pitcher, ev=parseFloat(r.ExitSpeed);
+    if (isNaN(ev)) return;
+    map[p]=map[p]||{tot:0,hard:0};
+    map[p].tot++;
+    if(ev>=95) map[p].hard++;
+  });
+  const league = Object.entries(map)
+    .map(([p,o])=> o.tot? o.hard/o.tot*100 : null)
+    .filter(v=>v!=null);
+
+  const mineStats = map[playerName]||{tot:0,hard:0};
+  const mine = mineStats.tot? mineStats.hard/mineStats.tot*100 : NaN;
+  const {pct,rank,total} = computeLeaguePercentile(league, mine);
+
+  Plotly.newPlot('hhDistChart',[{
+    x: league, type:'histogram', nbinsx:30, marker:{color:'#D62728'}
+  }],{ xaxis:{title:'Hard-Hit %'}, margin:{t:20,l:40}});
+
+  document.getElementById('hhPercentile').innerHTML =
+    mineStats.tot
+      ? `<strong>${playerName}</strong>: ${mine.toFixed(1)}%<br>
+         Percentile: <strong>${pct}th</strong><br>
+         Rank: <strong>${rank}/${total}</strong>`
+      : '<em>No data</em>';
+}
+
+
+// 4) Batted-Ball Spray-WAZE (feet + correct hover)
+function drawParkSprayChart(rows) {
+  const hits = rows
+    .filter(r => r.PitchCall==='InPlay' && r.PlayResult!=='Undefined')
+    .map(r => ({
+      x: parseFloat(r.PositionAt110X),
+      y: parseFloat(r.PositionAt110Y),
+      ev: parseFloat(r.ExitSpeed),
+      la: parseFloat(r.Angle)
+    }))
+    .filter(p => !isNaN(p.x) && !isNaN(p.y));
+
+  const container = document.getElementById('parkSprayChart');
+  if (!hits.length) {
+    container.innerHTML = '<em>No batted-ball data</em>';
+    return;
+  }
+
+  // scatter with customdata for hover
+  const trace = {
+    x: hits.map(p => p.x),
+    y: hits.map(p => p.y),
+    customdata: hits.map(p => [p.ev, p.la]),
+    hovertemplate:
+      'Exit Vel: %{customdata[0]:.0f} mph<br>' +
+      'Launch Ang: %{customdata[1]:.1f}°<extra></extra>',
+    mode: 'markers',
+    type: 'scatter',
+    marker: {
+      size: hits.map(p => Math.min((p.ev||70)/2, 30)),
+      color: hits.map(p => p.la),
+      colorscale: 'Viridis',
+      showscale: true,
+      colorbar: { title: 'Launch Angle (°)' },
+      opacity: 0.8,
+      line: { width: 1, color: '#333' }
+    }
+  };
+
+  Plotly.newPlot(container, [trace], {
+    images: [{
+      // replace with your actual park diagram URL
+      source: 'assets/minor-league-park.png',
+      xref: 'x', yref: 'y',
+      x: Math.min(...trace.x), y: Math.min(...trace.y),
+      xanchor: 'left', yanchor: 'bottom',
+      sizex: Math.max(...trace.x) - Math.min(...trace.x),
+      sizey: Math.max(...trace.y) - Math.min(...trace.y),
+      sizing: 'stretch', layer: 'below', opacity: 0.7
+    }],
+    xaxis: { title: 'Feet from Home Plate (X)', scaleanchor: 'y', scaleratio: 1 },
+    yaxis: { title: 'Feet from Home Plate (Y)' },
+    margin: { t: 30, l: 50 }
+  });
+}
+
+// 10) Spin-Rate Distribution & Percentile with pitch-type toggle
+function drawSpinPercentile() {
+  const pt = document.getElementById('spinTypeToggle').value;
+  // league‐wide spin
+  const league = allData
+    .filter(r => r.AutoPitchType === pt)
+    .map(r => parseFloat(r.SpinRate))
+    .filter(v => !isNaN(v));
+
+  const mine = allData
+    .filter(r => r.Pitcher === playerName && r.AutoPitchType === pt)
+    .map(r => parseFloat(r.SpinRate))
+    .filter(v => !isNaN(v));
+
+  const containerH = document.getElementById('spinDistChart');
+  if (!league.length || !mine.length) {
+    document.getElementById('spinPercentile').textContent = '';
+    return;
+  }
+
+  const avgMine = mine.reduce((s,v)=>s+v,0) / mine.length;
+  const below   = league.filter(v=>v <= avgMine).length;
+  const pct     = Math.round((below/league.length)*100);
+
+  // histogram
+  const trace = {
+    x: league,
+    type: 'histogram',
+    nbinsx: 30,
+    marker: { color: PTYPE_COLORS[pt] || '#444' },
+    opacity: 0.75
+  };
+  const layout = {
+    shapes: [{
+      type: 'line',
+      x0: avgMine, x1: avgMine,
+      y0: 0, y1: 1,
+      xref: 'x', yref: 'paper',
+      line: { color: 'red', width: 2, dash: 'dash' }
+    }],
+    xaxis: { title: `Spin Rate of ${pt} (rpm)` },
+    yaxis: { title: 'Count' },
+    margin: { t: 30, l: 50 }
+  };
+
+  Plotly.newPlot(containerH, [trace], layout);
+  document.getElementById('spinPercentile').innerHTML =
+    `Avg ${pt} spin: <strong>${avgMine.toFixed(0)} rpm</strong><br>` +
+    `Percentile: <strong>${pct}th</strong> league-wide.`;
+}
 
 // 1) Release-Point Cluster Map
 function drawReleaseClusterMap(rows) {
@@ -1506,6 +2168,10 @@ pts.forEach(t => {
 });
 
 
+const spinSel = document.getElementById('spinTypeToggle');
+[...new Set(allData.map(r=>r.AutoPitchType))].sort()
+  .forEach(pt => spinSel.append(new Option(pt, pt)));
+
 
             // sub-tab toggles
             document.getElementById('tabPA').addEventListener('click', () => {
@@ -1625,8 +2291,104 @@ drawSunburst(f);
 
   drawSpinAxisRose(f);
 drawExitVelByPitch(f);
+drawSpinPercentile();
+
+drawVeloPercentile();
+drawExitVelPercentile();
+drawChasePercentile();
+drawWhiffPercentile();
+drawHardHitPercentile();
+drawStuffGauge(f);
 
 }
+
+
+function drawSaberMetrics(rows) {
+  // 1) Map each PA to its pitcher
+  const paToPitcher = {};
+  allData.forEach(r => {
+    if (!r.Pitcher) return;
+    const key = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    paToPitcher[key] = r.Pitcher;
+  });
+
+  // 2) Initialize league-wide stats
+  const league = {};
+  Object.values(paToPitcher).forEach(pit => {
+    league[pit] = { pa:0, k:0, bb:0, hr:0, ab:0, h:0 };
+  });
+
+  // 3) Tally PAs
+  Object.entries(paToPitcher).forEach(([pa, pit]) => {
+    league[pit].pa++;
+  });
+
+  // 4) Tally K/BB/HR/AB/H on every pitch
+  allData.forEach(r => {
+    const pit = r.Pitcher;
+    const stat = league[pit];
+    if (!stat) return;
+
+    if (r.KorBB === 'Strikeout') stat.k++;
+    if (r.KorBB === 'Walk')      stat.bb++;
+    if (r.PlayResult === 'HomeRun') stat.hr++;
+
+    // an at-bat is any non-called-ball pitch
+    if (r.PitchCall !== 'BallCalled' && r.PitchCall !== 'Undefined') {
+      stat.ab++;
+      if (['Single','Double','Triple','HomeRun'].includes(r.PlayResult)) {
+        stat.h++;
+      }
+    }
+  });
+
+  // 5) Aggregate league totals
+  const T = Object.values(league).reduce((acc,o) => {
+    acc.pa += o.pa;
+    acc.k  += o.k;
+    acc.bb += o.bb;
+    acc.hr += o.hr;
+    acc.ab += o.ab;
+    acc.h  += o.h;
+    return acc;
+  }, {pa:0,k:0,bb:0,hr:0,ab:0,h:0});
+
+  // 6) Get this pitcher’s stats (or zero if missing)
+  const me = league[playerName] || {pa:0,k:0,bb:0,hr:0,ab:0,h:0};
+
+  // 7) Compute rate stats
+  const ipL = T.pa/3, ipM = me.pa/3;
+  const metrics = [
+    ['K%',    me.pa? me.k/me.pa*100     :0,  T.pa? T.k/T.pa*100     :0],
+    ['BB%',   me.pa? me.bb/me.pa*100    :0,  T.pa? T.bb/T.pa*100    :0],
+    ['HR/9',  ipM? me.hr/ipM            :0,  ipL? T.hr/ipL          :0],
+    ['BABIP',
+      (me.ab - me.k - me.hr)
+        ? (me.h - me.hr)/(me.ab - me.k - me.hr)
+        : 0,
+      (T.ab - T.k - T.hr)
+        ? (T.h - T.hr)/(T.ab - T.k - T.hr)
+        : 0
+    ],
+    ['FIP',
+      ipM
+        ? (13*me.hr + 3*me.bb - 2*me.k)/ipM + 3.2
+        : 0,
+      3.2
+    ]
+  ];
+
+  // 8) Render into your <table id="sabermetricTable">
+  const tbody = document.querySelector('#sabermetricTable tbody');
+  tbody.innerHTML = metrics.map(([label, mVal, lVal]) => `
+    <tr>
+      <td style="border:1px solid #ccc;padding:4px">${label}</td>
+      <td style="border:1px solid #ccc;padding:4px">${mVal.toFixed(2)}</td>
+      <td style="border:1px solid #ccc;padding:4px">${lVal.toFixed(2)}</td>
+    </tr>
+  `).join('');
+}
+
 
         function onBatterChange() {
   const bat = document.getElementById('batterFilter').value;

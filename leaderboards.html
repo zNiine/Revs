@@ -132,6 +132,8 @@
     <li><a href="#spin-eff">Spin Efficiency</a></li>
     <li><a href="#pitcher-hh">Pitcher HardHit %</a></li>
     <li><a href="#batter-hh">Batter HardHit %</a></li>
+    <li><a href="#barrel-pct">Barrel %</a></li>
+      <li><a href="#sweetspot-pct">SweetSpot %</a></li>
   </ul>
 </nav>
   <main>
@@ -287,23 +289,6 @@
       </div>
     </details>
 
-    <!-- 7. Umpire Accuracy -->
-    <details open class="card">
-      <summary>
-        <h2>
-          7. Umpire Accuracy
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="umpire-accuracy">
-        <table>
-          <thead>
-            <tr><th>Umpire</th><th>Accuracy</th><th>Total Calls</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
 
     <!-- 8. Batter Run Expectancy -->
     <details open class="card">
@@ -398,24 +383,86 @@
         </table>
       </div>
     </details>
+<details open class="card">
+  <summary>
+    <h2>
+      12. Batter HardHit %
+      <a href="#top" class="back-to-top">↑</a>
+    </h2>
+  </summary>
+  <div class="leaderboard" id="batter-hh">
+    <div class="filters">
+      <input type="text" id="hh-b-team-filter" placeholder="Filter by team" list="team-suggestions" />
+      <input type="text" id="hh-b-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
+      <label for="hh-b-threshold">Threshold:</label>
+      <input type="number" id="hh-b-threshold" value="95" min="0" style="width:4rem"/> mph
+    </div>
+    <table>
+      <thead>
+        <tr><th>Batter</th><th>Team</th><th>HardHit %</th><th>Count</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</details>
 
-    <!-- 12. Batter HardHit % -->
+<!-- 13. Barrel % -->
+<details open class="card">
+   <summary>
+    <h2>
+      Barrel %
+      <a href="#top" class="back-to-top">↑</a>
+    </h2>
+  </summary>
+  <div class="leaderboard" id="barrel-pct">
+    <div class="filters">
+      <input type="text" id="barrel-team-filter" placeholder="Filter by team" list="team-suggestions" />
+      <input type="text" id="barrel-player-filter" placeholder="Filter by player" list="player-suggestions" />
+    </div>
+    <table>
+      <thead>
+        <tr><th>Player</th><th>Barrel %</th><th>Plate Apps</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</details>
+
+<!-- 14. SweetSpot % -->
+<details open class="card">
+   <summary>
+    <h2>
+      Sweetspot %
+      <a href="#top" class="back-to-top">↑</a>
+    </h2>
+  </summary>
+  <div class="leaderboard" id="sweetspot-pct">
+    <div class="filters">
+      <input type="text" id="ss-team-filter" placeholder="Filter by team" list="team-suggestions" />
+      <input type="text" id="ss-player-filter" placeholder="Filter by player" list="player-suggestions" />
+    </div>
+    <table>
+      <thead>
+        <tr><th>Player</th><th>SweetSpot %</th><th>Plate Apps</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</details>
+
+
+    <!-- 7. Umpire Accuracy -->
     <details open class="card">
       <summary>
         <h2>
-          12. Batter HardHit %
+          7. Umpire Accuracy
           <a href="#top" class="back-to-top">↑</a>
         </h2>
       </summary>
-      <div class="leaderboard" id="batter-hh">
-        <div class="filters">
-          <input type="text" id="hh-b-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
-          <label for="hh-b-threshold">Threshold:</label>
-          <input type="number" id="hh-b-threshold" value="95" min="0" style="width:4rem"/> mph
-        </div>
+      <div class="leaderboard" id="umpire-accuracy">
         <table>
           <thead>
-            <tr><th>Batter</th><th>HardHit %</th><th>Count</th></tr>
+            <tr><th>Umpire</th><th>Accuracy</th><th>Total Calls</th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -531,6 +578,7 @@ const RE_AFTER_HIT = {
   Out:    0.250    // avg RE after a typical out
 };
 
+
 // 10) Spin Efficiency
 function drawSpinEfficiency(rows) {
   const map = {};
@@ -621,32 +669,40 @@ renderLeaderboard('pitcher-hh',
 // 12) Batter HardHit%
 function drawBatterHardHit(rows) {
   const threshold = +document.getElementById('hh-b-threshold').value;
+  const teamF     = document.getElementById('hh-b-team-filter').value;
+  const batF      = document.getElementById('hh-b-batter-filter').value;
+
+  // build per-batter counts and team
   const map = {};
   rows.forEach(r => {
-    const bat = r[columns.player];
-    const ev  = parseFloat(r[columns.exitSpeed]);
-    const call= r[columns.pitchCall];
-    // only in‐play batted balls
-    if (!bat || call!=='InPlay' || isNaN(ev)) return;
-    map[bat] = map[bat] || { hh:0, tot:0, team: getFullTeamName(r[columns.playerTeam],r) };
+    if (r.PitchCall !== 'InPlay') return;
+    const ev = parseFloat(r.ExitSpeed);
+    if (isNaN(ev)) return;
+    const bat  = r[columns.player];
+    const team = getFullTeamName(r[columns.playerTeam], r);
+    if (!map[bat]) map[bat] = { hh:0, tot:0, team };
     map[bat].tot++;
     if (ev >= threshold) map[bat].hh++;
   });
-  let out = Object.entries(map).map(([bat, v])=>({
-    Batter: bat,
-    HHPct:  ((v.hh/v.tot)*100).toFixed(1),
-    Count:  v.tot,
-    Team:   v.team
-  })).filter(r=>r.Count>=15);
-  // filter
-  const batF = document.getElementById('hh-b-batter-filter').value;
-  if (batF) out = out.filter(r=>r.Batter===batF);
-  // sort descending
-  out.sort((a,b)=>b.HHPct - a.HHPct);
-renderLeaderboard('batter-hh',
-  out.slice(0,10),
-  ['Batter','HHPct','Count']
-);
+
+  // flatten into array
+  let out = Object.entries(map).map(([bat, v]) => ({
+    Batter:    bat,
+    Team:       v.team,
+    HHPct:     ((v.hh/v.tot)*100).toFixed(1),
+    Count:     v.tot
+  }));
+
+  // apply filters
+  if (teamF) out = out.filter(r => r.Team === teamF);
+  if (batF)  out = out.filter(r => r.Batter === batF);
+
+  // only show those with enough PAs, sort and slice
+  out = out.filter(r => r.Count >= 15)
+           .sort((a,b)=>b.HHPct - a.HHPct)
+           .slice(0,10);
+
+  renderLeaderboard('batter-hh', out, ['Batter','Team','HHPct','Count']);
 }
 
 
@@ -842,7 +898,7 @@ catcherRows.sort((a, b) =>
   (parseFloat(a.PopTime) || 0) - (parseFloat(b.PopTime) || 0)
 );
 // render
-renderLeaderboard('catcher-stats', catcherRows, [
+renderLeaderboard('catcher-stats', catcherRows.slice(0,10), [
   'Catcher','Team','PopTime','ExchangeTime','ThrowSpeed','Attempts'
 ]);
 
@@ -907,7 +963,7 @@ fullUmpireRows.sort((a,b) => b.Accuracy - a.Accuracy);
 // render the top 10
 renderLeaderboard(
   'umpire-accuracy',
-  fullUmpireRows.slice(0,10),
+  fullUmpireRows.slice(0,100),
   ['Umpire','Accuracy','TotalCalls']
 );
 // right after computeAndRender, wire up the sorter:
@@ -967,15 +1023,86 @@ drawSpinEfficiency(filtered);
 drawPitcherHardHit(filtered);
 
 // 12) Batter HardHit%
-drawBatterHardHit(filtered);
-[
-  'seam-team-filter','seam-pitcher-filter',
-  'hh-p-team-filter','hh-p-pitcher-filter','hh-threshold',
-  'hh-b-batter-filter','hh-b-threshold'
-].forEach(id =>
-  document.getElementById(id).addEventListener('input', computeAndRender)
-);
+['hh-b-team-filter','hh-b-batter-filter','hh-b-threshold']
+  .forEach(id =>
+    document.getElementById(id)
+      .addEventListener('input', computeAndRender)
+  );
+
+  drawBatterHardHit(filtered)
+
+drawBarrelPct(filtered);
+  drawSweetSpotPct(filtered);
+['barrel-team-filter','barrel-player-filter','ss-team-filter','ss-player-filter']
+  .forEach(id => document.getElementById(id)
+    .addEventListener('input', computeAndRender));
+
     }
+
+    function drawBarrelPct(rows) {
+  const teamF = document.getElementById('barrel-team-filter').value;
+  const playerF = document.getElementById('barrel-player-filter').value;
+
+  // build raw counts
+  const map = {};
+  rows.forEach(r => {
+    if (r.PitchCall!=='InPlay') return;
+    const ev = parseFloat(r.ExitSpeed), la = parseFloat(r.Angle);
+    if (isNaN(ev)||isNaN(la)) return;
+    const team = getFullTeamName(r[columns.playerTeam], r);
+    const bat = r[columns.player];
+    map[bat] = map[bat] || { barrel:0, pa:0, team };
+    map[bat].pa++;
+    if (ev>=98 && la>=26 && la<=32) map[bat].barrel++;
+  });
+
+  // flatten & filter
+  let rowsOut = Object.entries(map).map(([bat,s])=>({
+    Player: bat,
+    'Barrel %': +(s.barrel/s.pa*100).toFixed(1),
+    'Plate Apps': s.pa,
+    Team: s.team
+  }));
+  if (teamF) rowsOut = rowsOut.filter(r=>r.Team===teamF);
+  if (playerF) rowsOut = rowsOut.filter(r=>r.Player===playerF);
+  rowsOut = rowsOut.filter(r=>r['Plate Apps']>=10)
+                   .sort((a,b)=>b['Barrel %']-a['Barrel %'])
+                   .slice(0,10);
+
+  renderLeaderboard('barrel-pct', rowsOut, ['Player','Barrel %','Plate Apps']);
+}
+
+function drawSweetSpotPct(rows) {
+  const teamF = document.getElementById('ss-team-filter').value;
+  const playerF = document.getElementById('ss-player-filter').value;
+
+  const map = {};
+  rows.forEach(r =>{
+    if (r.PitchCall!=='InPlay') return;
+    const ev = parseFloat(r.ExitSpeed);
+    if (isNaN(ev)) return;
+    const team = getFullTeamName(r[columns.playerTeam], r);
+    const bat = r[columns.player];
+    map[bat] = map[bat] || { ss:0, pa:0, team };
+    map[bat].pa++;
+    if (ev>=90 && ev<98) map[bat].ss++;
+  });
+
+  let rowsOut = Object.entries(map).map(([bat,s])=>({
+    Player: bat,
+    'SweetSpot %': +(s.ss/s.pa*100).toFixed(1),
+    'Plate Apps': s.pa,
+    Team: s.team
+  }));
+  if (teamF) rowsOut = rowsOut.filter(r=>r.Team===teamF);
+  if (playerF) rowsOut = rowsOut.filter(r=>r.Player===playerF);
+  rowsOut = rowsOut.filter(r=>r['Plate Apps']>=10)
+                   .sort((a,b)=>b['SweetSpot %']-a['SweetSpot %'])
+                   .slice(0,10);
+
+  renderLeaderboard('sweetspot-pct', rowsOut, ['Player','SweetSpot %','Plate Apps']);
+}
+
 
 
 
@@ -985,6 +1112,8 @@ drawBatterHardHit(filtered);
       skipEmptyLines:true,
       complete: results => {
         data = results.data;
+            fullData = results.data;
+
         data.forEach(r => {
           teams.add(getFullTeamName(r[columns.playerTeam],r));
           teams.add(getFullTeamName(r[columns.pitcherTeam],r));
@@ -1300,6 +1429,8 @@ document.querySelectorAll('.back-to-top').forEach(btn => {
     document.getElementById('top').scrollIntoView({ behavior: 'smooth' });
   });
 });
+
+
 
   </script>
 </body>
