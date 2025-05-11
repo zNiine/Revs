@@ -165,6 +165,12 @@
             background: #eee;
         }
 
+         .row { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .col { flex: 1; }
+    .card { border: 1px solid #ddd; border-radius: 4px; padding: 0.75rem; background: #fff; }
+    /* Chart containers should fill card */
+    .card > div { width: 100%; height: 100%; }
+
         @media print {
   header, nav, #subMenu, .sidebar, #paContainer { display: none !important; }
   body, html { margin:0; padding:0; }
@@ -204,13 +210,13 @@
       <datalist id="suggestions"></datalist>
     </form>
     </header>
-    <nav id="menu">
-        <ul>
-            <li><a href="index.html">Home</a></li>
-            <li><a href="leaderboards.html">Leaderboards</a></li>
-            <li><a href="park-factors.html">Park Factors</a></li>
-            <li><a href="#" class="active">Pitcher Profiles</a></li>
-        </ul>
+   <nav id="menu">
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="leaderboards.html">Leaderboards</a></li>
+        <li><a href="park-factors.html">Park Factors</a></li>
+        <li><a href="fielding.html" class="active">Fielding</a></li>
+      </ul>
     </nav>
 
     <!-- Sub-menu: toggle between the two profile panels -->
@@ -295,6 +301,12 @@
             <h3>Batted Ball Table</h3>
             <div id="battedBallTable"></div>
 
+            <div>
+  <h4>Plate-Location Clusters</h4>
+  <div id="locationScatter" style="width:500px;height:450px;"></div>
+</div>
+
+
             <h3>Movement Profile</h3>
 <div id="movementContainer" style="text-align:center;">
   <svg id="movementSvg" width="500" height="500" style="border:1px solid #ccc;"></svg>
@@ -323,9 +335,16 @@
 </div>
 <div id="locationHeatmap" style="width:500px; height:500px; margin:auto;"></div>
 
+<label for="pitchTypeTableFilter">
+  Show stats for:
+  <select id="pitchTypeTableFilter">
+    <option value="">All Types</option>
+    <!-- JS will populate the rest -->
+  </select>
+</label>
+
 <h3>Pitch Stats By Count</h3>
 <div id="pitchStatsByCount"></div>
-
 <h3>Contact Quality Metrics</h3>
 <div id="contactMetrics"></div>
 
@@ -524,7 +543,21 @@ const PTYPE_COLORS = {};
 
 function pnum(v){ const n=parseFloat(v); return isNaN(n)?null:n; }
 
+function populatePitchTypeTableFilter(data) {
+  const sel = document.getElementById('pitchTypeTableFilter');
+  // get unique types
+  const types = Array.from(new Set(data.map(r => r.AutoPitchType || 'undefined')))
+                     .sort();
+  types.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = t;
+    sel.appendChild(opt);
+  });
 
+  // re-render table whenever selection changes
+  sel.addEventListener('change', () => renderPitchStatsByCount(data));
+}
 // helper: percentile & rank
 function computeLeaguePercentile(values, mine) {
   values.sort((a,b)=>a-b);
@@ -1993,58 +2026,63 @@ function computeContactPercentages(data) {
 // Example usage: call this after filtering your data
 
 
-
 function renderPitchStatsByCount(data) {
-  // 1) Aggregate as before…
+  // read the dropdown
+  const selectedType = document.getElementById('pitchTypeTableFilter').value;
+
+  // 1) Aggregate per (type,count) only for the selected type (if any)
   const stats = {};
   data.forEach(r => {
     const pt = r.AutoPitchType || 'undefined';
-    const b = parseInt(r.Balls,10)||0;
-    const s = parseInt(r.Strikes,10)||0;
+    if (selectedType && pt !== selectedType) return;    // <-- skip others
+    const b = parseInt(r.Balls,10)   || 0;
+    const s = parseInt(r.Strikes,10) || 0;
     const key = `${b}-${s}`;
-    stats[pt] = stats[pt]||{};
-    stats[pt][key] = stats[pt][key]||{ sumV:0, sumS:0, sumH:0, cnt:0 };
-    const e = stats[pt][key];
-    const v = parseFloat(r.RelSpeed),
+
+    stats[pt] = stats[pt] || {};
+    stats[pt][key] = stats[pt][key] || { sumV:0, sumS:0, sumH:0, cnt:0 };
+    const rec = stats[pt][key];
+
+    const v  = parseFloat(r.RelSpeed),
           sp = parseFloat(r.SpinRate),
-          h = parseFloat(r.RelHeight);
-    if (!isNaN(v))  e.sumV += v;
-    if (!isNaN(sp)) e.sumS += sp;
-    if (!isNaN(h))  e.sumH += h;
-    e.cnt += 1;
+          h  = parseFloat(r.RelHeight);
+
+    if (!isNaN(v))  rec.sumV += v;
+    if (!isNaN(sp)) rec.sumS += sp;
+    if (!isNaN(h))  rec.sumH += h;
+    rec.cnt += 1;
   });
 
-  // 2) Flatten & sort
+  // 2) Flatten & sort by count
   const rows = [];
   Object.keys(stats).sort().forEach(pt => {
-    Object.keys(stats[pt]).map(key => {
-      const { sumV, sumS, sumH, cnt } = stats[pt][key];
-      return {
-        count: key,
+    Object.entries(stats[pt])
+      .map(([countKey, {sumV,sumS,sumH,cnt}]) => ({
         pitchType: pt,
+        count:     countKey,
         avgV: cnt ? (sumV/cnt).toFixed(1) : '',
         avgS: cnt ? (sumS/cnt).toFixed(0) : '',
         avgH: cnt ? (sumH/cnt).toFixed(2) : ''
-      };
-    })
-    .sort((a,b) => parseInt(a.count.split('-')[0],10) - parseInt(b.count.split('-')[0],10))
-    .forEach(r => rows.push(r));
+      }))
+      .sort((a,b) => {
+        // sort by balls then strikes
+        const [bA,sA] = a.count.split('-').map(n=>+n);
+        const [bB,sB] = b.count.split('-').map(n=>+n);
+        return bA - bB || sA - sB;
+      })
+      .forEach(r => rows.push(r));
   });
 
-  // 3) Build a bordered table
+  // 3) Build table HTML
   let html = `
-    <table style="
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 0.5rem;
-    ">
+    <table style="border-collapse:collapse;width:100%;margin-top:.5rem;">
       <thead>
         <tr>
-          <th style="border:1px solid #ccc; padding:4px;">Count</th>
-          <th style="border:1px solid #ccc; padding:4px;">Pitch Type</th>
-          <th style="border:1px solid #ccc; padding:4px; text-align:right;">Release Speed</th>
-          <th style="border:1px solid #ccc; padding:4px; text-align:right;">Spin Rate (rpm)</th>
-          <th style="border:1px solid #ccc; padding:4px; text-align:right;">Release Height (ft)</th>
+          <th style="border:1px solid #ccc;padding:4px;">Count</th>
+          <th style="border:1px solid #ccc;padding:4px;">Pitch Type</th>
+          <th style="border:1px solid #ccc;padding:4px;text-align:right;">Rel Speed</th>
+          <th style="border:1px solid #ccc;padding:4px;text-align:right;">Spin Rate</th>
+          <th style="border:1px solid #ccc;padding:4px;text-align:right;">Rel Height</th>
         </tr>
       </thead>
       <tbody>
@@ -2053,20 +2091,15 @@ function renderPitchStatsByCount(data) {
   rows.forEach(r => {
     html += `
       <tr>
-        <td style="border:1px solid #ccc; padding:4px;">${r.count}</td>
-        <td style="border:1px solid #ccc; padding:4px;">${r.pitchType}</td>
-        <td style="border:1px solid #ccc; padding:4px; text-align:right;">${r.avgV}</td>
-        <td style="border:1px solid #ccc; padding:4px; text-align:right;">${r.avgS}</td>
-        <td style="border:1px solid #ccc; padding:4px; text-align:right;">${r.avgH}</td>
-      </tr>
-    `;
+        <td style="border:1px solid #ccc;padding:4px;">${r.count}</td>
+        <td style="border:1px solid #ccc;padding:4px;">${r.pitchType}</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${r.avgV}</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${r.avgS}</td>
+        <td style="border:1px solid #ccc;padding:4px;text-align:right;">${r.avgH}</td>
+      </tr>`;
   });
 
-  html += `
-      </tbody>
-    </table>
-  `;
-
+  html += `</tbody></table>`;
   document.getElementById('pitchStatsByCount').innerHTML = html;
 }
 
@@ -2399,7 +2432,10 @@ function applyFilters() {
   renderTable(f);
   renderAtBatDetails(f);
   drawMovementProfile(f);
-  renderPitchStatsByCount(f);
+populatePitchTypeTableFilter(f);
+    // initial render:
+    renderPitchStatsByCount(f);      plotLocationPieClusters(f);
+
 
   const metrics = computeContactPercentages(f);
 if (metrics) {
@@ -2661,44 +2697,187 @@ function drawSaberMetrics(rows) {
             
         }
 
+         function plotLocationPieClusters(rows) {
+  // 1) Bin into 0.2 ft cells and count by pitch type
+  const grid = {};
+  rows.forEach(r => {
+    const x = parseNum(r.PlateLocSide),
+          y = parseNum(r.PlateLocHeight);
+    if (isNaN(x)||isNaN(y)) return;
+    const bx = Math.round(x*5)/5,
+          by = Math.round(y*5)/5,
+          key = `${bx}_${by}`;
+    grid[key] = grid[key] || { x: bx, y: by, counts: {} };
+    const t = r.AutoPitchType || 'Unknown';
+    grid[key].counts[t] = (grid[key].counts[t]||0) + 1;
+  });
+
+  // 2) Build a color map
+  const allTypes = new Set();
+  Object.values(grid).forEach(cell =>
+    Object.keys(cell.counts).forEach(t => allTypes.add(t))
+  );
+  const CM = {};
+  Array.from(allTypes).forEach((t,i) =>
+    CM[t] = `hsl(${(i*60)%360},70%,50%)`
+  );
+
+  // helper: draw a little pie into an offscreen canvas and return dataURL
+  function makePie(counts) {
+    const entries = Object.entries(counts);
+    const total   = entries.reduce((s,[,c])=>s+c,0);
+    const size    = 64;                 // canvas size
+    const ctx     = document.createElement('canvas').getContext('2d');
+    ctx.canvas.width = ctx.canvas.height = size;
+    const cx = size/2, cy = size/2, r = size/2 - 2;
+    let start = 0;
+    entries.forEach(([t,c]) => {
+      const slice = c/total * Math.PI*2;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.arc(cx, cy, r, start, start+slice);
+      ctx.closePath();
+      ctx.fillStyle = CM[t];
+      ctx.fill();
+      start += slice;
+    });
+    // draw center hole
+    ctx.beginPath();
+    ctx.arc(cx,cy,r*0.4,0,Math.PI*2);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    return ctx.canvas.toDataURL();
+  }
+
+  // 3) Build an image entry per grid cell
+  const images = [];
+  const xMin = -0.8, xMax = 0.8, yMin = 0, yMax = 5;
+  const cellSizeFt = 0.2;
+  // sizex/sizey in data units = cellSizeFt
+  Object.values(grid).forEach(cell => {
+    const counts = cell.counts;
+    const total = Object.values(counts).reduce((a,b)=>a+b,0);
+    if (!total) return;
+    images.push({
+      source: makePie(counts),
+      xref: 'x', yref: 'y',
+      x: cell.x, y: cell.y,
+      xanchor: 'center',
+      yanchor: 'middle',
+      sizex: cellSizeFt,
+      sizey: cellSizeFt,
+      layer: 'above'
+    });
+  });
+
+  // 4) Build a dummy scatter for the legend
+  const legendTraces = Array.from(allTypes).map(t => ({
+    type: 'scatter',
+    x: [null], y: [null],
+    mode: 'markers',
+    marker: { size: 12, color: CM[t] },
+    name: t,
+    showlegend: true
+  }));
+
+  // 5) One invisible scatter to set axes
+  const base = {
+    x: [xMin, xMax],
+    y: [yMin, yMax],
+    type: 'scatter',
+    mode: 'markers',
+    marker: { opacity: 0 }
+  };
+
+  // 6) Layout with fixed ranges and strike-zone box
+  const layout = {
+    width: 500, height: 450,
+    margin: { t:20, b:40, l:40, r:120 },
+    xaxis: { range:[xMin,xMax], fixedrange:true, title:'Horizontal Location (ft)' },
+    yaxis: { range:[yMin,yMax], fixedrange:true, title:'Vertical Location (ft)' },
+    shapes: [{
+      type:'rect', xref:'x', yref:'y',
+      x0:-0.708, x1:0.708, y0:1.5, y1:3.5,
+      line:{color:'black',width:2}
+    }],
+    images
+  };
+
+  Plotly.newPlot('locationScatter', [base, ...legendTraces], layout);
+}
 
         function plotPlate(data) {
-            const atVal = document.getElementById('atBatFilter').value;
-            // Build table rows for numbering
-            const tableRows = data.filter(r => r.PlayResult !== 'Undefined');
-            tableRows.forEach((r, i) => r.__hitNumber = i + 1);
-            const indexMap = new Map(tableRows.map(r => [r, r.__hitNumber]));
-            // If At Bat selected, number by sequence in 'data'
-            const atSeq = atVal ? data.map((_, i) => i + 1) : null;
+    const atVal = document.getElementById('atBatFilter').value;
+    // Build table rows for numbering
+    const tableRows = data.filter(r => r.PlayResult !== 'Undefined');
+    tableRows.forEach((r, i) => r.__hitNumber = i + 1);
+    const indexMap = new Map(tableRows.map(r => [r, r.__hitNumber]));
+    // If At Bat selected, number by sequence in 'data'
+    const atSeq = atVal ? data.map((_, i) => i + 1) : null;
 
-            const types = [...new Set(data.map(r => r.AutoPitchType))], CM = {};
-            types.forEach((t, i) => CM[t] = `hsl(${(i * 60) % 360},70%,50%)`);
-            const swing = r => r.PitchCall !== 'StrikeCalled' && r.PitchCall !== 'BallCalled';
-            const trace = {
-                x: data.map(r => parseNum(r.PlateLocSide)),
-                y: data.map(r => parseNum(r.PlateLocHeight)),
-                text: data.map((r, i) => atVal ? atSeq[i] : (indexMap.get(r) || '')),
-                mode: 'markers+text',
-                marker: {
-                    symbol: data.map(r => swing(r) ? 'square' : 'circle'),
-                    size: 10,
-                    color: data.map(r => CM[r.AutoPitchType] || '#999')
-                }
-            };
-            const layout = {
-                shapes: [{ type: 'rect', x0: -0.708, x1: 0.708, y0: 1.5, y1: 3.5, line: { color: 'black' } }],
-                xaxis: { title: 'Horizontal Location (ft)' },
-                yaxis: { title: 'Vertical Location (ft)' },
-                height: 400
-            };
-            Plotly.newPlot('plateChart', [trace], layout);
-            let html = '<strong>AutoPitchType:</strong><br>';
-            types.forEach(t => html += `<span style="display:inline-block;width:12px;height:12px;background:${CM[t]};margin-right:5px"></span>${t}<br>`);
-            html += '<br><strong>Action:</strong><br>';
-            html += '<span style="display:inline-block;width:12px;height:12px;background:blue;margin-right:5px"></span>Swing<br>';
-            html += '<span style="display:inline-block;width:12px;height:12px;border:1px solid blue;border-radius:50%;margin-right:5px"></span>Take';
-            document.getElementById('legendDiv').innerHTML = html;
-        }
+    // Color map for each pitch type
+    const types = [...new Set(data.map(r => r.AutoPitchType))];
+    const CM = {};
+    types.forEach((t, i) => CM[t] = `hsl(${(i * 60) % 360},70%,50%)`);
+
+    // Marker shape: square if swing, circle if take
+    const swing = r => r.PitchCall !== 'StrikeCalled' && r.PitchCall !== 'BallCalled';
+
+    const trace = {
+        x: data.map(r => parseNum(r.PlateLocSide)),
+        y: data.map(r => parseNum(r.PlateLocHeight)),
+        text: data.map((r, i) => atVal ? atSeq[i] : (indexMap.get(r) || '')),
+        mode: 'markers+text',
+        marker: {
+            symbol: data.map(r => swing(r) ? 'square' : 'circle'),
+            size: 10,
+            color: data.map(r => CM[r.AutoPitchType] || '#999')
+        },
+        textfont: { size: 10 }
+    };
+
+
+
+    const layout = {
+        width: 400,
+        height: 400,
+        margin: { l: 40, r: 20, t: 20, b: 40 },
+        xaxis: {
+            title: 'Horizontal Location (ft)',
+            range: [-1.5, 1.5],
+            autorange: false,
+            fixedrange: true
+        },
+        yaxis: {
+            title: 'Vertical Location (ft)',
+            range: [0, 5],
+            autorange: false,
+            fixedrange: true
+        },
+        shapes: [{
+            type: 'rect',
+            x0: -0.708,
+            x1: 0.708,
+            y0: 1.5,
+            y1: 3.5,
+            line: { color: 'black', width: 2 }
+        }]
+    };
+
+    Plotly.newPlot('plateChart', [trace], layout);
+
+    // Build legend
+    let html = '<strong>AutoPitchType:</strong><br>';
+    types.forEach(t => {
+        html += `<span style="display:inline-block;width:12px;height:12px;background:${CM[t]};margin-right:5px"></span>${t}<br>`;
+    });
+    html += '<br><strong>Action:</strong><br>';
+    html += '<span style="display:inline-block;width:12px;height:12px;background:blue;margin-right:5px"></span>Swing<br>';
+    html += '<span style="display:inline-block;width:12px;height:12px;border:1px solid blue;border-radius:50%;width:12px;height:12px;display:inline-block;margin-right:5px"></span>Take';
+
+    document.getElementById('legendDiv').innerHTML = html;
+}
+
         function plotSpray(rows) {
             rows = rows.filter(r => r.PlayResult !== 'Undefined');
             const H = 2.0;

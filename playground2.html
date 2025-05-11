@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Game Dashboard</title>
+  <style>
+    body { margin:0; padding:0; font-family:sans-serif; display:flex; flex-direction:column; height:100vh; }
+    header { background:#222; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:.5em 1em; }
+    header button { background:#fff; color:#000; border:none; padding:.3em .6em; cursor:pointer; border-radius:3px; font-size:1.2em; }
+    header button:disabled { opacity:.4; cursor:default; }
+    main { flex:1; overflow:auto; padding:1em; display:flex; gap:1em; }
+    .summary { flex:0 0 300px; display:flex; flex-direction:column; gap:1em; }
+    .card { background:#f9f9f9; padding:1em; border:1px solid #ddd; border-radius:4px; }
+    .card h2 { margin-top:0; font-size:1.2em; }
+    .card table { width:100%; border-collapse:collapse; }
+    .card th, .card td { padding:.3em .5em; text-align:left; border-bottom:1px solid #ccc; }
+    .details-button { background:#0066cc; color:#fff; border:none; padding:.2em .5em; cursor:pointer; border-radius:3px; font-size:.9em; }
+    .detail-view { flex:1; }
+    table { border-collapse:collapse; width:100%; }
+    th, td { border:1px solid #ddd; padding:.4em .6em; text-align:center; }
+    th { background:#f4f4f4; }
+    #menu { background: #333; font-family: sans-serif; }
+    #menu ul { display: flex; margin: 0; padding: 0; list-style: none; justify-content: center; }
+    #menu a { display: block; padding: 0.75em 1.5em; color: #eee; text-decoration: none; transition: background .2s; }
+    #menu a:hover, #menu a.active { background: #0066cc; color: #fff; }
+    .canvas-container { position:relative; width:100%; height:400px; margin-bottom:1em; border:1px solid #ccc; }
+    canvas { width:100%; height:100%; display:block; }
+    @media (max-width: 600px) { #menu ul { flex-direction: column; } #menu a { text-align: center; border-top:1px solid #444; } #menu a:first-child { border-top:none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <nav id="menu">
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="leaderboards.html">Leaderboards</a></li>
+      </ul>
+    </nav>
+    <div>
+          <button id="summaryBtn" style="margin-left:1em;">Game Summary</button>
+
+      <button id="prevPitch" disabled>&lt;</button>
+      <h1 id="title" style="display:inline-block; margin:0 1em;">Loading…</h1>
+      <button id="nextPitch" disabled>&gt;</button>
+    </div>
+  </header>
+  <main>
+    <div class="summary" id="summary"></div>
+    <div class="detail-view" id="detailView"></div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script>
+  const FIELDER_CSV = 'fielder_positions.csv';
+
+  const teamParkMap = {
+    'LAN'     : 'Penn Medicine Park',
+    'SMD'     : 'Regency Furniture Stadium',
+    'YOR'     : 'Wellspan Park',
+    'HAG_FLY' : 'Meritus Park',
+    'LI'      : 'Fairfield Properties BallPark',
+    'GAS'     : 'CaroMont Health Park',
+    'STA_YAN' : 'SIUH Community Park',
+    'HP'      : 'Truist Point',
+    'LEX_LEG' : 'Legends Field',
+    'WES_POW' : 'GoMart BallPark'
+  };
+
+  const parks = {
+    default: { leftFoul:325, leftCenter:(325+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 },
+    "Meritus Park":              { leftFoul:346, leftCenter:(346+387)/2, center:400, rightCenter:(400+360)/2, rightFoul:325 },
+    "Wellspan Park":             { leftFoul:300, leftCenter:(300+405)/2, center:405, rightCenter:(405+326)/2, rightFoul:326 },
+    "CaroMont Health Park":      { leftFoul:315, leftCenter:361,            center:400, rightCenter:367,            rightFoul:325 },
+    "Penn Medicine Park":        { leftFoul:320, leftCenter:409,            center:400, rightCenter:363,            rightFoul:300 },
+    "Fairfield Properties BallPark": { leftFoul:325, leftCenter:(325+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 },
+    "SIUH Community Park":       { leftFoul:320, leftCenter:(320+390)/2, center:390, rightCenter:(390+318)/2, rightFoul:318 },
+    "GoMart BallPark":           { leftFoul:330, leftCenter:(330+400)/2, center:400, rightCenter:(400+320)/2, rightFoul:320 },
+    "Truist Point":              { leftFoul:336, leftCenter:363,            center:400, rightCenter:366,            rightFoul:339 },
+    "Legends Field":             { leftFoul:320, leftCenter:(320+401)/2, center:401, rightCenter:(401+318)/2, rightFoul:318 },
+    "Regency Furniture Stadium": { leftFoul:310, leftCenter:(310+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 }
+  };
+
+    const DATA_CSV = 'data.csv';
+
+    let allPitches = [], fPositions = [], gamePitches = [];
+    var params = new URLSearchParams(location.search);
+    var startPID = params.get('pitchUID');
+    var gameUID = params.get('gameUID');
+    let idxCurrent = 0;
+    var currentPark = parks.default
+    var $ = id => document.getElementById(id);
+
+   
+
+    Papa.parse(DATA_CSV, { header:true, download:true,
+      complete: res => { allPitches = res.data;
+                  fPositions = res.data;
+
+                  init(); }
+    });
+
+      const btnSummary = $('btnSummary'), btnMatchups = $('btnMatchups'),
+          btnBreakdowns = $('btnBreakdowns'), btnSpray = $('btnSpray');
+    const viewSummary = $('viewSummary'), viewMatchups = $('viewMatchups'),
+          viewBreakdowns = $('viewBreakdowns'), viewSpray = $('viewSpray');
+
+
+              btnSummary.onclick = ()=>switchView('summary');
+    btnMatchups.onclick = ()=>switchView('matchups');
+    btnBreakdowns.onclick = ()=>switchView('breakdowns');
+    btnSpray.onclick = ()=>switchView('spray');
+    function init() {
+      // If only pitchUID is provided, derive gameUID
+      if (startPID && !gameUID) {
+        const p = allPitches.find(r=>r.PitchUID===startPID);
+        if (!p) { $('title').innerText='⚠ pitchUID not found'; return; }
+        gameUID = p.GameUID;
+      }
+
+      if (!gameUID) {
+        $('title').innerText='⚠ provide ?gameUID or ?pitchUID'; return;
+      }
+
+      gamePitches = allPitches.filter(r=>r.GameUID===gameUID);
+      if (!gamePitches.length) { $('title').innerText=`⚠ no data for ${gameUID}`; return; }
+
+      gamePitches.sort((a,b)=> (+a.Inning - +b.Inning) || (a['Top/Bottom']===b['Top/Bottom']? +a.PitchNo - +b.PitchNo : (a['Top/Bottom']==='Top'? -1:1)) );
+
+      if (startPID) {
+        idxCurrent = gamePitches.findIndex(p=>p.PitchUID===startPID);
+        $('prevPitch').onclick = ()=>{ if(idxCurrent>0){ idxCurrent--; renderDetail(); }};
+        $('nextPitch').onclick = ()=>{ if(idxCurrent<gamePitches.length-1){ idxCurrent++; renderDetail(); }};
+        renderDetail();
+      } else {
+        // Hide pitch nav if summary
+        $('prevPitch').style.display='none';
+        $('nextPitch').style.display='none';
+        renderSummary();
+      }
+            $('summaryBtn').onclick = ()=> { location.search = `?gameUID=${gameUID}`; };
+
+
+       gamePitches = allPitches
+      .filter(r=>r.GameUID===gameUID)
+      .sort((a,b)=>{
+        let d = +a.Inning - +b.Inning; if(d) return d;
+        if(a['Top/Bottom']!==b['Top/Bottom'])
+          return a['Top/Bottom']==='Top'? -1:1;
+        return +a.PitchNo - +b.PitchNo;
+      });
+
+    if (!gamePitches.length){
+      $('title').innerText = `⚠ no pitches for ${gameUID}`; return;
+    }
+       // pick park
+    const homeAbbr = gamePitches[0].HomeTeam;
+    const parkName = teamParkMap[homeAbbr]||'default';
+    currentPark = parks[parkName]||parks.default;
+    }
+
+   function renderSummary() {
+      // Show teams vs and date
+      const away = gamePitches[0].AwayNameFull;
+      const home = gamePitches[0].HomeNameFull;
+      const date = gamePitches[0].Date || gamePitches[0].LocalDate || 'Date';
+      $('title').innerText = `${away} vs ${home} — ${date}`;
+      const summary = $('summary'); summary.innerHTML = '';
+
+      // box score
+      const runs = { away:0, home:0 };
+      gamePitches.forEach(p=>{ if(p.RunsScored) runs[p['Top/Bottom']==='Top'?'away':'home'] += +p.RunsScored; });
+      const bsCard = document.createElement('div'); bsCard.className = 'card';
+      bsCard.innerHTML = `<h2>Box Score</h2><p><b>${away}:</b> ${runs.away}</p><p><b>${home}:</b> ${runs.home}</p>`;
+      summary.appendChild(bsCard);
+
+      // top N helper
+      const topN = (arr, key, n=3) => arr.filter(p=>p[key]).sort((a,b)=> +b[key] - +a[key]).slice(0,n);
+      [ ['RelSpeed','Release Speed'], ['ExitSpeed','Exit Velocity'], ['Distance','Distance'] ]
+      .forEach(([key,label])=>{
+        const card = document.createElement('div'); card.className = 'card';
+        card.innerHTML = `<h2>${label} Leaders</h2>`;
+        const tbl = document.createElement('table');
+        tbl.innerHTML = `<thead><tr><th>${key==='RelSpeed'?'Pitcher':'Batter'}</th><th>${label}</th></tr></thead><tbody>` +
+                        topN(gamePitches,key).map(p=>
+                          `<tr><td>${key==='RelSpeed'?p.Pitcher:p.Batter}</td><td>${p[key]}</td></tr>`
+                        ).join('') +`</tbody>`;
+        card.appendChild(tbl);
+        summary.appendChild(card);
+      });
+
+      // at-bats table
+      const dv = $('detailView'); dv.innerHTML = '';
+      const abTable = document.createElement('table');
+      abTable.innerHTML = `<thead><tr>
+        <th>Batter</th>
+        <th>PA</th>
+        <th>Inning</th>
+        <th>Result</th>
+        <th>ExitSpeed</th>
+        <th>Angle</th>
+        <th>Distance</th>
+        <th>ReleaseSpeed</th>
+        <th>AutoPitchType</th>
+        <th>Details</th>
+      </tr></thead><tbody>` +
+        gamePitches.map(p=>{
+          let result = p.KorBB && p.KorBB!=='Undefined' ? p.KorBB :
+                       (p.PitchCall==='InPlay' ? p.PlayResult : p.PitchCall);
+          return `<tr>
+            <td>${p.Batter}</td>
+            <td>${p.PitchNo}</td>
+            <td>${p.Inning} ${p['Top/Bottom']}</td>
+            <td>${result}</td>
+            <td>${p.ExitSpeed||'–'}</td>
+            <td>${p.Angle||'–'}</td>
+            <td>${p.Distance||'–'}</td>
+            <td>${p.RelSpeed||'–'}</td>
+            <td>${p.AutoPitchType||'–'}</td>
+            <td><button class="details-button" onclick="location.search='?pitchUID=${p.PitchUID}'">View</button></td>
+          </tr>`;
+        }).join('') + `</tbody>`;
+      dv.appendChild(abTable);
+    }
+ function renderDetail() {
+      $('summary').style.display = 'none';
+      const detailEl = $('detailView'); detailEl.innerHTML = '';
+      renderPitch(detailEl);
+      const p = gamePitches[idxCurrent];
+      $('title').innerText = `PA ${p.PitchNo} (${p.Inning} ${p['Top/Bottom']}) — ${p.Pitcher} vs ${p.Batter}`;
+      $('prevPitch').disabled = idxCurrent===0;
+      $('nextPitch').disabled = idxCurrent===gamePitches.length-1;
+    }
+
+
+    // Adjusted renderPitch to accept a container element instead of hardcoding 'pitchDetail'
+    function renderPitch(container) {
+      const p = gamePitches[idxCurrent];
+      container.innerHTML = '';
+
+      function makeTable(fields, row) {
+        const wrapper = document.createElement('div'); wrapper.className = 'scrollTable';
+        const tbl = document.createElement('table');
+        tbl.innerHTML = `<thead><tr>${fields.map(f=>`<th>${f}</th>`).join('')}</tr></thead>` +
+                        `<tbody><tr>${fields.map(f=>`<td>${row[f] ?? '–'}</td>`).join('')}</tr></tbody>`;
+        wrapper.appendChild(tbl);
+        container.appendChild(wrapper);
+      }
+
+      makeTable(['Outs','Balls','Strikes'], p);
+      makeTable(['AutoPitchType','PitchCall','RelSpeed',/*…*/], p);
+      if (p.ExitSpeed) makeTable(['ExitSpeed','Angle','Direction',/*…*/], p);
+      makeTable(['RunsScored','OutsOnPlay','PitchCall','PlayResult'], p);
+
+      // plate view
+      const plateBox = document.createElement('div'); plateBox.className = 'canvas-container';
+      const plateCan = document.createElement('canvas'); plateBox.appendChild(plateCan);
+      container.appendChild(plateBox);
+      drawPlateView(plateCan, p);
+
+      // spray + fielders
+      const sprayBox = document.createElement('div'); sprayBox.className = 'canvas-container';
+      const sprayCan = document.createElement('canvas'); sprayBox.appendChild(sprayCan);
+      container.appendChild(sprayBox);
+      const fr = fPositions.find(r=>r.PitchUID===p.PitchUID);
+      drawSprayCanvas(sprayCan, [p], fr);
+    }
+
+    
+function drawPlateView(canvas, p) {
+  const ctx = canvas.getContext('2d');
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+
+  // Real dimensions in feet
+  const zone = {
+    left:   -17/24,   // −0.708 ft
+    right:   17/24,   // +0.708 ft
+    bottom:  1.5,     // 1.5 ft
+    top:     3.5      // 3.5 ft
+  };
+  const zoneW = zone.right - zone.left;   // ≈1.416 ft
+  const zoneH = zone.top   - zone.bottom; // 2 ft
+
+  // Compute base scale to fit zone
+  const margin = 20;
+  const availW = canvas.width  - 2*margin;
+  const availH = canvas.height - 2*margin;
+  const baseScale = Math.min(availW/zoneW, availH/zoneH);
+
+  // Shrink factor (70%)
+  const shrink = 0.7;
+  const scale  = baseScale * shrink;
+
+  // Pixel size of zone
+  const pixW = zoneW * scale;
+  const pixH = zoneH * scale;
+
+  // Center zone
+  const originX = (canvas.width  - pixW) / 2;
+  const originY = (canvas.height + pixH) / 2; // y of zone bottom
+
+  // Mapping functions
+  const mapX = x => originX + (x - zone.left) * scale;
+  const mapY = y => originY - (y - zone.bottom) * scale;
+
+  // Clear
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw strike zone
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth   = 2;
+  ctx.strokeRect(
+    mapX(zone.left),
+    mapY(zone.top),
+    pixW,
+    pixH
+  );
+
+  // Plot crossing point
+  const px = parseFloat(p.PlateLocSide);
+  const py = parseFloat(p.PlateLocHeight);
+  if (!isNaN(px) && !isNaN(py)) {
+    ctx.fillStyle = 'red';
+    ctx.beginPath();
+    ctx.arc(mapX(px), mapY(py), 5, 0, 2*Math.PI);
+    ctx.fill();
+  }
+
+
+
+}
+  // —— Drawing full field + spray + fielders —— 
+  function drawSprayCanvas(canvas, rows, fr){
+    const ctx = canvas.getContext('2d');
+    canvas.width  = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    const park   = currentPark;
+    const origin = { x:canvas.width/2, y:canvas.height-20 };
+    const scale  = (canvas.height-40)/park.center;
+
+    // foul lines
+    const ang = Math.PI/4;
+    ctx.strokeStyle='#888'; ctx.lineWidth=1.5; ctx.beginPath();
+    ctx.moveTo(origin.x,origin.y);
+    ctx.lineTo(origin.x+Math.sin(-ang)*park.leftFoul*scale,
+               origin.y-Math.cos(-ang)*park.leftFoul*scale);
+    ctx.moveTo(origin.x,origin.y);
+    ctx.lineTo(origin.x+Math.sin( ang)*park.rightFoul*scale,
+               origin.y-Math.cos( ang)*park.rightFoul*scale);
+    ctx.stroke();
+
+    // outfield wall (5‐point)
+    const angles = [-45,-22.5,0,22.5,45];
+    const radii  = [park.leftFoul,park.leftCenter,park.center,park.rightCenter,park.rightFoul];
+    ctx.strokeStyle='#555'; ctx.lineWidth=3; ctx.beginPath();
+    angles.forEach((d,i)=>{
+      const rad = d*Math.PI/180;
+      const dx  = Math.sin(rad)*radii[i]*scale;
+      const dy  = Math.cos(rad)*radii[i]*scale;
+      const x   = origin.x+dx, y = origin.y-dy;
+      i===0? ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+
+    // fence labels
+    ctx.fillStyle='#000'; ctx.font='12px sans-serif';
+    angles.forEach((d,i)=>{
+      const rad = d*Math.PI/180;
+      const dx  = Math.sin(rad)*radii[i]*scale;
+      const dy  = Math.cos(rad)*radii[i]*scale;
+      const px  = origin.x+dx, py = origin.y-dy;
+      ctx.fillText(Math.round(radii[i])+"'", px + (d<0?-25:5), py+15);
+    });
+
+    // infield diamond
+    const bases = [
+      {x:0,z:0},
+      {x:90*Math.cos(Math.PI/4), z:90*Math.sin(Math.PI/4)},
+      {x:90*Math.sqrt(2),       z:0},
+      {x:90*Math.cos(Math.PI/4), z:-90*Math.sin(Math.PI/4)}
+    ];
+    ctx.strokeStyle='#444'; ctx.lineWidth=2; ctx.beginPath();
+    bases.forEach((pt,i)=>{
+      const x = origin.x + pt.z*scale;
+      const y = origin.y - pt.x*scale;
+      i===0? ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.closePath(); ctx.stroke();
+
+    // base squares
+    ctx.fillStyle='#fff';
+    bases.forEach(pt=>{
+      const x = origin.x + pt.z*scale;
+      const y = origin.y - pt.x*scale;
+      ctx.fillRect(x-6,y-6,12,12);
+    });
+
+    // infield arc
+    const extraC = 55, extraM = 28.5;
+    ctx.strokeStyle='#aaa'; ctx.lineWidth=2; ctx.beginPath();
+    for(let d=-45; d<=45; d++){
+      const rad = d*Math.PI/180;
+      const r0  = 90+extraC, r1=90*Math.sqrt(2)+extraM;
+      const t   = 1-Math.abs(d)/45;
+      const r   = r0 + t*(r1-r0);
+      const x   = origin.x + Math.sin(rad)*r*scale;
+      const y   = origin.y - Math.cos(rad)*r*scale;
+      d===-45? ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // spray
+    rows.filter(r=>r.PitchCall==='InPlay').forEach(r=>{
+      const dir = parseFloat(r.Direction), dist=parseFloat(r.Distance),
+            ev  = parseFloat(r.ExitSpeed);
+      if(isNaN(dir)||isNaN(dist)) return;
+      const rad = dir*Math.PI/180,
+            dpx = Math.min(dist,park.center)*scale,
+            x   = origin.x + Math.sin(rad)*dpx,
+            y   = origin.y - Math.cos(rad)*dpx,
+            size= isNaN(ev)?6:Math.min(ev/2,15);
+      ctx.fillStyle='rgba(220,50,50,0.7)';
+      ctx.beginPath(); ctx.arc(x,y,size,0,2*Math.PI); ctx.fill();
+    });
+
+    // fielders in blue
+    if (fr) {
+      ['1B','2B','3B','SS','LF','CF','RF'].forEach(lbl=>{
+        const px = parseFloat(fr[lbl+'_PositionAtReleaseX']),
+              pz = parseFloat(fr[lbl+'_PositionAtReleaseZ']),
+              name = fr[lbl+'_Name']||lbl;
+        if(!isNaN(px)&&!isNaN(pz)){
+          const x = origin.x + pz*scale,
+                y = origin.y - px*scale;
+          ctx.fillStyle='rgba(50,100,220,0.8)';
+          ctx.beginPath(); ctx.arc(x,y,6,0,2*Math.PI); ctx.fill();
+          ctx.fillStyle='#000'; ctx.font='12px sans-serif';
+          ctx.textAlign='left'; ctx.textBaseline='middle';
+          ctx.fillText(name, x+8, y);
+        }
+      });
+    }
+  }
+
+     function switchView(view) {
+      // deactivate all
+      [btnSummary,btnMatchups,btnBreakdowns,btnSpray].forEach(b=>b.classList.remove('active'));
+      [viewSummary,viewMatchups,viewBreakdowns,viewSpray].forEach(v=>v.classList.remove('active'));
+      // activate selected
+      switch(view) {
+        case 'summary': btnSummary.classList.add('active'); viewSummary.classList.add('active'); renderSummary(); break;
+        case 'matchups': btnMatchups.classList.add('active'); viewMatchups.classList.add('active'); renderMatchups(); break;
+        case 'breakdowns': btnBreakdowns.classList.add('active'); viewBreakdowns.classList.add('active'); renderBreakdowns(); break;
+        case 'spray': btnSpray.classList.add('active'); viewSpray.classList.add('active'); renderSpray(); break;
+      }
+    }
+
+  function renderMatchups() {
+      viewMatchups.innerHTML='';
+      // filter dropdown for at-bats
+      const sel = document.createElement('select'); sel.onchange=()=>drawMatchup(sel.value);
+      gamePitches.forEach(p=>{
+        const opt=document.createElement('option'); opt.value=p.PitchUID;
+        opt.text=`PA ${p.PitchNo}: ${p.Pitcher} vs ${p.Batter}`;
+        sel.appendChild(opt);
+      });
+      viewMatchups.appendChild(sel);
+      const canvas = document.createElement('canvas'); canvas.className='canvas-container';
+      viewMatchups.appendChild(canvas);
+      function drawMatchup(puid){
+        const rows=gamePitches.filter(r=>r.PitchUID===puid);
+        // clear & draw plateView rows with color by AutoPitchType
+        drawPlateView(canvas, rows);
+        // legend
+        const legend=document.createElement('div');
+        // ... build legend mapping pitch types to colors ...
+        viewMatchups.appendChild(legend);
+      }
+      drawMatchup(gamePitches[0].PitchUID);
+    }
+
+    function renderBreakdowns() {
+      viewBreakdowns.innerHTML='';
+      // group by pitcher
+      const byPitcher = {};
+      gamePitches.forEach(p=>{
+        byPitcher[p.Pitcher] = byPitcher[p.Pitcher] || [];
+        byPitcher[p.Pitcher].push(p);
+      });
+      // Table 1: usage stats
+      Object.entries(byPitcher).forEach(([pitcher,arr])=>{
+        const card=document.createElement('div'); card.className='card';
+        card.innerHTML=`<h2>${pitcher} Usage</h2>`;
+        const tbl=document.createElement('table');
+        tbl.innerHTML='<thead><tr><th>Type</th><th>Count</th><th>vs RHB</th><th>vs LHB</th><th>MaxVelo</th><th>MinVelo</th><th>AvgVelo</th><th>MaxSpin</th><th>MinSpin</th><th>AvgSpin</th></tr></thead>';
+        const rows = [];
+        const types = [...new Set(arr.map(p=>p.AutoPitchType))];
+        types.forEach(type=>{
+          const subset=arr.filter(p=>p.AutoPitchType===type);
+          const rcounts = {RHB:0,LHB:0}; subset.forEach(p=> rcounts[p.BatterSide]++);
+          const vels = subset.map(p=>+p.RelSpeed).filter(n=>!isNaN(n));
+          const spins= subset.map(p=>+p.SpinRate).filter(n=>!isNaN(n));
+          rows.push(`<tr><td>${type}</td><td>${subset.length}</td><td>${rcounts.RHB}</td><td>${rcounts.LHB}</td><td>${Math.max(...vels)}</td><td>${Math.min(...vels)}</td><td>${(vels.reduce((a,b)=>a+b,0)/vels.length).toFixed(1)}</td><td>${Math.max(...spins)}</td><td>${Math.min(...spins)}</td><td>${(spins.reduce((a,b)=>a+b,0)/spins.length).toFixed(1)}</td></tr>`);
+        });
+        tbl.innerHTML += `<tbody>${rows.join('')}</tbody>`;
+        card.appendChild(tbl);
+        viewBreakdowns.appendChild(card);
+      });
+      // Table 2: whiff/contact
+      Object.entries(byPitcher).forEach(([pitcher,arr])=>{
+        const card=document.createElement('div'); card.className='card';
+        card.innerHTML=`<h2>${pitcher} Swing Stats</h2>`;
+        const tbl=document.createElement('table');
+        tbl.innerHTML='<thead><tr><th>Type</th><th>Swings</th><th>Whiffs</th><th>Zone%</th><th>Contact%</th></tr></thead>';
+        const rows=[];
+        const types=[...new Set(arr.map(p=>p.AutoPitchType))];
+        types.forEach(type=>{
+          const subset=arr.filter(p=>p.AutoPitchType===type);
+          const swings=subset.filter(p=>p.PitchCall==='SwingingStrike'||p.PitchCall==='Foul').length;
+          const whiffs=subset.filter(p=>p.PitchCall==='SwingingStrike').length;
+          const inZone=subset.filter(p=>p.ZoneTime).length;
+          const zonePct=(inZone/subset.length*100).toFixed(1);
+          const contact=subset.length - swings;
+          const contactPct=(contact/subset.length*100).toFixed(1);
+          rows.push(`<tr><td>${type}</td><td>${swings}</td><td>${whiffs}</td><td>${zonePct}%</td><td>${contactPct}%</td></tr>`);
+        });
+        tbl.innerHTML+=`<tbody>${rows.join('')}</tbody>`;
+        card.appendChild(tbl);
+        viewBreakdowns.appendChild(card);
+      });
+    }
+
+    function renderSpray() {
+      viewSpray.innerHTML='';
+      const canvas=document.createElement('canvas'); canvas.className='canvas-container';
+      viewSpray.appendChild(canvas);
+      // plot all hits
+      const hits=gamePitches.filter(p=>p.PlayResult==='HomeRun'||p.PlayResult==='Triple'||p.PlayResult==='Double'||p.PlayResult==='Single');
+      drawSprayCanvas(canvas,hits);
+      // legend for hit types
+      const legend=document.createElement('div');
+      ['Single','Double','Triple','HomeRun'].forEach(type=>{
+        const dot=document.createElement('span'); dot.textContent='●'; // color via CSS mapping
+        const lbl=document.createElement('span'); lbl.textContent=type;
+        legend.appendChild(dot); legend.appendChild(lbl);
+      });
+      viewSpray.appendChild(legend);
+    }
+    
+  </script>
+</body>
+</html>

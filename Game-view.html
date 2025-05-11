@@ -5,100 +5,88 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Game Dashboard</title>
   <style>
-    
     body { margin:0; padding:0; font-family:sans-serif; display:flex; flex-direction:column; height:100vh; }
     header { background:#222; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:.5em 1em; }
     header button { background:#fff; color:#000; border:none; padding:.3em .6em; cursor:pointer; border-radius:3px; font-size:1.2em; }
     header button:disabled { opacity:.4; cursor:default; }
-    main { flex:1; overflow:auto; padding:1em; }
-    .view { max-width:1000px; margin:0 auto 2em; }
-
-    /* Box‐score */
-    table { border-collapse:collapse; width:100%; margin-bottom:1em; }
+    main { flex:1; overflow:auto; padding:1em; display:flex; gap:1em; }
+    .summary { flex:0 0 300px; display:flex; flex-direction:column; gap:1em; }
+    .card { background:#f9f9f9; padding:1em; border:1px solid #ddd; border-radius:4px; }
+    .card h2 { margin-top:0; font-size:1.2em; }
+    .card table { width:100%; border-collapse:collapse; }
+    .card th, .card td { padding:.3em .5em; text-align:left; border-bottom:1px solid #ccc; }
+    .details-button { background:#0066cc; color:#fff; border:none; padding:.2em .5em; cursor:pointer; border-radius:3px; font-size:.9em; }
+    .detail-view { flex:1; }
+    table { border-collapse:collapse; width:100%; }
     th, td { border:1px solid #ddd; padding:.4em .6em; text-align:center; }
     th { background:#f4f4f4; }
-
-    /* Detail tables */
-    .scrollTable { overflow-x:auto; margin-bottom:1em; }
-    .scrollTable table { border-collapse:collapse; width:max-content; min-width:100%; }
-    .scrollTable th, .scrollTable td { border:1px solid #ddd; padding:.3em .6em; white-space:nowrap; }
-    .scrollTable th { background:#eee; }
-
+    #menu { background: #333; font-family: sans-serif; }
+    #menu ul { display: flex; margin: 0; padding: 0; list-style: none; justify-content: center; }
+    #menu a { display: block; padding: 0.75em 1.5em; color: #eee; text-decoration: none; transition: background .2s; }
+    #menu a:hover, #menu a.active { background: #0066cc; color: #fff; }
     .canvas-container { position:relative; width:100%; height:400px; margin-bottom:1em; border:1px solid #ccc; }
     canvas { width:100%; height:100%; display:block; }
 
-    /* Add to your existing <style> block (or external stylesheet) */
-#menu {
-    
-  background: #333;
-  font-family: sans-serif;
-}
-#menu ul {
-  display: flex;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  justify-content: center;     /* centers the menu items */
-}
-#menu li {
-  margin: 0;
-}
-#menu a {
-  display: block;
-  padding: 0.75em 1.5em;
-  color: #eee;
-  text-decoration: none;
-  transition: background 0.2s, color 0.2s;
-}
-#menu a:hover {
-  background: #444;
-  color: #fff;
-}
-#menu a.active {
-  background: #0066cc;
-  color: #fff;
-}
-@media (max-width: 600px) {
-  /* stack vertically on small screens */
-  #menu ul {
-    flex-direction: column;
-    align-items: stretch;
+      .subBtn {
+    margin: 0 .5em;
+    padding: .4em 1em;
+    border: none;
+    background: #ddd;
+    cursor: pointer;
+    border-radius: 3px;
   }
-  #menu a {
-    text-align: center;
-    border-top: 1px solid #444;
+  .subBtn.active {
+    background: #0066cc;
+    color: #fff;
   }
-  #menu a:first-child {
-    border-top: none;
-  }
-}
 
+    .view { display: none; }
+  .view.active { display: block; }
+
+    @media (max-width: 600px) { #menu ul { flex-direction: column; } #menu a { text-align: center; border-top:1px solid #444; } #menu a:first-child { border-top:none; } }
   </style>
 </head>
 <body>
-    
   <header>
     <nav id="menu">
-  <ul>
-    <li><a href="index.html">Home</a></li>
-    <li><a href="leaderboards.html">Leaderboards</a></li>
-  </ul>
-  
-</nav>
-<br />
-    <button id="prevPitch" disabled>&lt;</button>
-    <h1 id="title">Loading…</h1>
-    <button id="nextPitch" disabled>&gt;</button>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="leaderboards.html">Leaderboards</a></li>
+      </ul>
+    </nav>
+    <div>
+          <button id="summaryBtn" style="margin-left:1em;">Game Summary</button>
+
+      <button id="prevPitch" disabled>&lt;</button>
+      <h1 id="title" style="display:inline-block; margin:0 1em;">Loading…</h1>
+      <button id="nextPitch" disabled>&gt;</button>
+    </div>
   </header>
+
+    <!-- sub-menu -->
+  <div id="subMenu" style="background:#eee; padding:.5em; text-align:center;">
+    <button id="btnSummary" class="subBtn active">Summary</button>
+    <button id="btnMatchups" class="subBtn">Matchups</button>
+    <button id="btnBreakdowns" class="subBtn">Pitcher Breakdowns</button>
+    <button id="btnSpray" class="subBtn">Spray</button>
+  </div>
+<!-- wrap your entire original <main> inside viewSummary -->
+<div id="viewSummary" class="view active">
   <main>
-    <div id="boxScore" class="view"></div>
-    <div id="pitchDetail" class="view"></div>
+    <div class="summary" id="summary"></div>
+    <div class="detail-view" id="detailView"></div>
   </main>
+</div>
+
+<!-- matchups, breakdowns & spray live *outside* of the summary <main> -->
+<div id="viewMatchups" class="view"></div>
+<div id="viewBreakdowns" class="view"></div>
+<div id="viewSpray" class="view"></div>
+
+
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
-  // —— Config —— 
-  const DATA_CSV    = 'data.csv';
   const FIELDER_CSV = 'fielder_positions.csv';
 
   const teamParkMap = {
@@ -128,31 +116,193 @@
     "Regency Furniture Stadium": { leftFoul:310, leftCenter:(310+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 }
   };
 
-  // —— State —— 
-  let allPitches = [], fPositions = [], gamePitches = [];
-  let gameUID = null,
-      startPID = new URLSearchParams(location.search).get('pitchUID'),
-      urlGame  = new URLSearchParams(location.search).get('gameUID'),
-      idxCurrent = 0,
-      currentPark = parks.default;
+    const DATA_CSV = 'data.csv';
 
-  const $ = id => document.getElementById(id);
-  const toNum = s => parseFloat(s)||0;
+    let allPitches = [], fPositions = [], gamePitches = [];
+    var params = new URLSearchParams(location.search);
+    var startPID = params.get('pitchUID');
+    var gameUID = params.get('gameUID');
+    let idxCurrent = 0;
+    var currentPark = parks.default
+    var $ = id => document.getElementById(id);
 
-  // —— Load CSVs —— 
-  Papa.parse(DATA_CSV, {
-    header:true, download:true,
-    complete: res => {
-      allPitches = res.data;
-      Papa.parse(FIELDER_CSV, {
-        header:true, download:true,
-        complete: res2 => {
-          fPositions = res2.data;
-          init();
-        }
+ 
+
+
+    Papa.parse(DATA_CSV, { header:true, download:true,
+      complete: res => { allPitches = res.data;
+                  fPositions = res.data;
+
+                  init(); }
+    });
+
+      const btnSummary = $('btnSummary'), btnMatchups = $('btnMatchups'),
+          btnBreakdowns = $('btnBreakdowns'), btnSpray = $('btnSpray');
+    const viewSummary = $('viewSummary'), viewMatchups = $('viewMatchups'),
+          viewBreakdowns = $('viewBreakdowns'), viewSpray = $('viewSpray');
+
+
+              btnSummary.onclick = ()=>switchView('summary');
+    btnMatchups.onclick = ()=>switchView('matchups');
+    btnBreakdowns.onclick = ()=>switchView('breakdowns');
+    btnSpray.onclick = ()=>switchView('spray');
+    function init() {
+      // If only pitchUID is provided, derive gameUID
+      if (startPID && !gameUID) {
+        const p = allPitches.find(r=>r.PitchUID===startPID);
+        if (!p) { $('title').innerText='⚠ pitchUID not found'; return; }
+        gameUID = p.GameUID;
+      }
+
+      if (!gameUID) {
+        $('title').innerText='⚠ provide ?gameUID or ?pitchUID'; return;
+      }
+
+      gamePitches = allPitches.filter(r=>r.GameUID===gameUID);
+      if (!gamePitches.length) { $('title').innerText=`⚠ no data for ${gameUID}`; return; }
+
+      gamePitches.sort((a,b)=> (+a.Inning - +b.Inning) || (a['Top/Bottom']===b['Top/Bottom']? +a.PitchNo - +b.PitchNo : (a['Top/Bottom']==='Top'? -1:1)) );
+
+      if (startPID) {
+        idxCurrent = gamePitches.findIndex(p=>p.PitchUID===startPID);
+        $('prevPitch').onclick = ()=>{ if(idxCurrent>0){ idxCurrent--; renderDetail(); }};
+        $('nextPitch').onclick = ()=>{ if(idxCurrent<gamePitches.length-1){ idxCurrent++; renderDetail(); }};
+        renderDetail();
+      } else {
+        // Hide pitch nav if summary
+        $('prevPitch').style.display='none';
+        $('nextPitch').style.display='none';
+        renderSummary();
+      }
+            $('summaryBtn').onclick = ()=> { location.search = `?gameUID=${gameUID}`; };
+
+
+       gamePitches = allPitches
+      .filter(r=>r.GameUID===gameUID)
+      .sort((a,b)=>{
+        let d = +a.Inning - +b.Inning; if(d) return d;
+        if(a['Top/Bottom']!==b['Top/Bottom'])
+          return a['Top/Bottom']==='Top'? -1:1;
+        return +a.PitchNo - +b.PitchNo;
       });
+
+    if (!gamePitches.length){
+      $('title').innerText = `⚠ no pitches for ${gameUID}`; return;
     }
-  });
+       // pick park
+    const homeAbbr = gamePitches[0].HomeTeam;
+    const parkName = teamParkMap[homeAbbr]||'default';
+    currentPark = parks[parkName]||parks.default;
+    }
+
+   function renderSummary() {
+      // Show teams vs and date
+      const away = gamePitches[0].AwayNameFull;
+      const home = gamePitches[0].HomeNameFull;
+      const date = gamePitches[0].Date || gamePitches[0].LocalDate || 'Date';
+      $('title').innerText = `${away} vs ${home} — ${date}`;
+      const summary = $('summary'); summary.innerHTML = '';
+
+      // box score
+      const runs = { away:0, home:0 };
+      gamePitches.forEach(p=>{ if(p.RunsScored) runs[p['Top/Bottom']==='Top'?'away':'home'] += +p.RunsScored; });
+      const bsCard = document.createElement('div'); bsCard.className = 'card';
+      bsCard.innerHTML = `<h2>Box Score</h2><p><b>${away}:</b> ${runs.away}</p><p><b>${home}:</b> ${runs.home}</p>`;
+      summary.appendChild(bsCard);
+
+      // top N helper
+      const topN = (arr, key, n=3) => arr.filter(p=>p[key]).sort((a,b)=> +b[key] - +a[key]).slice(0,n);
+      [ ['RelSpeed','Release Speed'], ['ExitSpeed','Exit Velocity'], ['Distance','Distance'] ]
+      .forEach(([key,label])=>{
+        const card = document.createElement('div'); card.className = 'card';
+        card.innerHTML = `<h2>${label} Leaders</h2>`;
+        const tbl = document.createElement('table');
+        tbl.innerHTML = `<thead><tr><th>${key==='RelSpeed'?'Pitcher':'Batter'}</th><th>${label}</th></tr></thead><tbody>` +
+                        topN(gamePitches,key).map(p=>
+                          `<tr><td>${key==='RelSpeed'?p.Pitcher:p.Batter}</td><td>${p[key]}</td></tr>`
+                        ).join('') +`</tbody>`;
+        card.appendChild(tbl);
+        summary.appendChild(card);
+      });
+
+      // at-bats table
+      const dv = $('detailView'); dv.innerHTML = '';
+      const abTable = document.createElement('table');
+      abTable.innerHTML = `<thead><tr>
+        <th>Batter</th>
+        <th>PA</th>
+        <th>Inning</th>
+        <th>Result</th>
+        <th>ExitSpeed</th>
+        <th>Angle</th>
+        <th>Distance</th>
+        <th>ReleaseSpeed</th>
+        <th>AutoPitchType</th>
+        <th>Details</th>
+      </tr></thead><tbody>` +
+        gamePitches.map(p=>{
+          let result = p.KorBB && p.KorBB!=='Undefined' ? p.KorBB :
+                       (p.PitchCall==='InPlay' ? p.PlayResult : p.PitchCall);
+          return `<tr>
+            <td>${p.Batter}</td>
+            <td>${p.PitchNo}</td>
+            <td>${p.Inning} ${p['Top/Bottom']}</td>
+            <td>${result}</td>
+            <td>${p.ExitSpeed||'–'}</td>
+            <td>${p.Angle||'–'}</td>
+            <td>${p.Distance||'–'}</td>
+            <td>${p.RelSpeed||'–'}</td>
+            <td>${p.AutoPitchType||'–'}</td>
+            <td><button class="details-button" onclick="location.search='?pitchUID=${p.PitchUID}'">View</button></td>
+          </tr>`;
+        }).join('') + `</tbody>`;
+      dv.appendChild(abTable);
+    }
+ function renderDetail() {
+      $('summary').style.display = 'none';
+      const detailEl = $('detailView'); detailEl.innerHTML = '';
+      renderPitch(detailEl);
+      const p = gamePitches[idxCurrent];
+      $('title').innerText = `PA ${p.PitchNo} (${p.Inning} ${p['Top/Bottom']}) — ${p.Pitcher} vs ${p.Batter}`;
+      $('prevPitch').disabled = idxCurrent===0;
+      $('nextPitch').disabled = idxCurrent===gamePitches.length-1;
+    }
+
+
+    // Adjusted renderPitch to accept a container element instead of hardcoding 'pitchDetail'
+    function renderPitch(container) {
+      const p = gamePitches[idxCurrent];
+      container.innerHTML = '';
+
+      function makeTable(fields, row) {
+        const wrapper = document.createElement('div'); wrapper.className = 'scrollTable';
+        const tbl = document.createElement('table');
+        tbl.innerHTML = `<thead><tr>${fields.map(f=>`<th>${f}</th>`).join('')}</tr></thead>` +
+                        `<tbody><tr>${fields.map(f=>`<td>${row[f] ?? '–'}</td>`).join('')}</tr></tbody>`;
+        wrapper.appendChild(tbl);
+        container.appendChild(wrapper);
+      }
+
+      makeTable(['Outs','Balls','Strikes'], p);
+      makeTable(['AutoPitchType','PitchCall','RelSpeed',/*…*/], p);
+      if (p.ExitSpeed) makeTable(['ExitSpeed','Angle','Direction',/*…*/], p);
+      makeTable(['RunsScored','OutsOnPlay','PitchCall','PlayResult'], p);
+
+      // plate view
+      const plateBox = document.createElement('div'); plateBox.className = 'canvas-container';
+      const plateCan = document.createElement('canvas'); plateBox.appendChild(plateCan);
+      container.appendChild(plateBox);
+      drawPlateView(plateCan, p);
+
+      // spray + fielders
+      const sprayBox = document.createElement('div'); sprayBox.className = 'canvas-container';
+      const sprayCan = document.createElement('canvas'); sprayBox.appendChild(sprayCan);
+      container.appendChild(sprayBox);
+      const fr = fPositions.find(r=>r.PitchUID===p.PitchUID);
+      drawSprayCanvas(sprayCan, [p], fr);
+    }
+
+    
 function drawPlateView(canvas, p) {
   const ctx = canvas.getContext('2d');
   canvas.width  = canvas.offsetWidth;
@@ -216,295 +366,561 @@ function drawPlateView(canvas, p) {
 
 
 }
+  // —— Drawing full field + spray + fielders —— 
 
+  const HIT_PALETTE = {
+  'Single':  '#00FF00',  // green
+  'Double':  '#0000FF',  // blue
+  'Triple':  '#FFA500',  // orange
+  'HomeRun': '#FF0000',  // red
+  // fallback for anything else
+  'undefined': '#888888'
+};
 
-  function init(){
-    // find gameUID
-    if (startPID){
-      const p = allPitches.find(r=>r.PitchUID===startPID);
-      if (!p){ $('title').innerText='⚠ pitchUID not found'; return; }
-      gameUID = p.GameUID;
-    }
-    else if (urlGame){
-      gameUID = urlGame;
-    } else {
-      $('title').innerText = '⚠ provide ?gameUID or ?pitchUID'; return;
-    }
+function drawSprayCanvas(canvas, rows, park) {
+  const ctx = canvas.getContext('2d');
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
 
-    // filter + sort
-    gamePitches = allPitches
-      .filter(r=>r.GameUID===gameUID)
-      .sort((a,b)=>{
-        let d = +a.Inning - +b.Inning; if(d) return d;
-        if(a['Top/Bottom']!==b['Top/Bottom'])
-          return a['Top/Bottom']==='Top'? -1:1;
-        return +a.PitchNo - +b.PitchNo;
-      });
+  const origin = { x: canvas.width/2, y: canvas.height - 20 };
+  const scale  = (canvas.height - 40) / park.center;
 
-    if (!gamePitches.length){
-      $('title').innerText = `⚠ no pitches for ${gameUID}`; return;
-    }
-
-    // start index
-    if (startPID){
-      const i = gamePitches.findIndex(p=>p.PitchUID===startPID);
-      if (i>=0) idxCurrent = i;
-    }
-
-    // pick park
-    const homeAbbr = gamePitches[0].HomeTeam;
-    const parkName = teamParkMap[homeAbbr]||'default';
-    currentPark = parks[parkName]||parks.default;
-
-    // render
-    renderBoxScore();
-    renderPitch();
-
-    $('prevPitch').onclick = ()=>{ if(idxCurrent>0){ idxCurrent--; renderPitch(); }};
-    $('nextPitch').onclick = ()=>{ if(idxCurrent<gamePitches.length-1){ idxCurrent++; renderPitch(); }};
-  }
-
-  // —— Box‐score up to this pitch —— 
-  function renderBoxScore(){
-    const bs = $('boxScore'); bs.innerHTML='';
-    // accumulate runs per half-inning up to current pitch
-    const runs={away:{}, home:{}};
-    const cp = gamePitches[idxCurrent];
-    gamePitches.slice(0, idxCurrent+1).forEach(p=>{
-      const inn = +p.Inning;
-      runs.away[inn] = runs.away[inn]||0;
-      runs.home[inn] = runs.home[inn]||0;
-      const r = toNum(p.RunsScored);
-      if (p['Top/Bottom']==='Top')    runs.away[inn]+=r;
-      else                            runs.home[inn]+=r;
-    });
-
-    // determine last inning to show
-    const lastInn = +cp.Inning;
-
-    // build table
-    const tbl = document.createElement('table');
-    let hdr = `<tr><th>Team</th>`;
-    for(let i=1;i<=lastInn;i++) hdr += `<th>${i}</th>`;
-    hdr += `<th>Total</th></tr>`;
-    tbl.innerHTML = hdr;
-
-    const away = gamePitches[0].AwayNameFull,
-          home = gamePitches[0].HomeNameFull;
-
-    function makeRow(name, side){
-      let tot=0, cells='';
-      for(let i=1;i<=lastInn;i++){
-        const v = runs[side][i]||0;
-        tot += v;
-        cells += `<td>${v}</td>`;
-      }
-      return `<tr><td><b>${name}</b></td>${cells}<td><b>${tot}</b></td></tr>`;
-    }
-
-    tbl.innerHTML += makeRow(away,'away') + makeRow(home,'home');
-    bs.appendChild(tbl);
-  }
-
-  
-function renderPitch() {
-  const p = gamePitches[idxCurrent];
-
-  const paPitchNum = p.PitchofPA || p.PitchNo;          // fallback to game pitch if missing
-  const pitcherSide = (p.PitcherThrows === 'Left' ? 'LHP' : 'RHP');
-  const batterSide  = (p.BatterSide   === 'Left' ? 'LHB' : 'RHB');
-
-  // Update header and nav buttons
-  $('title').innerText =
-    `PA Pitch ${paPitchNum} (${p.Inning} ${p['Top/Bottom']})  —  ` +
-    `${p.Pitcher} (${pitcherSide})  vs  ${p.Batter} (${batterSide})`;
-
-  $('prevPitch').disabled = idxCurrent === 0;
-  $('nextPitch').disabled = idxCurrent === gamePitches.length - 1;
-
-  // Clear previous content
-  const pd = $('pitchDetail');
-  pd.innerHTML = '';
-
-  // Helper to create a horizontally scrollable single-row table
-  function makeTable(fields, row) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'scrollTable';
-    const tbl = document.createElement('table');
-
-    // Header row
-    const hdr = fields.map(f => `<th>${f}</th>`).join('');
-    // Data row
-    const dataRow = fields.map(f => `<td>${row[f] != null ? row[f] : '–'}</td>`).join('');
-
-    tbl.innerHTML = `<thead><tr>${hdr}</tr></thead><tbody><tr>${dataRow}</tr></tbody>`;
-    wrapper.appendChild(tbl);
-    pd.appendChild(wrapper);
-  }
-
-  // 1) Game table
-  makeTable(
-    ['Outs', 'Balls', 'Strikes'],
-    p
-  );
-
-  // 2) Pitch table
-  makeTable(
-    [
-      'AutoPitchType', 'PitchCall', 'RelSpeed', 'VertRelAngle', 'HorzRelAngle',
-      'SpinRate', 'SpinAxis', 'Tilt', 'RelHeight', 'RelSide', 'Extension', 'VertBreak',
-      'InducedVertBreak', 'HorzBreak', 'PlateLocHeight', 'PlateLocSide', 'ZoneSpeed',
-      'VertApprAngle', 'HorzApprAngle', 'ZoneTime', 'SpeedDrop'
-    ],
-    p
-  );
-
-  // 3) Hit table (only if there's exit velocity)
-  if (p.ExitSpeed) {
-    makeTable(
-      ['ExitSpeed', 'Angle', 'Direction', 'HitSpinRate', 'Distance', 'Bearing', 'MaxHeight', 'HangTime'],
-      p
+  // 1) foul lines at -90° & +90°
+  [ -90, 90 ].forEach(deg => {
+    const rad = deg * Math.PI/180;
+    ctx.strokeStyle = '#888';
+    ctx.beginPath();
+    ctx.moveTo(origin.x, origin.y);
+    ctx.lineTo(
+      origin.x + Math.sin(rad)*park[ deg < 0 ? 'leftFoul' : 'rightFoul']*scale,
+      origin.y - Math.cos(rad)*park[ deg < 0 ? 'leftFoul' : 'rightFoul']*scale
     );
-  }
+    ctx.stroke();
+  });
 
-  // 4) Result table
-  makeTable(
-    ['RunsScored', 'OutsOnPlay', 'PitchCall', 'PlayResult'],
-    p
-  );
+  // 2) outfield wall: same angles as fenceDist()
+  const angles = [ -90, -45, 0, 45, 90 ];
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  angles.forEach((deg, i) => {
+    const rad = deg * Math.PI/180;
+    const radius = park[
+      ['leftFoul','leftCenter','center','rightCenter','rightFoul'][i]
+    ];
+    const x = origin.x + Math.sin(rad)*radius*scale;
+    const y = origin.y - Math.cos(rad)*radius*scale;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
 
-  // ----- Plate View Canvas -----
-  const plateBox = document.createElement('div');
-  plateBox.className = 'canvas-container';
-  const plateCan = document.createElement('canvas');
-  plateBox.appendChild(plateCan);
-  pd.appendChild(plateBox);
-  drawPlateView(plateCan, p);
+  // 3) fence labels
+  ctx.fillStyle = '#000';
+  ctx.font = '12px sans-serif';
+  angles.forEach((deg, i) => {
+    const rad = deg * Math.PI/180;
+    const radius = park[
+      ['leftFoul','leftCenter','center','rightCenter','rightFoul'][i]
+    ];
+    const x = origin.x + Math.sin(rad)*radius*scale;
+    const y = origin.y - Math.cos(rad)*radius*scale;
+    ctx.fillText(Math.round(radius) + "'", x + (deg<0 ? -30 : 5), y + 15);
+  });
 
-  // ----- Spray + Fielders Canvas -----
-  const sprayBox = document.createElement('div');
-  sprayBox.className = 'canvas-container';
-  const sprayCan = document.createElement('canvas');
-  sprayBox.appendChild(sprayCan);
-  pd.appendChild(sprayBox);
-  const fr = fPositions.find(r => r.PitchUID === p.PitchUID);
-  drawSprayCanvas(sprayCan, [p], fr);
+  // 4) infield diamond
+  const bases = [
+    { x: 0, z: 0 }, 
+    { x: 90/Math.SQRT2, z: 90/Math.SQRT2 },
+    { x: 90, z: 0 },
+    { x: 90/Math.SQRT2, z: -90/Math.SQRT2 }
+  ];
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  bases.forEach((pt,i) => {
+    const px = origin.x + pt.z*scale;
+    const py = origin.y - pt.x*scale;
+    i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+  });
+  ctx.closePath();
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  bases.forEach(pt => {
+    const px = origin.x + pt.z*scale;
+    const py = origin.y - pt.x*scale;
+    ctx.fillRect(px-6, py-6, 12, 12);
+  });
+
+  // 5) hit point
+  rows.forEach(r => {
+    const dir  = parseFloat(r.Direction),
+          dist = parseFloat(r.Distance);
+    if (isNaN(dir) || isNaN(dist)) return;
+    const rad = dir * Math.PI/180,
+          dpx = Math.min(dist, park.center) * scale,
+          x   = origin.x + Math.sin(rad)*dpx,
+          y   = origin.y - Math.cos(rad)*dpx;
+    ctx.fillStyle = 'red';
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, 2*Math.PI);
+    ctx.fill();
+  });
 }
 
 
-  // —— Drawing full field + spray + fielders —— 
-  function drawSprayCanvas(canvas, rows, fr){
-    const ctx = canvas.getContext('2d');
-    canvas.width  = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+     function switchView(view) {
+  // deactivate all buttons
+  [btnSummary, btnMatchups, btnBreakdowns, btnSpray].forEach(b => b.classList.remove('active'));
+  // hide all views
+  [viewSummary, viewMatchups, viewBreakdowns, viewSpray].forEach(v => v.classList.remove('active'));
+const away = gamePitches[0].AwayNameFull;
+      const home = gamePitches[0].HomeNameFull;
+      const date = gamePitches[0].Date || gamePitches[0].LocalDate || 'Date';
+  // activate the one we want
+  switch(view) {
+    case 'summary':
+      btnSummary.classList.add('active');
+      viewSummary.classList.add('active');
+      renderSummary();
+      break;
+    case 'matchups':
+      btnMatchups.classList.add('active');
+      viewMatchups.classList.add('active');
+            $('title').innerText = `${away} vs ${home} — ${date}`;
 
-    const park   = currentPark;
-    const origin = { x:canvas.width/2, y:canvas.height-20 };
-    const scale  = (canvas.height-40)/park.center;
+      renderMatchups();
+      break;
+    case 'breakdowns':
+      btnBreakdowns.classList.add('active');
+      viewBreakdowns.classList.add('active');
+            $('title').innerText = `${away} vs ${home} — ${date}`;
 
-    // foul lines
-    const ang = Math.PI/4;
-    ctx.strokeStyle='#888'; ctx.lineWidth=1.5; ctx.beginPath();
-    ctx.moveTo(origin.x,origin.y);
-    ctx.lineTo(origin.x+Math.sin(-ang)*park.leftFoul*scale,
-               origin.y-Math.cos(-ang)*park.leftFoul*scale);
-    ctx.moveTo(origin.x,origin.y);
-    ctx.lineTo(origin.x+Math.sin( ang)*park.rightFoul*scale,
-               origin.y-Math.cos( ang)*park.rightFoul*scale);
-    ctx.stroke();
+      renderBreakdowns();
+      break;
+    case 'spray':
+      btnSpray.classList.add('active');
+      viewSpray.classList.add('active');
+            $('title').innerText = `${away} vs ${home} — ${date}`;
 
-    // outfield wall (5‐point)
-    const angles = [-45,-22.5,0,22.5,45];
-    const radii  = [park.leftFoul,park.leftCenter,park.center,park.rightCenter,park.rightFoul];
-    ctx.strokeStyle='#555'; ctx.lineWidth=3; ctx.beginPath();
-    angles.forEach((d,i)=>{
-      const rad = d*Math.PI/180;
-      const dx  = Math.sin(rad)*radii[i]*scale;
-      const dy  = Math.cos(rad)*radii[i]*scale;
-      const x   = origin.x+dx, y = origin.y-dy;
-      i===0? ctx.moveTo(x,y):ctx.lineTo(x,y);
-    });
-    ctx.stroke();
+      renderSpray();
+      break;
+  }
+}
+function drawMatchup(puid, canvas, tableDiv) {
+  // grab only that PA’s pitches
+  const rows = gamePitches.filter(r => r.PitchUID === puid);
+  
+  // ——— DRAW THE PLATE/ZONE ———
+  const ctx = canvas.getContext('2d');
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // fence labels
-    ctx.fillStyle='#000'; ctx.font='12px sans-serif';
-    angles.forEach((d,i)=>{
-      const rad = d*Math.PI/180;
-      const dx  = Math.sin(rad)*radii[i]*scale;
-      const dy  = Math.cos(rad)*radii[i]*scale;
-      const px  = origin.x+dx, py = origin.y-dy;
-      ctx.fillText(Math.round(radii[i])+"'", px + (d<0?-25:5), py+15);
-    });
+  // (copy the zone-drawing code from drawPlateView)
+  const zone = { left:-17/24, right:17/24, bottom:1.5, top:3.5 };
+  const margin = 20;
+  const availW = canvas.width  - margin*2;
+  const availH = canvas.height - margin*2;
+  const baseScale = Math.min(availW/(zone.right-zone.left),
+                             availH/(zone.top-zone.bottom));
+  const scale = baseScale * 0.7;
+  const pixW = (zone.right-zone.left)*scale;
+  const pixH = (zone.top-zone.bottom)*scale;
+  const originX = (canvas.width - pixW)/2;
+  const originY = (canvas.height + pixH)/2;
 
-    // infield diamond
-    const bases = [
-      {x:0,z:0},
-      {x:90*Math.cos(Math.PI/4), z:90*Math.sin(Math.PI/4)},
-      {x:90*Math.sqrt(2),       z:0},
-      {x:90*Math.cos(Math.PI/4), z:-90*Math.sin(Math.PI/4)}
-    ];
-    ctx.strokeStyle='#444'; ctx.lineWidth=2; ctx.beginPath();
-    bases.forEach((pt,i)=>{
-      const x = origin.x + pt.z*scale;
-      const y = origin.y - pt.x*scale;
-      i===0? ctx.moveTo(x,y):ctx.lineTo(x,y);
-    });
-    ctx.closePath(); ctx.stroke();
+  const mapX = x => originX + (x - zone.left)*scale;
+  const mapY = y => originY - (y - zone.bottom)*scale;
 
-    // base squares
-    ctx.fillStyle='#fff';
-    bases.forEach(pt=>{
-      const x = origin.x + pt.z*scale;
-      const y = origin.y - pt.x*scale;
-      ctx.fillRect(x-6,y-6,12,12);
-    });
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth   = 2;
+  ctx.strokeRect(mapX(zone.left), mapY(zone.top), pixW, pixH);
 
-    // infield arc
-    const extraC = 55, extraM = 28.5;
-    ctx.strokeStyle='#aaa'; ctx.lineWidth=2; ctx.beginPath();
-    for(let d=-45; d<=45; d++){
-      const rad = d*Math.PI/180;
-      const r0  = 90+extraC, r1=90*Math.sqrt(2)+extraM;
-      const t   = 1-Math.abs(d)/45;
-      const r   = r0 + t*(r1-r0);
-      const x   = origin.x + Math.sin(rad)*r*scale;
-      const y   = origin.y - Math.cos(rad)*r*scale;
-      d===-45? ctx.moveTo(x,y):ctx.lineTo(x,y);
-    }
-    ctx.stroke();
+  // ——— PLOT EACH PITCH WITH ITS INDEX ———
+  rows.forEach((r,i) => {
+    const px = parseFloat(r.PlateLocSide),
+          py = parseFloat(r.PlateLocHeight);
+    if (isNaN(px) || isNaN(py)) return;
 
-    // spray
-    rows.filter(r=>r.PitchCall==='InPlay').forEach(r=>{
-      const dir = parseFloat(r.Direction), dist=parseFloat(r.Distance),
-            ev  = parseFloat(r.ExitSpeed);
-      if(isNaN(dir)||isNaN(dist)) return;
-      const rad = dir*Math.PI/180,
-            dpx = Math.min(dist,park.center)*scale,
-            x   = origin.x + Math.sin(rad)*dpx,
-            y   = origin.y - Math.cos(rad)*dpx,
-            size= isNaN(ev)?6:Math.min(ev/2,15);
-      ctx.fillStyle='rgba(220,50,50,0.7)';
-      ctx.beginPath(); ctx.arc(x,y,size,0,2*Math.PI); ctx.fill();
-    });
+    const x = mapX(px), y = mapY(py);
+    const radius = 8;
 
-    // fielders in blue
-    if (fr) {
-      ['1B','2B','3B','SS','LF','CF','RF'].forEach(lbl=>{
-        const px = parseFloat(fr[lbl+'_PositionAtReleaseX']),
-              pz = parseFloat(fr[lbl+'_PositionAtReleaseZ']),
-              name = fr[lbl+'_Name']||lbl;
-        if(!isNaN(px)&&!isNaN(pz)){
-          const x = origin.x + pz*scale,
-                y = origin.y - px*scale;
-          ctx.fillStyle='rgba(50,100,220,0.8)';
-          ctx.beginPath(); ctx.arc(x,y,6,0,2*Math.PI); ctx.fill();
-          ctx.fillStyle='#000'; ctx.font='12px sans-serif';
-          ctx.textAlign='left'; ctx.textBaseline='middle';
-          ctx.fillText(name, x+8, y);
-        }
+    // colored dot
+    ctx.fillStyle = 'rgba(0,150,0,0.7)';
+    ctx.beginPath();
+    ctx.arc(x,y,radius,0,2*Math.PI);
+    ctx.fill();
+
+    // sequence number
+    ctx.fillStyle      = '#fff';
+    ctx.font           = '12px sans-serif';
+    ctx.textAlign      = 'center';
+    ctx.textBaseline   = 'middle';
+    ctx.fillText(i+1, x, y);
+  });
+
+  // ——— BUILD THE TABLE BELOW ———
+  let html = `
+    <table style="width:100%; border-collapse:collapse; margin-top:1em;">
+      <thead>
+        <tr>
+          <th style="border:1px solid #ddd; padding:.4em;">#</th>
+          <th style="border:1px solid #ddd; padding:.4em;">Pitch Type</th>
+          <th style="border:1px solid #ddd; padding:.4em;">Result</th>
+          <th style="border:1px solid #ddd; padding:.4em;">RelSpeed</th>
+          <th style="border:1px solid #ddd; padding:.4em;">SpinRate</th>
+          <th style="border:1px solid #ddd; padding:.4em;">InducedVertBreak</th>
+          <th style="border:1px solid #ddd; padding:.4em;">HorzBreak</th>
+          <th style="border:1px solid #ddd; padding:.4em;">Drop</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  rows.forEach((r,i) => {
+    const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall);
+    html += `
+      <tr>
+        <td style="border:1px solid #ddd; padding:.4em;">${i+1}</td>
+        <td style="border:1px solid #ddd; padding:.4em;">${r.AutoPitchType||'–'}</td>
+        <td style="border:1px solid #ddd; padding:.4em;">${result||'–'}</td>
+        <td style="border:1px solid #ddd; padding:.4em;">${r.RelSpeed||''}</td>
+        <td style="border:1px solid #ddd; padding:.4em;">${r.SpinRate||''}</td>
+        <td style="border:1px solid #ddd; padding:.4em;">${r.InducedVertBreak||''}</td>
+        <td style="border:1px solid #ddd; padding:.4em;">${r.HorzBreak||''}</td>
+        <td style="border:1px solid #ddd; padding:.4em;">${r.SpeedDrop||''}</td>
+      </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  tableDiv.innerHTML = html;
+}
+
+function renderMatchups() {
+  viewMatchups.innerHTML = '';
+
+  // 1) Build a map of unique PAs
+  const paMap = new Map();
+  gamePitches.forEach(p => {
+    const key = [
+      p.Inning,
+      p['Top/Bottom'],
+      p.PAofInning,
+      p.Pitcher,
+      p.Batter
+    ].join('|');
+
+    if (!paMap.has(key)) {
+      paMap.set(key, {
+        inning:      p.Inning,
+        half:        p['Top/Bottom'],
+        paIndex:     p.PAofInning,
+        pitcher:     p.Pitcher,
+        batter:      p.Batter,
+        label:       `Inning ${p.Inning} ${p['Top/Bottom']} — PA ${p.PAofInning}: ${p.Pitcher} vs ${p.Batter}`
       });
     }
-  }
+  });
+
+  // 2) Create select with those unique PAs
+  const sel = document.createElement('select');
+  sel.style.marginBottom = '1em';
+  Array.from(paMap.values()).forEach(pa => {
+    const opt = document.createElement('option');
+    opt.value = JSON.stringify(pa);
+    opt.text  = pa.label;
+    sel.appendChild(opt);
+  });
+
+  // 3) Canvas + table container
+  const canvas   = document.createElement('canvas');
+  canvas.className = 'canvas-container';
+
+  const tableDiv = document.createElement('div');
+
+  // 4) When PA changes, redraw chart + table
+  sel.onchange = () => {
+    const pa = JSON.parse(sel.value);
+    drawPA(pa, canvas, tableDiv);
+  };
+
+  // 5) Append in order
+  viewMatchups.appendChild(sel);
+  viewMatchups.appendChild(canvas);
+  viewMatchups.appendChild(tableDiv);
+
+  // 6) Initial draw
+  sel.selectedIndex = 0;
+  sel.onchange();
+
+  // 7) Legend
+  const legend = document.createElement('div');
+  legend.style.marginTop = '1em';
+  legend.innerHTML = '<strong>Pitch Types:</strong> ';
+  Object.entries(PALETTE).forEach(([type, hex]) => {
+    legend.innerHTML +=
+      `<span style="color:${hex}; margin-left:1em">● ${type}</span>`;
+  });
+  viewMatchups.appendChild(legend);
+}
+
+ const PALETTE = {
+    'Four-Seam': '#000000',
+    'Sinker':    '#FF69B4',
+    'Slider':    '#0000FF',
+    'Changeup':  '#00FF00',
+    'Curveball': '#FFA500',
+    'Cutter':    '#800080',
+    'Splitter':  '#00FFFF',
+    'undefined':'#888888'
+  };
+
+
+// Helper that actually draws one PA
+function drawPA(pa, canvas, tableDiv) {
+  // filter all pitches belonging to that PA
+  const rows = gamePitches.filter(r =>
+    r.Inning       === pa.inning    &&
+    r['Top/Bottom']=== pa.half      &&
+    +r.PAofInning  === +pa.paIndex  &&
+    r.Pitcher      === pa.pitcher   &&
+    r.Batter       === pa.batter
+  );
+
+  // —– draw the zone (same as before) —–
+  const ctx = canvas.getContext('2d');
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // strike‐zone math
+  const zone   = { left:-17/24, right:17/24, bottom:1.5, top:3.5 };
+  const m      = 20;
+  const availW = canvas.width  - m*2;
+  const availH = canvas.height - m*2;
+  const baseS  = Math.min(availW/(zone.right-zone.left), availH/(zone.top-zone.bottom));
+  const scale  = baseS * 0.7;
+  const pixW   = (zone.right-zone.left)*scale;
+  const pixH   = (zone.top-zone.bottom)*scale;
+  const ox     = (canvas.width  - pixW)/2;
+  const oy     = (canvas.height + pixH)/2;
+  const mapX   = x => ox + (x-zone.left)*scale;
+  const mapY   = y => oy - (y-zone.bottom)*scale;
+
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth   = 2;
+  ctx.strokeRect(mapX(zone.left), mapY(zone.top), pixW, pixH);
+
+  // —– plot & number each pitch —–
+rows.forEach((r,i) => {
+    const px = parseFloat(r.PlateLocSide),
+          py = parseFloat(r.PlateLocHeight);
+    if (isNaN(px)||isNaN(py)) return;
+
+    const x = mapX(px), y = mapY(py), rad = 8;
+    const type = r.AutoPitchType || 'undefined';
+    const color = PALETTE[type] || PALETTE.undefined;
+
+    // dot in correct color
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x,y,rad,0,2*Math.PI);
+    ctx.fill();
+
+    // sequence number
+    ctx.fillStyle    = '#fff';
+    ctx.font         = '12px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(i+1, x, y);
+  });
+
+  // —– build the detail table —–
+  let html = `
+    <table style="width:100%;border-collapse:collapse;margin-top:1em;">
+      <thead>
+        <tr>
+          <th>#</th><th>Pitch Type</th><th>Result</th>
+          <th>RelSpeed</th><th>SpinRate</th>
+          <th>InducedVertBreak</th><th>HorzBreak</th><th>Drop</th>
+        </tr>
+      </thead><tbody>`;
+
+  rows.forEach((r,i) => {
+    const result = (r.PitchCall==='InPlay'?r.PlayResult:r.PitchCall);
+    html += `
+      <tr>
+        <td>${i+1}</td>
+        <td>${r.AutoPitchType||'–'}</td>
+        <td>${result||'–'}</td>
+        <td>${r.RelSpeed||''}</td>
+        <td>${r.SpinRate||''}</td>
+        <td>${r.InducedVertBreak||''}</td>
+        <td>${r.HorzBreak||''}</td>
+        <td>${r.SpeedDrop||''}</td>
+      </tr>`;
+  });
+
+  html += '</tbody></table>';
+  tableDiv.innerHTML = html;
+}
+
+
+function renderBreakdowns() {
+  viewBreakdowns.innerHTML = '';
+
+  // 1) Group pitches by pitcher
+  const byPitcher = {};
+  gamePitches.forEach(p => {
+    if (!byPitcher[p.Pitcher]) byPitcher[p.Pitcher] = [];
+    byPitcher[p.Pitcher].push(p);
+  });
+
+  // Zone boundaries in feet
+  const Z_LEFT   = -17/24;
+  const Z_RIGHT  =  17/24;
+  const Z_BOTTOM =  1.5;
+  const Z_TOP    =  3.5;
+
+  // 2) For each pitcher, render Usage + Swing stacked
+  Object.entries(byPitcher).forEach(([pitcher, arr]) => {
+    const wrapper = document.createElement('div');
+    wrapper.style.marginBottom = '2em';
+
+    // ——— USAGE STATS ———
+    const usageCard = document.createElement('div');
+    usageCard.className = 'card';
+    usageCard.innerHTML = `<h2>${pitcher} Usage</h2>`;
+    const usageTbl = document.createElement('table');
+    usageTbl.innerHTML = `
+      <thead>
+        <tr>
+          <th>Type</th><th>Count</th><th>vs RHB</th><th>vs LHB</th>
+          <th>MaxVelo</th><th>MinVelo</th><th>AvgVelo</th>
+          <th>MaxSpin</th><th>MinSpin</th><th>AvgSpin</th>
+        </tr>
+      </thead>`;
+
+    const types = [...new Set(arr.map(p => p.AutoPitchType || 'undefined'))];
+    const usageRows = types.map(type => {
+      const subset = arr.filter(p => (p.AutoPitchType || 'undefined') === type);
+
+      let vsR = 0, vsL = 0;
+      subset.forEach(p => {
+        if (p.BatterSide === 'Right') vsR++;
+        else if (p.BatterSide === 'Left') vsL++;
+      });
+
+      const vels  = subset.map(p => +p.RelSpeed).filter(n => !isNaN(n));
+      const spins = subset.map(p => +p.SpinRate).filter(n => !isNaN(n));
+      const avg   = a => a.length ? (a.reduce((s,x) => s+x,0)/a.length).toFixed(1) : '–';
+
+      return `
+        <tr>
+          <td>${type}</td>
+          <td>${subset.length}</td>
+          <td>${vsR}</td>
+          <td>${vsL}</td>
+          <td>${vels.length?Math.max(...vels):'–'}</td>
+          <td>${vels.length?Math.min(...vels):'–'}</td>
+          <td>${avg(vels)}</td>
+          <td>${spins.length?Math.max(...spins):'–'}</td>
+          <td>${spins.length?Math.min(...spins):'–'}</td>
+          <td>${avg(spins)}</td>
+        </tr>`;
+    }).join('');
+
+    usageTbl.innerHTML += `<tbody>${usageRows}</tbody>`;
+    usageCard.appendChild(usageTbl);
+    wrapper.appendChild(usageCard);
+
+    // ——— SWING STATS ———
+    const swingCard = document.createElement('div');
+    swingCard.className = 'card';
+    swingCard.style.marginTop = '1em';
+    swingCard.innerHTML = `<h2>${pitcher} Swing Stats</h2>`;
+    const swingTbl = document.createElement('table');
+    swingTbl.innerHTML = `
+      <thead>
+        <tr>
+          <th>Type</th><th>Swings</th><th>Whiffs</th>
+          <th>Zone%</th><th>Contact%</th>
+        </tr>
+      </thead>`;
+
+    const swingRows = types.map(type => {
+      const subset = arr.filter(p => (p.AutoPitchType || 'undefined') === type);
+      const total  = subset.length;
+
+      // swings: InPlay + any Foul* + StrikeSwinging
+      const swings = subset.filter(p =>
+        p.PitchCall === 'InPlay' ||
+        p.PitchCall === 'StrikeSwinging' ||
+        p.PitchCall.startsWith('Foul')
+      ).length;
+
+      // whiffs only on swinging strikes
+      const whiffs = subset.filter(p =>
+        p.PitchCall === 'StrikeSwinging'
+      ).length;
+
+      // zone% by true crossing location
+      const inZone = subset.filter(p => {
+        const x = parseFloat(p.PlateLocSide);
+        const y = parseFloat(p.PlateLocHeight);
+        return !isNaN(x) && !isNaN(y)
+            && x >= Z_LEFT && x <= Z_RIGHT
+            && y >= Z_BOTTOM && y <= Z_TOP;
+      }).length;
+      const zonePct = total
+        ? ((inZone / total) * 100).toFixed(1)
+        : '0.0';
+
+      // contact% = (total - swings) / total
+      const contactPct = total
+        ? (((total - swings) / total) * 100).toFixed(1)
+        : '0.0';
+
+      return `
+        <tr>
+          <td>${type}</td>
+          <td>${swings}</td>
+          <td>${whiffs}</td>
+          <td>${zonePct}%</td>
+          <td>${contactPct}%</td>
+        </tr>`;
+    }).join('');
+
+    swingTbl.innerHTML += `<tbody>${swingRows}</tbody>`;
+    swingCard.appendChild(swingTbl);
+    wrapper.appendChild(swingCard);
+
+    // 3) append to view
+    viewBreakdowns.appendChild(wrapper);
+  });
+}
+
+    function renderSpray() {
+  viewSpray.innerHTML = '';
+  const canvas = document.createElement('canvas');
+  canvas.className = 'canvas-container';
+  viewSpray.appendChild(canvas);
+
+  const hits = gamePitches.filter(p => ['Single','Double','Triple','HomeRun'].includes(p.PlayResult));
+  drawSprayCanvas(canvas, hits);
+
+  // legend for hit types
+    const legend = document.createElement('div');
+  legend.style.marginTop = '1em';
+  legend.innerHTML = '<strong>Hit Types:</strong> ' +
+    Object.entries(HIT_PALETTE)
+      .filter(([type]) => type !== 'undefined')
+      .map(([type, hex]) =>
+        `<span style="color:${hex}; margin-left:1em">● ${type}</span>`
+      ).join('');
+  viewSpray.appendChild(legend);
+}
+
+    
   </script>
 </body>
 </html>

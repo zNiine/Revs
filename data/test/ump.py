@@ -8,7 +8,7 @@ umpire_mapping = {
     "932781d9-f5eb-45d1-86c4-b1d73966f575": "Steve Bartelstein",
     "ec583749-c087-44a1-a4c7-e34fbf4199c5": "Matt Criss (CC)",
     "eea7ea68-83ff-4ed0-af83-918ebb156b53": "Gavin Holdgreve",
-    "795b5756-d449-4242-9906-91099150391b": "",
+    "795b5756-d449-4242-9906-91099150391b": "John Doe",
     "c9c7c328-59e3-4c22-bd94-5ddfa4b78b5d": "Rob Massaro",
     "4cf53127-b656-4461-845d-ab46fb66566a": "Andrew Eng",
     "17029b56-e2ad-4492-a3b5-bc432e60bafe": "Nick Rosa",
@@ -32,7 +32,7 @@ umpire_mapping = {
     "f6f19a9c-340c-453c-9785-3657b144ed55" : "Jacob Cackett",
     "28f0c7c1-d094-4586-b79a-184f4b390a71" : "Gus Curtis",
     "954ed70e-9547-4536-8dc2-77230aa4ec73" : "Ronnie Withrow",
-    "81033df9-5495-4fa4-a836-308d111b97a9" : "",
+    "81033df9-5495-4fa4-a836-308d111b97a9" : "John Doe",
     "7527fd70-36f1-4354-bfc0-e660f82cb0b0" : "Steve Bartelstein",
     "d44263a2-f07d-45b9-8cb6-6172a9a5edf2" : "Antonio Pinzon",
     "6fb8cc1b-c6f3-4ebc-9dfd-38a250666b34" : "Zach Burr",
@@ -59,7 +59,7 @@ umpire_mapping = {
     "8a421e80-e10b-4530-9e59-9ee28c301f62" : "David Martinez",
     "f576593b-b421-46cb-a31d-73bdb2fdaddc" : "Miguel De La Cruz Segura",
     "cdbe141f-85c1-4ec0-b01b-4ff613b0d959" :"Charles Hudson",
-    "d13439de-49cf-4d93-a5d1-81facb36b9f2" : "",
+    "d13439de-49cf-4d93-a5d1-81facb36b9f2" : "Ben Wilson",
     "f01349d1-2159-4eab-9565-88c37aebcfca" :"Chris Minter"
 
     # add your other GameID→Umpire entries here…

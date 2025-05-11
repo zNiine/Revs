@@ -2,32 +2,202 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Leaderboards - Baseball Analytics</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #fff; font-family: Arial, sans-serif; line-height: 1.4; }
-    header, nav { padding: 1rem 2rem; border-bottom: 1px solid #ddd; }
-    header { display: flex; justify-content: space-between; align-items: center; }
-    #logo { font-size: 1.5rem; font-weight: bold; }
-    #search-container { position: relative; }
-    #search { padding: 0.5rem; width: 250px; }
-    nav#menu ul { list-style: none; display: flex; gap: 2rem; }
-    nav#menu a { text-decoration: none; color: #333; font-weight: 500; }
-    nav#menu a.active { text-decoration: underline; }
-    main { padding: 2rem; }
-    .global-filters { margin-bottom: 1rem; }
-    .global-filters select { padding: 0.5rem; margin-right: 1rem; }
-    .leaderboard { margin-bottom: 3rem; }
-    .leaderboard h2 { margin-bottom: 0.5rem; }
-    .filters { margin-bottom: 1rem; display: flex; gap: 1rem; }
-    .filters input, .filters label { padding: 0.4rem; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 0.5rem; border: 1px solid #ccc; text-align: left; }
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Leaderboards – Baseball Analytics</title>
+
+<style>
+    /* === RESET & BASE === */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html {
+  scroll-behavior: smooth;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #fff;
+  font-family: Arial, sans-serif;
+  line-height: 1.4;
+}
+
+/* === TOP BAR (NAV + SEARCH) === */
+header.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 2rem;
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+header.top-bar nav#menu ul {
+  list-style: none;
+  display: flex;
+  gap: 2rem;
+}
+header.top-bar nav#menu a {
+  text-decoration: none;
+  color: #333;
+  font-weight: 500;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+header.top-bar nav#menu a:hover {
+  background: #f0f0f0;
+}
+header.top-bar nav#menu a.active {
+  color: #007bff;
+  background: rgba(0,123,255,0.1);
+}
+header.top-bar .search-container {
+  display: flex;
+  gap: 0.5rem;
+}
+header.top-bar .search-container input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  min-width: 200px;
+  transition: border-color 0.2s;
+}
+header.top-bar .search-container input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+header.top-bar .search-container button {
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: #007bff;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+header.top-bar .search-container button:hover {
+  background: #0056b3;
+}
+
+/* === SECONDARY NAV === */
+nav#subMenu {
+  background: #fafafa;
+  border-bottom: 1px solid #ddd;
+  padding: 0.5rem 2rem;
+}
+nav#subMenu ul {
+  list-style: none;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+nav#subMenu a {
+  text-decoration: none;
+  color: #333;
+}
+
+/* === GLOBAL FILTERS === */
+.global-filters {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid #ddd;
+}
+.global-filters label {
+  margin-right: 0.5rem;
+  font-weight: 500;
+}
+.global-filters select {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* === TWO-COLUMN LAYOUT === */
+.layout {
+  display: flex;
+  flex: 1;
+  gap: 1rem;
+  padding: 2rem;
+  overflow: hidden;
+}
+main#cards-container {
+  flex: 3;
+  overflow-y: auto;
+  padding-right: 1rem;
+}
+aside#sidebar {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 6rem);
+}
+aside#sidebar h3 {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.5rem;
+}
+#table-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+#table-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+#table-list li:hover {
+  background: #f9f9f9;
+}
+#table-list .drag-handle {
+  cursor: grab;
+  font-size: 1.2rem;
+  color: #888;
+}
+#table-list input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* === CARD STYLES === */
+.card {
+  width: 100%;
+  margin-bottom: 1.5rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  background: #fff;
+}
+.card > summary {
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card > summary:hover {
+  background: #fafafa;
+}
+.card h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* back‐to‐top button */
 .back-to-top {
-  margin-left: 1rem;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
   background: #eee;
   border: 1px solid #ccc;
   border-radius: 3px;
@@ -36,45 +206,41 @@
 .back-to-top:hover {
   background: #ddd;
 }
-    html {
-    scroll-behavior: smooth;
-  }
 
-  /* Card style */
-.card {
-  margin-bottom: 1.5rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  padding: 0.5rem 1rem 1rem;
-  background: #fff;
+/* card‐internal filters */
+.filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 1rem;
+}
+.filters input,
+.filters select,
+.filters label {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 3px;
 }
 
-/* Style for the summary bar */
-.card > summary {
-  cursor: pointer;
-  outline: none;
-  padding: 0.5rem 0;
+/* === TABLE STYLES === */
+.leaderboard {
+  padding: 0 1rem 1rem;
 }
-.card > summary:hover {
-  background: #fafafa;
-}
-
-/* Table improvements */
 .leaderboard table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 0.5rem;
+  table-layout: auto;
 }
-.leaderboard th, .leaderboard td {
+.leaderboard th,
+.leaderboard td {
   padding: 0.5rem;
   border: 1px solid #ccc;
+  text-align: left;
 }
 .leaderboard tbody tr:nth-child(odd) {
   background: #f9f9f9;
 }
-
-/* Sticky header */
 .leaderboard thead th {
   position: sticky;
   top: 0;
@@ -82,416 +248,423 @@
   z-index: 1;
 }
 
-/* Tighter filter bar */
-.card .filters {
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-/* Shrink back‐to‐top button */
-.back-to-top {
-  font-size: 0.75rem;
-  padding: 0.2rem 0.4rem;
-}
-
-  </style>
+</style>>
 </head>
-<body>
-      <a id="top"></a>
 
-  <header>
-    <div id="logo">ALPB</div>
-        <form id="search-form">
-      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off" />
-      <button type="submit" id="search-btn">Go</button>
-      <datalist id="suggestions"></datalist>
-    </form>
-    </header>
+<body>
+  <header class="top-bar">
   <nav id="menu">
     <ul>
       <li><a href="index.html">Home</a></li>
       <li><a href="leaderboards.html" class="active">Leaderboards</a></li>
       <li><a href="park-factors.html">Park Factors</a></li>
+      <li><a href="fielding.html">Fielding</a></li>
     </ul>
   </nav>
 
- <nav id="subMenu" style="background:#fafafa;border-bottom:1px solid #ddd;padding:0.5rem 2rem;">
-  <ul style="list-style:none;display:flex;gap:1rem;margin:0;padding:0;flex-wrap:wrap;">
-    <li><a href="#hr-distance">Home Run Distance</a></li>
-    <li><a href="#ev-speed">Exit Velocity</a></li>
-    <li><a href="#chase-rate">Chase Rate</a></li>
-    <li><a href="#release-speed">Release Speed</a></li>
-    <li><a href="#catcher-stats">Catcher Stats</a></li>
-    <li><a href="#avg-ev">Avg Exit Vel</a></li>
-    <li><a href="#umpire-accuracy">Umpire Accuracy</a></li>
-    <li><a href="#batter-run-exp">Batter RE by Pitch</a></li>
-    <li><a href="#pitch-run-exp">Pitcher RE by Pitch</a></li>
-    <li><a href="#spin-eff">Spin Efficiency</a></li>
-    <li><a href="#pitcher-hh">Pitcher HardHit %</a></li>
-    <li><a href="#batter-hh">Batter HardHit %</a></li>
-    <li><a href="#barrel-pct">Barrel %</a></li>
-      <li><a href="#sweetspot-pct">SweetSpot %</a></li>
-  </ul>
-</nav>
-  <main>
-    <div class="global-filters">
-      <label for="time-filter">Time Range:</label>
-      <select id="time-filter">
-        <option value="0" selected>All Time</option>
-        <option value="3">Yesterday</option>
-        <option value="5">Last 3 Days</option>
-        <option value="9">Last 7 Days</option>
-        <option value="17">Last 15 Days</option>
-        <option value="30">Last 30 Days</option>
-      </select>
-    </div>
+  <form id="search-form" class="search-container">
+  <input
+    type="text"
+    id="search"
+    placeholder="Search…"
+    autocomplete="off"
+    list="suggestions"  
+  />
+  <button type="submit" id="search-btn">Go</button>
+  <datalist id="suggestions"></datalist>
+</form>
+</header>
 
-    <!-- 1. Home Run Distance -->
-    <details open class="card">
-      <summary>
-        <h2>
-          1. Home Run Distance
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="hr-distance">
-        <div class="filters">
-          <input type="text" id="hr-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="hr-player-filter" placeholder="Filter by player" list="player-suggestions" />
+  <nav id="subMenu">
+    <ul>
+      <li><a href="#hr-distance">Home Run Distance</a></li>
+      <li><a href="#ev-speed">Exit Velocity</a></li>
+      <li><a href="#chase-rate">Chase Rate</a></li>
+      <li><a href="#release-speed">Release Speed</a></li>
+      <li><a href="#catcher-stats">Catcher Stats</a></li>
+      <li><a href="#avg-ev">Avg Exit Velocitry</a></li>
+      <li><a href="#umpire-accuracy">Umpire Accuracy</a></li>
+      <li><a href="#batter-run-exp">Batter Run Expectancy</a></li>
+      <li><a href="#pitch-run-exp">Pitcher Run Expectancy</a></li>
+      <li><a href="#spin-eff">Spin Effeciency</a></li>
+      <li><a href="#pitcher-hh">Pitcher Hard Hit%</a></li>
+      <li><a href="#batter-hh">Batter Hard Hit%</a></li>
+      <li><a href="#barrel-pct">Barrel%</a></li>
+      <li><a href="#sweetspot-pct">SweetSpot%</a></li>
+      <li><a href="#avg-team-hr-dist">Avg Team HR Dist</a></li>
+
+    </ul>
+  </nav>
+
+  <div class="global-filters">
+    <label for="time-filter">Time Range:</label>
+    <select id="time-filter">
+      <option value="0">All Time</option>
+      <option value="3">Yesterday</option>
+      <option value="4">Last 3 Days</option>
+      <option value="8">Last 7 Days</option>
+      <option value="16">Last 15 Days</option>
+      <option value="31">Last 30 Days</option>
+    </select>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT: all cards -->
+    <main id="cards-container">
+
+      <!-- 1. Home Run Distance -->
+      <details class="card" open>
+        <summary>
+          <h2>1. Home Run Distance</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="hr-distance">
+          <div class="filters">
+            <input type="text" id="hr-team-filter" placeholder="Team" list="team-suggestions"/>
+            <input type="text" id="hr-player-filter" placeholder="Player" list="player-suggestions"/>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Team</th><th>Batter</th><th>Pitcher</th>
+                <th>Exit Vel</th><th>Launch Ang</th><th>Distance</th>
+                <th>PitchType</th><th>Date</th><th>Details</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Team</th><th>Batter</th><th>Pitcher</th><th>Exit Vel</th>
-              <th>Launch Ang</th><th>Distance</th><th>AutoPitchType</th><th>Date</th><th>Details</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
+      </details>
 
-    <!-- 2. Exit Velocity -->
-    <details open class="card">
-      <summary>
-        <h2>
-          2. Exit Velocity
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="ev-speed">
-        <div class="filters">
-  <input type="text" id="ev-team-filter"   placeholder="Filter by team"   list="team-suggestions" />
-  <input type="text" id="ev-player-filter" placeholder="Filter by player" list="player-suggestions" />
-
-  <!-- new: Play Result dropdown -->
-  <select id="ev-playresult-filter">
-    <option value="">All Results</option>
-  </select>
-
-  <!-- new: AutoPitchType dropdown -->
-  <select id="ev-autotype-filter">
-    <option value="">All Pitch Types</option>
-  </select>
-</div>
-        <table>
-          <thead>
-  <tr>
-    <th>Team</th>
-    <th>Batter</th>
-    <th>Pitcher</th>
-    <th>Exit Vel</th>
-    <th>Launch Ang</th>
-    <th>Distance</th>        <!-- ← new -->
-    <th>PlayResult</th>
-    <th>AutoPitchType</th>
-    <th>Date</th>
-    <th>Details</th>
-  </tr>
-</thead>
-
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-    <!-- 3. Chase Rate -->
-    <details open class="card">
-      <summary>
-        <h2>
-          3. Chase Rate
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="chase-rate">
-        <div class="filters">
-          <input type="text" id="chase-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <label for="chase-min-filter">Min Outside Pitches:</label>
-          <input type="number" id="chase-min-filter" value="20" min="1" />
+      <!-- 2. Exit Velocity -->
+      <details class="card" open>
+        <summary>
+          <h2>2. Exit Velocity</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="ev-speed">
+          <div class="filters">
+            <input type="text" id="ev-team-filter" placeholder="Team" list="team-suggestions"/>
+            <input type="text" id="ev-player-filter" placeholder="Player" list="player-suggestions"/>
+            <select id="ev-playresult-filter"><option value="">All Results</option></select>
+            <select id="ev-autotype-filter"><option value="">All Types</option></select>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Team</th><th>Batter</th><th>Pitcher</th>
+                <th>Exit Vel</th><th>Launch Ang</th><th>Distance</th>
+                <th>Result</th><th>Type</th><th>Date</th><th>Details</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr><th>Player</th><th>Chase Rate</th><th>Total Outside</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
+      </details>
 
-    <!-- 4. Release Speed -->
-    <details open class="card">
-      <summary>
-        <h2>
-          4. Release Speed
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="release-speed">
-        <div class="filters">
-          <input type="text" id="rel-team-filter" placeholder="Filter by team" list="team-suggestions" />
+      <!-- 3. Chase Rate -->
+      <details class="card" open>
+        <summary>
+          <h2>3. Chase Rate</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="chase-rate">
+          <div class="filters">
+            <input type="text" id="chase-team-filter" placeholder="Team" list="team-suggestions"/>
+            <label for="chase-min-filter">Min Outside:</label>
+            <input type="number" id="chase-min-filter" value="20" min="1"/>
+          </div>
+          <table>
+            <thead><tr><th>Player</th><th>Chase Rate</th><th>Total Outside</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr><th>Pitcher</th><th>Release Speed</th><th>PitchCall</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
+      </details>
 
-    <!-- 5. Catcher Stats -->
-    <details open class="card">
-      <summary>
-        <h2>
-          5. Catcher Stats
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="catcher-stats">
-        <div class="filters">
-          <input type="text" id="catcher-player-filter" placeholder="Filter by catcher" list="player-suggestions" />
-          <input type="text" id="catcher-team-filter" placeholder="Filter by team" list="team-suggestions" />
+      <!-- 4. Release Speed -->
+      <details class="card" open>
+        <summary>
+          <h2>4. Release Speed</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="release-speed">
+          <div class="filters">
+            <input type="text" id="rel-team-filter" placeholder="Team" list="team-suggestions"/>
+          </div>
+          <table>
+            <thead><tr><th>Pitcher</th><th>Release Speed</th><th>Call</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Catcher</th><th>Team</th><th>Avg PopTime</th>
-              <th>Avg ExchangeTime</th><th>Avg ThrowSpeed</th><th>Attempts</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
+      </details>
 
-    <!-- 6. Avg Exit Vel by Batter -->
-    <details open class="card">
-      <summary>
-        <h2>
-          6. Avg Exit Vel by Batter
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="avg-ev">
-        <div class="filters">
-          <input type="text" id="avg-ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
+      <!-- 5. Catcher Stats -->
+      <details class="card" open>
+        <summary>
+          <h2>5. Catcher Stats</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="catcher-stats">
+          <div class="filters">
+            <input type="text" id="catcher-player-filter" placeholder="Catcher" list="player-suggestions"/>
+            <input type="text" id="catcher-team-filter" placeholder="Team" list="team-suggestions"/>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Catcher</th><th>Team</th><th>Avg PopTime</th>
+                <th>Avg Exchange</th><th>Avg Throw</th><th>Attempts</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr><th>Batter</th><th>Team</th><th>Avg Exit Velocity</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
+      </details>
 
-
-    <!-- 8. Batter Run Expectancy -->
-    <details open class="card">
-      <summary>
-        <h2>
-          8. Batter Run Expectancy
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="batter-run-exp">
-        <div class="filters">
-          <input type="text" id="bre-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="bre-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
+      <!-- 6. Avg Exit Vel by Batter -->
+      <details class="card" open>
+        <summary>
+          <h2>6. Avg Exit Velocity</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="avg-ev">
+          <div class="filters">
+            <input type="text" id="avg-ev-team-filter" placeholder="Team" list="team-suggestions"/>
+          </div>
+          <table>
+            <thead><tr><th>Batter</th><th>Team</th><th>Avg Exit Vel</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Batter</th><th>Pitch Type</th><th>Avg Run Value</th><th>Count</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
+      </details>
 
-    <!-- 9. Pitcher Run Expectancy -->
-    <details open class="card">
-      <summary>
-        <h2>
-          9. Pitcher Run Expectancy
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="pitch-run-exp">
-        <div class="filters">
-          <input type="text" id="pre-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="pre-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
+      <!-- 7. Umpire Accuracy -->
+      <details class="card" open>
+        <summary>
+          <h2>7. Umpire Accuracy</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="umpire-accuracy">
+          <table>
+            <thead><tr><th>Umpire</th><th>Accuracy</th><th>Total Calls</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Pitcher</th><th>Pitch Type</th><th>Avg Run Value</th><th>Count</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
+      </details>
 
-    <!-- 10. Spin Efficiency -->
-    <details open class="card">
-      <summary>
-        <h2>
-          10. Spin Efficiency
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="spin-eff">
-        <div class="filters">
-          <input type="text" id="seam-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="seam-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
+      <!-- 8. Batter Run Expectancy -->
+      <details class="card" open>
+        <summary>
+          <h2>8. Batter Run Expectancy</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="batter-run-exp">
+          <div class="filters">
+            <input type="text" id="bre-team-filter" placeholder="Team" list="team-suggestions"/>
+            <input type="text" id="bre-batter-filter" placeholder="Batter" list="player-suggestions"/>
+          </div>
+          <table>
+            <thead><tr><th>Batter</th><th>Pitch Type</th><th>Avg RV</th><th>Count</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr><th>Pitcher</th><th>Pitch Type</th><th>Spin Eff.</th><th>Count</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
+      </details>
 
-    <!-- 11. Pitcher HardHit % -->
-    <details open class="card">
-      <summary>
-        <h2>
-          11. Pitcher HardHit %
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="pitcher-hh">
-        <div class="filters">
-          <input type="text" id="hh-p-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="hh-p-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
-          <label for="hh-threshold">Threshold:</label>
-          <input type="number" id="hh-threshold" value="95" min="0" style="width:4rem"/> mph
+      <!-- 9. Pitcher Run Expectancy -->
+      <details class="card" open>
+        <summary>
+          <h2>9. Pitcher Run Expectancy</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="pitch-run-exp">
+          <div class="filters">
+            <input type="text" id="pre-team-filter" placeholder="Team" list="team-suggestions"/>
+            <input type="text" id="pre-pitcher-filter" placeholder="Pitcher" list="player-suggestions"/>
+          </div>
+          <table>
+            <thead><tr><th>Pitcher</th><th>Pitch Type</th><th>Avg RV</th><th>Count</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr><th>Pitcher</th><th>HardHit %</th><th>Count</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-<details open class="card">
+      </details>
+
+      <!-- 10. Spin Efficiency -->
+      <details class="card" open>
+        <summary>
+          <h2>10. Spin Effeciency</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="spin-eff">
+          <div class="filters">
+            <input type="text" id="seam-team-filter" placeholder="Team" list="team-suggestions"/>
+            <input type="text" id="seam-pitcher-filter" placeholder="Pitcher" list="player-suggestions"/>
+          </div>
+          <table>
+            <thead><tr><th>Pitcher</th><th>Type</th><th>SpinEff</th><th>Count</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+
+      <!-- 11. Pitcher HardHit % -->
+      <details class="card" open>
+        <summary>
+          <h2>11. Pitcher Hard Hit %</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="pitcher-hh">
+          <div class="filters">
+            <input type="text" id="hh-p-team-filter" placeholder="Team" list="team-suggestions"/>
+            <input type="text" id="hh-p-pitcher-filter" placeholder="Pitcher" list="player-suggestions"/>
+            <label for="hh-threshold">Threshold</label>
+            <input type="number" id="hh-threshold" value="95" min="0" style="width:4rem"/> mph
+          </div>
+          <table>
+            <thead><tr><th>Pitcher</th><th>HH%</th><th>Count</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+
+      <!-- 12. Batter HardHit % -->
+      <details class="card" open>
+        <summary>
+          <h2>12. Batter Hard Hit %</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="batter-hh">
+          <div class="filters">
+            <input type="text" id="hh-b-team-filter" placeholder="Team" list="team-suggestions"/>
+            <input type="text" id="hh-b-batter-filter" placeholder="Batter" list="player-suggestions"/>
+            <label for="hh-b-threshold">Threshold</label>
+            <input type="number" id="hh-b-threshold" value="95" min="0" style="width:4rem"/> mph
+          </div>
+          <table>
+            <thead><tr><th>Batter</th><th>Team</th><th>HH%</th><th>Count</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+
+      <!-- 13. Barrel % -->
+      <details class="card" open>
+        <summary>
+          <h2>13. Barrel%</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="barrel-pct">
+          <div class="filters">
+            <input type="text" id="barrel-team-filter" placeholder="Team" list="team-suggestions"/>
+            <input type="text" id="barrel-player-filter" placeholder="Player" list="player-suggestions"/>
+          </div>
+          <table>
+            <thead><tr><th>Player</th><th>Barrel%</th><th>PA</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+
+      <!-- 14. SweetSpot % -->
+      <details class="card" open>
+        <summary>
+          <h2>14. SweetSpot%</h2>
+          <button class="back-to-top" onclick="location.hash='top'">↑</button>
+        </summary>
+        <div class="leaderboard" id="sweetspot-pct">
+          <div class="filters">
+            <input type="text" id="ss-team-filter" placeholder="Team" list="team-suggestions"/>
+            <input type="text" id="ss-player-filter" placeholder="Player" list="player-suggestions"/>
+          </div>
+          <table>
+            <thead><tr><th>Player</th><th>Sweet%</th><th>PA</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="card" open>
   <summary>
-    <h2>
-      12. Batter HardHit %
-      <a href="#top" class="back-to-top">↑</a>
-    </h2>
+    <h2>15. Average Team Home-Run Distance</h2>
+    <button class="back-to-top" onclick="location.hash='top'">↑</button>
   </summary>
-  <div class="leaderboard" id="batter-hh">
-    <div class="filters">
-      <input type="text" id="hh-b-team-filter" placeholder="Filter by team" list="team-suggestions" />
-      <input type="text" id="hh-b-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
-      <label for="hh-b-threshold">Threshold:</label>
-      <input type="number" id="hh-b-threshold" value="95" min="0" style="width:4rem"/> mph
-    </div>
+  <div class="leaderboard" id="avg-team-hr-dist">
+    <!-- no extra filters for now -->
     <table>
       <thead>
-        <tr><th>Batter</th><th>Team</th><th>HardHit %</th><th>Count</th></tr>
+        <tr>
+          <th>Team</th>
+          <th>Avg HR Distance (ft)</th>
+        </tr>
       </thead>
       <tbody></tbody>
     </table>
   </div>
-</details>
 
-<!-- 13. Barrel % -->
-<details open class="card">
-   <summary>
-    <h2>
-      Barrel %
-      <a href="#top" class="back-to-top">↑</a>
-    </h2>
-  </summary>
-  <div class="leaderboard" id="barrel-pct">
-    <div class="filters">
-      <input type="text" id="barrel-team-filter" placeholder="Filter by team" list="team-suggestions" />
-      <input type="text" id="barrel-player-filter" placeholder="Filter by player" list="player-suggestions" />
-    </div>
-    <table>
-      <thead>
-        <tr><th>Player</th><th>Barrel %</th><th>Plate Apps</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    </main>
+
+    <!-- RIGHT: sidebar -->
+    <aside id="sidebar">
+      <h3>Show / Hide & Order</h3>
+      <ul id="table-list"></ul>
+    </aside>
   </div>
-</details>
-
-<!-- 14. SweetSpot % -->
-<details open class="card">
-   <summary>
-    <h2>
-      Sweetspot %
-      <a href="#top" class="back-to-top">↑</a>
-    </h2>
-  </summary>
-  <div class="leaderboard" id="sweetspot-pct">
-    <div class="filters">
-      <input type="text" id="ss-team-filter" placeholder="Filter by team" list="team-suggestions" />
-      <input type="text" id="ss-player-filter" placeholder="Filter by player" list="player-suggestions" />
-    </div>
-    <table>
-      <thead>
-        <tr><th>Player</th><th>SweetSpot %</th><th>Plate Apps</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</details>
-
-
-    <!-- 7. Umpire Accuracy -->
-    <details open class="card">
-      <summary>
-        <h2>
-          7. Umpire Accuracy
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="umpire-accuracy">
-        <table>
-          <thead>
-            <tr><th>Umpire</th><th>Accuracy</th><th>Total Calls</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-  </main>
 
   <datalist id="team-suggestions"></datalist>
   <datalist id="player-suggestions"></datalist>
+ <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('cards-container');
+    const list      = document.getElementById('table-list');
+
+    // 1) Build list items with a data-target pointing at each card’s ID
+    container.querySelectorAll('.card').forEach(card => {
+      // give each <details> a unique ID if it doesn't have one:
+      if (!card.id) card.id = 'card-' + Math.random().toString(36).slice(2);
+
+      const title = card.querySelector('summary h2').textContent.trim();
+      const li    = document.createElement('li');
+      li.dataset.target = card.id;
+
+      // checkbox to show/hide
+      const cb = document.createElement('input');
+      cb.type    = 'checkbox';
+      cb.checked = true;
+      cb.addEventListener('change', () => {
+        card.style.display = cb.checked ? '' : 'none';
+      });
+
+      // drag handle
+      const handle = document.createElement('span');
+      handle.textContent = '☰';
+      handle.style.cursor = 'grab';
+      handle.classList.add('drag-handle');
+
+      const label = document.createElement('span');
+      label.textContent = ' ' + title;
+
+      li.append(cb, handle, label);
+      list.append(li);
+    });
+
+    // 2) Initialize Sortable on the sidebar list
+    new Sortable(list, {
+      handle: '.drag-handle',
+      animation: 150,
+      onEnd: () => {
+        // read the new order of li’s
+        Array.from(list.children).forEach(li => {
+          const card = document.getElementById(li.dataset.target);
+          if (card) container.appendChild(card);
+        });
+      }
+    });
+  });
+</script>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
+    
     const columns = {
       player: 'Batter',
       playerTeam: 'BatterTeam',
@@ -987,6 +1160,34 @@ document.querySelectorAll('#catcher-stats th[data-key]').forEach(th => {
 });
 
 
+ const teamMap = {};
+  filtered.forEach(r => {
+    if (r.PlayResult !== 'HomeRun') return;
+    const dist = parseFloat(r.Distance);
+    if (isNaN(dist)) return;
+
+    // determine which full team name hit the HR
+    const teamFull = (r.BatterTeam === r.HomeTeam)
+      ? r.HomeNameFull
+      : r.AwayNameFull;
+
+    if (!teamMap[teamFull]) teamMap[teamFull] = { totalDist: 0, count: 0 };
+    teamMap[teamFull].totalDist += dist;
+    teamMap[teamFull].count++;
+  });
+
+  const avgTeamRows = Object.entries(teamMap)
+    .map(([team, stats]) => ({
+      Team: team,
+      AvgDistance: (stats.totalDist / stats.count).toFixed(1)  // one decimal
+    }))
+    .sort((a, b) => b.AvgDistance - a.AvgDistance);
+
+  renderLeaderboard(
+    'avg-team-hr-dist',
+    avgTeamRows,
+    ['Team','AvgDistance']
+  );
 
       // 5. Umpire Accuracy
       const umpMap = {};
@@ -1050,15 +1251,33 @@ if (thAcc) {
           avgMap[bat].sum   += parseFloat(r[columns.exitSpeed]);
           avgMap[bat].count += 1;
         });
-      let avgRows = Object.entries(avgMap).map(([b,st])=>({
-        Batter: b,
-        Team: st.team,
-        AvgExitVelocity: (st.sum/st.count).toFixed(2)
-      }));
-      const avgTeam = document.getElementById('avg-ev-team-filter').value;
-      if (avgTeam) avgRows = avgRows.filter(r => r.Team === avgTeam);
-      avgRows.sort((a,b)=>parseFloat(b.AvgExitVelocity)-parseFloat(a.AvgExitVelocity));
-      renderLeaderboard('avg-ev', avgRows.slice(0,10), ['Batter','Team','AvgExitVelocity']);
+        let minCount = 10
+      let avgRows = Object.entries(avgMap)
+  .filter(([b, st]) => st.count >= minCount)
+  .map(([b, st]) => ({
+    Batter: b,
+    Team:   st.team,
+    AvgExitVelocity: (st.sum / st.count).toFixed(2),
+  }));
+
+// then your existing team-filter + sort + render
+const avgTeam = document.getElementById('avg-ev-team-filter').value;
+if (avgTeam) {
+  avgRows = avgRows.filter(r => r.Team === avgTeam);
+}
+
+avgRows.sort((a,b) =>
+  parseFloat(b.AvgExitVelocity) - parseFloat(a.AvgExitVelocity)
+);
+
+renderLeaderboard(
+  'avg-ev',
+  avgRows.slice(0,10),
+  ['Batter','Team','AvgExitVelocity']
+);
+
+
+
 
       drawBatterRunExp(filtered);
       ['bre-team-filter','bre-batter-filter'].forEach(id => {
@@ -1310,20 +1529,28 @@ function drawBatterRunExp(rows) {
 }
 
     
+function populateSuggestions() {
+  const dl = document.getElementById('suggestions');
+  dl.innerHTML = '';  // clear old
 
+  // collect all names
+  const names = new Set([
+    ...data.map(r => r.Batter),
+    ...data.map(r => r.Umpire),
+    ...data.map(r => r.Pitcher),
+    ...data.map(r => r.HomeNameFull),
+    ...data.map(r => r.AwayNameFull)
+  ]);
 
-    function populateSuggestions() {
-      const dl = document.getElementById('suggestions');
-      const batters = new Set(data.map(r => r.Batter));
-      const ump = new Set(data.map(r => r.Umpire));
-      const pitchers = new Set(data.map(r => r.Pitcher));
-      const teams = new Set(data.map(r => r.HomeNameFull).concat(data.map(r => r.AwayNameFull)));
-      [...batters, ...teams, ...pitchers, ...ump].sort().forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        dl.appendChild(opt);
-      });
-    }
+  // append in sorted order
+  Array.from(names)
+    .sort()
+    .forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      dl.appendChild(opt);
+    });
+}
 
     
 

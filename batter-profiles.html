@@ -160,6 +160,12 @@
         #atBatPitchTable th {
             background: #eee;
         }
+
+         .row { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .col { flex: 1; }
+    .card { border: 1px solid #ddd; border-radius: 4px; padding: 0.75rem; background: #fff; }
+    /* Chart containers should fill card */
+    .card > div { width: 100%; height: 100%; }
     </style>
 </head>
 
@@ -254,39 +260,65 @@
             <div id="battedBallTable"></div>
 
               <!-- … existing battedBallTable … -->
+<div class="row">
+        <div class="col">
+          <h4>Plate-Location Clusters</h4>
+          <div class="card">
+            <div id="locationScatter"></div>
+          </div>
+        </div>
+        <div class="col">
+          <h4>Zone Counts</h4>
+          <div class="card">
+            <div id="zoneCountMap"></div>
+          </div>
+        </div>
+      </div>
+              
 
-  <h3> Exit-Velocity Distribution</h3>
-  <div id="exitHist" style="width:600px;height:400px;margin:auto;"></div>
-
-  <h3> Launch Angle vs Exit Velocity (Density)</h3>
-  <div id="angleVelDensity" style="width:600px;height:400px;margin:auto;"></div>
-
-  
-  <h3> Plate Discipline (9-Cell Swing% & Contact%)</h3>
-  <div style="display:flex;gap:2rem;justify-content:center;">
-    <div>
-      <strong>Swing %</strong>
-      <div id="swingHeatmap" style="width:300px;height:300px;"></div>
-    </div>
-    <div>
-      <strong>Contact %</strong>
-      <div id="contactHeatmap" style="width:300px;height:300px;"></div>
-    </div>
-  </div>
-
+  <div class="row">
+        <div class="col">
+          <h4>Exit-Velocity Distribution</h4>
+          <div id="exitHist" class="card"></div>
+        </div>
+        <div class="col">
+          <h4>Launch Angle vs Exit Velocity (Density)</h4>
+          <div id="angleVelDensity" class="card"></div>
+        </div>
+      </div>
+ <h3>Plate Discipline (9-Cell Swing% & Contact%)</h3>
+      <div class="row">
+        <div class="col">
+          <h4>Swing %</h4>
+          <div class="card">
+            <div id="swingHeatmap" style="height:300px;"></div>
+          </div>
+        </div>
+        <div class="col">
+          <h4>Contact %</h4>
+          <div class="card">
+            <div id="contactHeatmap" style="height:300px;"></div>
+          </div>
+        </div>
+      </div>
 
   <h3> Game-by-Game Trends</h3>
   <div id="gameTrends" style="width:700px;height:400px;margin:auto;"></div>
-
-  <h3> Batted-Ball Types</h3>
-  <div id="bbTypes" style="width:500px;height:350px;margin:auto;"></div>
-
-<div style="display:flex; align-items:flex-start; gap:2rem; margin:auto;">
-  <!-- 10) Statcast bar chart -->
-  <div id="statcastMetrics" style="width:600px; height:350px;"></div>
-  <!-- league rank & percentile info -->
-  <div id="statcastInfo" style="font-size:0.9rem; line-height:1.4;"></div>
-</div>
+ <div class="row">
+        <div class="col">
+          <h4>Batted-Ball Types</h4>
+          <div class="card">
+            <div id="bbTypes" style="height:350px;"></div>
+          </div>
+        </div>
+        <div class="col">
+          <h4>Statcast Metrics</h4>
+          <div class="card" style="display:flex; gap:1rem; align-items:flex-start;">
+            <div id="statcastMetrics" style="flex:1; height:350px;"></div>
+            <div id="statcastInfo" style="flex:0.4; font-size:0.9rem; line-height:1.4;"></div>
+          </div>
+        </div>
+      </div>
 
 <h3>Zone BA / SLG Heatmap</h3>
 <div id="zoneHeatmap" style="display:flex; gap:2rem; justify-content:center;">
@@ -347,6 +379,98 @@ function zoneCell(x,y){
   return `${row}-${col}`;
 }
 
+function plotZoneCountMap(rows) {
+  // 1) Bin the in-zone counts
+  const inside = Array.from({length:3},()=>[0,0,0]);
+  rows.forEach(r => {
+    const x = parseNum(r.PlateLocSide),
+          y = parseNum(r.PlateLocHeight);
+    if (x < -0.708 || x > 0.708 || y < 1.5 || y > 3.5) return;
+    const col = Math.min(2, Math.floor((x + 0.708) / (2 * 0.708 / 3)));
+    const row = Math.min(2, Math.floor((3.5 - y)     / (2     / 3)));
+    inside[row][col]++;
+  });
+
+  // 2) Compute max for color scaling
+  const maxC = Math.max(...inside.flat());
+
+  // 3) Build the heatmap trace
+  const heat = {
+    z: inside,
+    x: [
+      -0.708 + (2*0.708/3)/2,
+      -0.708 + 3*(2*0.708/3)/2,
+      -0.708 + 5*(2*0.708/3)/2
+    ],
+    y: [
+      1.5 + 5*(2/3)/2,
+      1.5 + 3*(2/3)/2,
+      1.5 + 1*(2/3)/2
+    ],
+    type: 'heatmap',
+    showscale: false,
+    colorscale: [
+      [0,   'rgb(0,0,255)'],
+      [0.5, 'rgb(255,255,255)'],
+      [1,   'rgb(255,0,0)']
+    ],
+    zmin: 0,
+    zmax: maxC,
+    xgap: (2*0.708/3)*0.05,
+    ygap: (2/3)*0.05,
+    hoverinfo: 'z'
+  };
+
+  // 4) Build the subdivision & border shapes
+  const shapes = [];
+  // strike zone border
+  shapes.push({
+    type: 'rect', xref:'x', yref:'y',
+    x0: -0.708, x1: 0.708,
+    y0:  1.5,   y1: 3.5,
+    line: { color: 'black', width: 3 },
+    fillcolor: 'rgba(0,0,0,0)'
+  });
+  // grid lines
+  for (let i = 1; i < 3; i++) {
+    const xi = -0.708 + i * (2 * 0.708 / 3);
+    shapes.push({
+      type:'line', xref:'x', yref:'y',
+      x0:xi, x1:xi, y0:1.5, y1:3.5,
+      line:{ color:'#666', width:1 }
+    });
+    const yi = 1.5 + i * (2 / 3);
+    shapes.push({
+      type:'line', xref:'x', yref:'y',
+      x0:-0.708, x1:0.708, y0:yi, y1:yi,
+      line:{ color:'#666', width:1 }
+    });
+  }
+
+  // 5) Annotations in each cell
+  const annotations = [];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const cx = -0.708 + (c + 0.5) * (2 * 0.708 / 3);
+      const cy =  1.5   + (2 - r + 0.5) * (2     / 3);
+      annotations.push({
+        x: cx, y: cy,
+        text: inside[r][c].toString(),
+        showarrow: false,
+        font: { size: 14, color: '#000' }
+      });
+    }
+  }
+
+  // 6) Render
+  Plotly.newPlot('zoneCountMap', [heat], {
+    shapes,
+    annotations,
+    margin: { t:20, b:40, l:40, r:20 },
+    xaxis: { range: [-0.8,0.8], fixedrange: true, title: 'Horizontal Location (ft)' },
+    yaxis: { range: [1.4,3.6], fixedrange: true, title: 'Vertical Location (ft)' }
+  });
+}
 
 
 function plotExitHist(rows){
@@ -987,7 +1111,18 @@ function plotRadarMetrics(rows){
             document.getElementById('pitchTypeFilter').innerHTML = '<option value="">All</option>' + pts.map(t => `<option>${t}</option>`).join('');
 
             document.getElementById('showAllDates').addEventListener('change', () => { const c = document.getElementById('showAllDates').checked; document.getElementById('startDate').disabled = c; document.getElementById('endDate').disabled = c; });
-
+const parts = playerName.trim().split(' ');
+  const last  = parts.pop();
+  const first = parts.join(' ');
+  // 2) find the batter side:
+  const rec = allData.find(r => r.Batter === playerName);
+  const side = rec && rec.BatterSide ? rec.BatterSide.charAt(0).toUpperCase() : '';
+  // 3) build your title and assign:
+  if (last && first && (side === 'L' || side === 'R')) {
+    document.title = `${last}, ${first} (${side})`;
+  } else {
+    document.title = playerName;
+  }
             applyFilters();
         }
 
@@ -1034,10 +1169,124 @@ function plotRadarMetrics(rows){
    parkSelect2.addEventListener('change', () => drawSprayCanvas(f));
       updateSpray(f);
 
+plotZoneCountMap(f);
 
     plotHardHitPct(f);
     plotWhiffPct(f);    plotRadarMetrics(f);
+    plotLocationPieClusters(f);
+
         }
+
+        
+        function plotLocationPieClusters(rows) {
+  // 1) Bin into 0.2 ft cells and count by pitch type
+  const grid = {};
+  rows.forEach(r => {
+    const x = parseNum(r.PlateLocSide),
+          y = parseNum(r.PlateLocHeight);
+    if (isNaN(x)||isNaN(y)) return;
+    const bx = Math.round(x*5)/5,
+          by = Math.round(y*5)/5,
+          key = `${bx}_${by}`;
+    grid[key] = grid[key] || { x: bx, y: by, counts: {} };
+    const t = r.AutoPitchType || 'Unknown';
+    grid[key].counts[t] = (grid[key].counts[t]||0) + 1;
+  });
+
+  // 2) Build a color map
+  const allTypes = new Set();
+  Object.values(grid).forEach(cell =>
+    Object.keys(cell.counts).forEach(t => allTypes.add(t))
+  );
+  const CM = {};
+  Array.from(allTypes).forEach((t,i) =>
+    CM[t] = `hsl(${(i*60)%360},70%,50%)`
+  );
+
+  // helper: draw a little pie into an offscreen canvas and return dataURL
+  function makePie(counts) {
+    const entries = Object.entries(counts);
+    const total   = entries.reduce((s,[,c])=>s+c,0);
+    const size    = 64;                 // canvas size
+    const ctx     = document.createElement('canvas').getContext('2d');
+    ctx.canvas.width = ctx.canvas.height = size;
+    const cx = size/2, cy = size/2, r = size/2 - 2;
+    let start = 0;
+    entries.forEach(([t,c]) => {
+      const slice = c/total * Math.PI*2;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.arc(cx, cy, r, start, start+slice);
+      ctx.closePath();
+      ctx.fillStyle = CM[t];
+      ctx.fill();
+      start += slice;
+    });
+    // draw center hole
+    ctx.beginPath();
+    ctx.arc(cx,cy,r*0.4,0,Math.PI*2);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    return ctx.canvas.toDataURL();
+  }
+
+  // 3) Build an image entry per grid cell
+  const images = [];
+  const xMin = -0.8, xMax = 0.8, yMin = 0, yMax = 5;
+  const cellSizeFt = 0.2;
+  // sizex/sizey in data units = cellSizeFt
+  Object.values(grid).forEach(cell => {
+    const counts = cell.counts;
+    const total = Object.values(counts).reduce((a,b)=>a+b,0);
+    if (!total) return;
+    images.push({
+      source: makePie(counts),
+      xref: 'x', yref: 'y',
+      x: cell.x, y: cell.y,
+      xanchor: 'center',
+      yanchor: 'middle',
+      sizex: cellSizeFt,
+      sizey: cellSizeFt,
+      layer: 'above'
+    });
+  });
+
+  // 4) Build a dummy scatter for the legend
+  const legendTraces = Array.from(allTypes).map(t => ({
+    type: 'scatter',
+    x: [null], y: [null],
+    mode: 'markers',
+    marker: { size: 12, color: CM[t] },
+    name: t,
+    showlegend: true
+  }));
+
+  // 5) One invisible scatter to set axes
+  const base = {
+    x: [xMin, xMax],
+    y: [yMin, yMax],
+    type: 'scatter',
+    mode: 'markers',
+    marker: { opacity: 0 }
+  };
+
+  // 6) Layout with fixed ranges and strike-zone box
+  const layout = {
+    width: 500, height: 450,
+    margin: { t:20, b:40, l:40, r:120 },
+    xaxis: { range:[xMin,xMax], fixedrange:true, title:'Horizontal Location (ft)' },
+    yaxis: { range:[yMin,yMax], fixedrange:true, title:'Vertical Location (ft)' },
+    shapes: [{
+      type:'rect', xref:'x', yref:'y',
+      x0:-0.708, x1:0.708, y0:1.5, y1:3.5,
+      line:{color:'black',width:2}
+    }],
+    images
+  };
+
+  Plotly.newPlot('locationScatter', [base, ...legendTraces], layout);
+}
+
 
           function updateSpray(rows) {
       currentFiltered = rows;
@@ -1062,42 +1311,78 @@ function plotRadarMetrics(rows){
         }
 
         function plotPlate(data) {
-            const atVal = document.getElementById('atBatFilter').value;
-            // Build table rows for numbering
-            const tableRows = data.filter(r => r.PlayResult !== 'Undefined');
-            tableRows.forEach((r, i) => r.__hitNumber = i + 1);
-            const indexMap = new Map(tableRows.map(r => [r, r.__hitNumber]));
-            // If At Bat selected, number by sequence in 'data'
-            const atSeq = atVal ? data.map((_, i) => i + 1) : null;
+    const atVal = document.getElementById('atBatFilter').value;
+    // Build table rows for numbering
+    const tableRows = data.filter(r => r.PlayResult !== 'Undefined');
+    tableRows.forEach((r, i) => r.__hitNumber = i + 1);
+    const indexMap = new Map(tableRows.map(r => [r, r.__hitNumber]));
+    // If At Bat selected, number by sequence in 'data'
+    const atSeq = atVal ? data.map((_, i) => i + 1) : null;
 
-            const types = [...new Set(data.map(r => r.AutoPitchType))], CM = {};
-            types.forEach((t, i) => CM[t] = `hsl(${(i * 60) % 360},70%,50%)`);
-            const swing = r => r.PitchCall !== 'StrikeCalled' && r.PitchCall !== 'BallCalled';
-            const trace = {
-                x: data.map(r => parseNum(r.PlateLocSide)),
-                y: data.map(r => parseNum(r.PlateLocHeight)),
-                text: data.map((r, i) => atVal ? atSeq[i] : (indexMap.get(r) || '')),
-                mode: 'markers+text',
-                marker: {
-                    symbol: data.map(r => swing(r) ? 'square' : 'circle'),
-                    size: 10,
-                    color: data.map(r => CM[r.AutoPitchType] || '#999')
-                }
-            };
-            const layout = {
-                shapes: [{ type: 'rect', x0: -0.708, x1: 0.708, y0: 1.5, y1: 3.5, line: { color: 'black' } }],
-                xaxis: { title: 'Horizontal Location (ft)' },
-                yaxis: { title: 'Vertical Location (ft)' },
-                height: 400
-            };
-            Plotly.newPlot('plateChart', [trace], layout);
-            let html = '<strong>AutoPitchType:</strong><br>';
-            types.forEach(t => html += `<span style="display:inline-block;width:12px;height:12px;background:${CM[t]};margin-right:5px"></span>${t}<br>`);
-            html += '<br><strong>Action:</strong><br>';
-            html += '<span style="display:inline-block;width:12px;height:12px;background:blue;margin-right:5px"></span>Swing<br>';
-            html += '<span style="display:inline-block;width:12px;height:12px;border:1px solid blue;border-radius:50%;margin-right:5px"></span>Take';
-            document.getElementById('legendDiv').innerHTML = html;
-        }
+    // Generate a consistent color map for pitch types
+    const types = [...new Set(data.map(r => r.AutoPitchType))];
+    const CM = {};
+    types.forEach((t, i) => CM[t] = `hsl(${(i * 60) % 360},70%,50%)`);
+
+    // Determine marker symbol: square on swing, circle on take
+    const swing = r => r.PitchCall !== 'StrikeCalled' && r.PitchCall !== 'BallCalled';
+
+    const trace = {
+        x: data.map(r => parseNum(r.PlateLocSide)),
+        y: data.map(r => parseNum(r.PlateLocHeight)),
+        text: data.map((r, i) => atVal ? atSeq[i] : (indexMap.get(r) || '')),
+        mode: 'markers+text',
+        marker: {
+            symbol: data.map(r => swing(r) ? 'square' : 'circle'),
+            size: 10,
+            color: data.map(r => CM[r.AutoPitchType] || '#999')
+        },
+        textfont: { size: 10, color: '#000' }
+    };
+
+    const layout = {
+        width: 400,
+        height: 400,
+        margin: { l: 40, r: 20, t: 20, b: 40 },
+        xaxis: {
+            title: 'Horizontal Location (ft)',
+            range: [-1.5, 1.5],
+            autorange: false,
+            fixedrange: true
+        },
+        yaxis: {
+            title: 'Vertical Location (ft)',
+            range: [0, 5],
+            autorange: false,
+            fixedrange: true
+        },
+        shapes: [{
+            type: 'rect',
+            x0: -0.708,
+            x1: 0.708,
+            y0: 1.5,
+            y1: 3.5,
+            line: { color: 'black', width: 2 }
+        }]
+    };
+
+    Plotly.newPlot('plateChart', [trace], layout);
+
+    // Build legend HTML
+    let html = '<strong>AutoPitchType:</strong><br>';
+    types.forEach(t => {
+        html += `<span style="display:inline-block;width:12px;height:12px;background:${CM[t]};margin-right:5px"></span>${t}<br>`;
+    });
+    html += '<br><strong>Action:</strong><br>';
+    html += '<span style="display:inline-block;width:12px;height:12px;background:blue;margin-right:5px"></span>Swing<br>';
+    html += '<span style="display:inline-block;width:12px;height:12px;border:1px solid blue;border-radius:50%;width:12px;height:12px;display:inline-block;margin-right:5px"></span>Take';
+
+    document.getElementById('legendDiv').innerHTML = html;
+}
+
+
+
+
  function plotPlate(data) {
   const atVal = document.getElementById('atBatFilter').value;
   // Build table rows for numbering
@@ -1130,12 +1415,31 @@ function plotRadarMetrics(rows){
       color: data.map(r => CM[r.AutoPitchType] || '#999')
     }
   };
-  const layout = {
-    shapes: [{ type: 'rect', x0: -0.708, x1: 0.708, y0: 1.5, y1: 3.5, line: { color: 'black' } }],
-    xaxis: { title: 'Horizontal Location (ft)' },
-    yaxis: { title: 'Vertical Location (ft)' },
-    height: 400
-  };
+   const layout = {
+        width: 400,
+        height: 400,
+        margin: { l: 40, r: 20, t: 20, b: 40 },
+        xaxis: {
+            title: 'Horizontal Location (ft)',
+            range: [-1.5, 1.5],
+            autorange: false,
+            fixedrange: true
+        },
+        yaxis: {
+            title: 'Vertical Location (ft)',
+            range: [0, 5],
+            autorange: false,
+            fixedrange: true
+        },
+        shapes: [{
+            type: 'rect',
+            x0: -0.708,
+            x1: 0.708,
+            y0: 1.5,
+            y1: 3.5,
+            line: { color: 'black', width: 2 }
+        }]
+    };
   Plotly.newPlot('plateChart', [trace], layout);
 
   // 3) Build the legend, appending the count after each type
