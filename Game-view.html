@@ -84,7 +84,6 @@
 <div id="viewSpray" class="view"></div>
 
 
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
   const FIELDER_CSV = 'fielder_positions.csv';
@@ -116,6 +115,9 @@
     "Regency Furniture Stadium": { leftFoul:310, leftCenter:(310+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 }
   };
 
+  const probMap = {};
+const fPosIndex = {};
+
     const DATA_CSV = 'data.csv';
 
     let allPitches = [], fPositions = [], gamePitches = [];
@@ -127,11 +129,55 @@
     var $ = id => document.getElementById(id);
 
  
+    Papa.parse(FIELDER_CSV, { header: true, download: true, complete: res => {
+  fPositions = res.data;
+fPositions.forEach(r => {
+  fPosIndex[r.GameUID + '|' + r.PitchUID] = r;
+});
 
+
+  
+}});
+
+
+// South Maryland Blue Crabs
 
     Papa.parse(DATA_CSV, { header:true, download:true,
       complete: res => { allPitches = res.data;
                   fPositions = res.data;
+                 buildCatchModel(DATA_CSV, FIELDER_CSV)
+  .then(model => {
+    console.log('Model stats:', model.stats);
+    console.log('Model weights:', model.weights);
+    console.log('Prob for a given PitchUID:', model.probMap['some-pitch-uid']);
+    console.log('On-the-fly predict:', model.predict(45, 25, 95));
+
+    // ① merge into global
+    Object.assign(probMap, model.probMap);
+
+    // ② log a few keys to be sure
+    console.log('probMap keys:', Object.keys(probMap).slice(0,10));
+
+    // ─── insert your sanity check here ───
+    const totalPitches = allPitches.length;
+    const withProb     = allPitches.filter(p => probMap.hasOwnProperty(p.PitchUID)).length;
+    console.log(`Sanity check: ${withProb} / ${totalPitches} total pitches have a probability`);
+    if (withProb < totalPitches) {
+      console.warn(
+        `Missing probabilities for ${totalPitches - withProb} pitches. ` +
+        `First few missing:`,
+        allPitches
+          .filter(p => !probMap.hasOwnProperty(p.PitchUID))
+          .slice(0,5)
+          .map(p => p.PitchUID)
+      );
+    }
+    // ───────────────────────────────────────
+
+    window._catchModel = model;
+    init();
+  })
+  .catch(console.error);
 
                   init(); }
     });
@@ -146,6 +192,191 @@
     btnMatchups.onclick = ()=>switchView('matchups');
     btnBreakdowns.onclick = ()=>switchView('breakdowns');
     btnSpray.onclick = ()=>switchView('spray');
+
+// Helper: compute angle-based weight for distance importance
+function angleWeight(angle) {
+  if (angle < 9)         return 1.0;
+  if (angle <= 14)       return 0.5;
+  // above 14°, gradually boost up to ~2× by 44°
+  return 1 + ((angle - 14) / 30);
+}
+
+async function buildCatchModel(mainCsvUrl, positionsCsvUrl) {
+  // 1) Load & parse the CSVs
+  const [ mainText, posText ] = await Promise.all([
+    fetch(mainCsvUrl).then(r => r.text()),
+    fetch(positionsCsvUrl).then(r => r.text())
+  ]);
+  const mainData = Papa.parse(mainText, { header: true }).data;
+  const posData  = Papa.parse(posText,  { header: true }).data;
+
+  // 2) Index fielder positions by GameUID|PitchUID
+  const posIndex = {};
+  posData.forEach(r => {
+    posIndex[r.GameUID + '|' + r.PitchUID] = r;
+  });
+
+  const toRad = deg => deg * Math.PI / 180;
+  const samples  = [];
+  const enriched = [];
+
+  // 3) Build training samples
+  mainData.forEach(row => {
+    const key = row.GameUID + '|' + row.PitchUID;
+    const f   = posIndex[key];
+    if (!f) return;
+
+
+    const positions = ['1B','2B','3B','SS','LF','CF','RF'];
+  const allPresent = positions.every(pos => {
+    return f.hasOwnProperty(pos + '_PositionAtReleaseX') &&
+           f.hasOwnProperty(pos + '_PositionAtReleaseZ') &&
+           f[pos + '_PositionAtReleaseX'] !== '' &&
+           f[pos + '_PositionAtReleaseZ'] !== '';
+  });
+  if (!allPresent) return;
+    // a) Ball landing spot
+    const dist  = parseFloat(row.Distance)  || 0;
+    const dir   = parseFloat(row.Direction) || 0;
+    const rad   = toRad(dir);
+    const ballX = dist * Math.cos(rad);
+    const ballY = dist * Math.sin(rad);
+
+    // b) Runner's distance to nearest fielder
+    let dRun = Infinity;
+    ['1B','2B','3B','SS','LF','CF','RF'].forEach(pos => {
+      const fx = parseFloat(f[pos + '_PositionAtReleaseX']) || 0;
+      const fz = parseFloat(f[pos + '_PositionAtReleaseZ']) || 0;
+      dRun = Math.min(dRun, Math.hypot(ballX - fx, ballY - fz));
+    });
+
+    // c) Raw features
+    const angle = parseFloat(row.Angle)     || 0;
+    const velo  = parseFloat(row.ExitSpeed) || 0;
+    const hang  = parseFloat(row.HangTime)  || 0;
+
+    // d) Derived features
+    const vfps  = velo * 5280/3600;
+    const liner = vfps * Math.cos(toRad(angle));
+    const arc   = Math.max(0, angle - 45);
+    const arc2  = arc * arc;
+
+    // e) Label
+    const y = row.PlayResult === 'Out' ? 1 : 0;
+
+    samples.push({ dRun, angle, velo, hang, liner, arc, arc2, y });
+    enriched.push({ pitchUID: row.PitchUID, dRun, angle, velo, hang, liner, arc, arc2, y });
+  });
+
+  // 4) Compute min/max for normalization
+  const stats = {};
+  ['dRun','angle','velo','hang','liner','arc','arc2'].forEach(k => {
+    stats[k] = { min: Infinity, max: -Infinity };
+  });
+  samples.forEach(s => {
+    ['dRun','angle','velo','hang','liner','arc','arc2'].forEach(k => {
+      stats[k].min = Math.min(stats[k].min, s[k]);
+      stats[k].max = Math.max(stats[k].max, s[k]);
+    });
+  });
+
+  // 5) Normalize and compute weighted closeness
+  samples.forEach(s => {
+    const dN    = (s.dRun - stats.dRun.min) / (stats.dRun.max - stats.dRun.min);
+    const Craw  = 1 - dN;                 // raw closeness
+    const wA    = angleWeight(s.angle);  // angle-based weight
+    s.C        = Craw * wA;              // weighted closeness
+    s.C2       = s.C * s.C;              // squared
+
+    s.aN       = (s.angle  - stats.angle.min )/(stats.angle.max  - stats.angle.min );
+    s.vN       = (s.velo   - stats.velo.min  )/(stats.velo.max   - stats.velo.min  );
+    s.hN       = (s.hang   - stats.hang.min  )/(stats.hang.max   - stats.hang.min  );
+    s.LN       = (s.liner  - stats.liner.min )/(stats.liner.max  - stats.liner.min );
+    s.HN       = (s.arc    - stats.arc.min   )/(stats.arc.max    - stats.arc.min   );
+    s.H2N      = (s.arc2   - stats.arc2.min  )/(stats.arc2.max   - stats.arc2.min  );
+    s.dN       = dN;
+  });
+
+  // 6) Sigmoid helper
+  function sigmoid(z) {
+    return 1 / (1 + Math.exp(-z));
+  }
+
+  // 7) Train logistic regression on
+  //    [1, dN, C, C2, aN, vN, hN, LN, HN, H2N]
+  function trainLogistic(data, lr = 0.5, iters = 3000) {
+    let w = Array(10).fill(0);
+    for (let it = 0; it < iters; it++) {
+      const grad = Array(10).fill(0);
+      data.forEach(s => {
+        const x = [
+          1, s.dN, s.C, s.C2,
+          s.aN, s.vN, s.hN,
+          s.LN, s.HN, s.H2N
+        ];
+        const p = sigmoid(w.reduce((sum, wj, j) => sum + wj * x[j], 0));
+        const e = p - s.y;
+        for (let j = 0; j < 10; j++) {
+          grad[j] += e * x[j];
+        }
+      });
+      for (let j = 0; j < 10; j++) {
+        w[j] -= lr * (grad[j] / data.length);
+      }
+    }
+    return w;
+  }
+
+  const weights = trainLogistic(samples);
+
+  // 8) Build PitchUID→probability map
+  const probMap = {};
+  enriched.forEach(r => {
+    const dN    = (r.dRun - stats.dRun.min)   / (stats.dRun.max   - stats.dRun.min);
+    const Craw  = 1 - dN;
+    const C     = Craw * angleWeight(r.angle);
+    const C2    = C * C;
+    const aN    = (r.angle  - stats.angle.min )/(stats.angle.max  - stats.angle.min );
+    const vN    = (r.velo   - stats.velo.min  )/(stats.velo.max   - stats.velo.min  );
+    const hN    = (r.hang   - stats.hang.min  )/(stats.hang.max   - stats.hang.min  );
+    const LN    = (r.liner  - stats.liner.min )/(stats.liner.max  - stats.liner.min );
+    const HN    = (r.arc    - stats.arc.min   )/(stats.arc.max    - stats.arc.min   );
+    const H2N   = (r.arc2   - stats.arc2.min  )/(stats.arc2.max   - stats.arc2.min  );
+
+    const x = [1, dN, C, C2, aN, vN, hN, LN, HN, H2N];
+    const z = weights.reduce((sum, wj, j) => sum + wj * x[j], 0);
+
+    probMap[r.pitchUID] = sigmoid(z);
+  });
+
+  // 9) Return the model
+  return {
+    stats,
+    weights,
+    probMap,
+    predict: (runDist, angle, velo, hangTime) => {
+      // repeat same feature pipeline
+      const dN    = (runDist - stats.dRun.min) / (stats.dRun.max - stats.dRun.min);
+      const Craw  = 1 - dN;
+      const C     = Craw * angleWeight(angle);
+      const C2    = C * C;
+      const aN    = (angle  - stats.angle.min )/(stats.angle.max  - stats.angle.min );
+      const vN    = (velo   - stats.velo.min  )/(stats.velo.max   - stats.velo.min  );
+      const hN    = (hangTime - stats.hang.min )/(stats.hang.max   - stats.hang.min  );
+      const liner = (velo * 5280/3600) * Math.cos(toRad(angle));
+      const LN    = (liner  - stats.liner.min )/(stats.liner.max  - stats.liner.min );
+      const arc   = Math.max(0, angle - 45);
+      const HN    = (arc    - stats.arc.min   )/(stats.arc.max    - stats.arc.min   );
+      const H2N   = (arc*arc - stats.arc2.min )/(stats.arc2.max   - stats.arc2.min  );
+
+      const x = [1, dN, C, C2, aN, vN, hN, LN, HN, H2N];
+      const z = weights.reduce((sum, wj, j) => sum + wj * x[j], 0);
+      return sigmoid(z);
+    }
+  };
+}
+
+
     function init() {
       // If only pitchUID is provided, derive gameUID
       if (startPID && !gameUID) {
@@ -268,39 +499,101 @@
       $('nextPitch').disabled = idxCurrent===gamePitches.length-1;
     }
 
+    function normalize(val, min, max) {
+  return (val - min) / (max - min);
+}
+
+function getProbabilityFromUID(pitchUID) {
+  return probMap[pitchUID];    // will be `undefined` if missing
+}
+
+function predictCatchProbability(runDistance, launchAngle, exitVelocity, stats, weights) {
+  // stats = { d:{min,max}, a:{min,max}, v:{min,max} }
+  // weights = [w0, w_d, w_a, w_v]
+  const dN = normalize(runDistance, stats.d.min, stats.d.max);
+  const aN = normalize(launchAngle, stats.a.min, stats.a.max);
+  const vN = normalize(exitVelocity, stats.v.min, stats.v.max);
+  const z  = weights[0] 
+           + weights[1] * dN 
+           + weights[2] * aN 
+           + weights[3] * vN;
+  return 1 / (1 + Math.exp(-z));
+}
+
+
 
     // Adjusted renderPitch to accept a container element instead of hardcoding 'pitchDetail'
-    function renderPitch(container) {
-      const p = gamePitches[idxCurrent];
-      container.innerHTML = '';
+function renderPitch(container) {
+  // current pitch record
+  const p = gamePitches[idxCurrent];
+  container.innerHTML = '';
 
-      function makeTable(fields, row) {
-        const wrapper = document.createElement('div'); wrapper.className = 'scrollTable';
-        const tbl = document.createElement('table');
-        tbl.innerHTML = `<thead><tr>${fields.map(f=>`<th>${f}</th>`).join('')}</tr></thead>` +
-                        `<tbody><tr>${fields.map(f=>`<td>${row[f] ?? '–'}</td>`).join('')}</tr></tbody>`;
-        wrapper.appendChild(tbl);
-        container.appendChild(wrapper);
-      }
+  /**
+   * Renders a scrollable table of `row` using only the columns in `fields`.
+   * If showProb===true, it also appends an "Out Probability %" column.
+   */
+function makeTable(fields, row, showProb = false) {
+  const cols = fields.slice();
 
-      makeTable(['Outs','Balls','Strikes'], p);
-      makeTable(['AutoPitchType','PitchCall','RelSpeed',/*…*/], p);
-      if (p.ExitSpeed) makeTable(['ExitSpeed','Angle','Direction',/*…*/], p);
-      makeTable(['RunsScored','OutsOnPlay','PitchCall','PlayResult'], p);
-
-      // plate view
-      const plateBox = document.createElement('div'); plateBox.className = 'canvas-container';
-      const plateCan = document.createElement('canvas'); plateBox.appendChild(plateCan);
-      container.appendChild(plateBox);
-      drawPlateView(plateCan, p);
-
-      // spray + fielders
-      const sprayBox = document.createElement('div'); sprayBox.className = 'canvas-container';
-      const sprayCan = document.createElement('canvas'); sprayBox.appendChild(sprayCan);
-      container.appendChild(sprayBox);
-      const fr = fPositions.find(r=>r.PitchUID===p.PitchUID);
-      drawSprayCanvas(sprayCan, [p], fr);
+  if (showProb) {
+    const prob = getProbabilityFromUID(row.PitchUID);
+    if (typeof prob === 'number' && !isNaN(prob) && row.PitchCall !== 'FoulBallNotFieldable') {
+      cols.push('Out Probability %');
+      row['Out Probability %'] = (prob * 100).toFixed(1) + '%';
+    } else {
+      console.warn(`no model probability for PitchUID=${row.PitchUID}`, prob);
     }
+  }
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'scrollTable';
+
+  const tbl = document.createElement('table');
+  tbl.innerHTML =
+    `<thead><tr>${cols.map(f => `<th>${f}</th>`).join('')}</tr></thead>` +
+    `<tbody><tr>${cols.map(f => `<td>${row[f] ?? '–'}</td>`).join('')}</tr></tbody>`;
+
+  wrapper.appendChild(tbl);
+  container.appendChild(wrapper);
+}
+
+
+  // first two tables: basic pitch info
+  makeTable(['Outs', 'Balls', 'Strikes'],           p);
+  makeTable(['AutoPitchType', 'PitchCall', 'RelSpeed'], p);
+
+  // third table: batted‐ball info + Out Probability
+  if (p.ExitSpeed) {
+    makeTable(
+      ['ExitSpeed', 'Angle', 'Direction'], // core columns
+      p,
+      p.PitchCall !== 'FoulBallNotFieldable'                                 // <-- show the probability here
+    );
+  }
+
+  // final table: result info
+  makeTable(['RunsScored', 'OutsOnPlay', 'PitchCall', 'PlayResult'], p);
+
+  // now your two canvases...
+  // plate view
+  const plateBox = document.createElement('div');
+  plateBox.className = 'canvas-container';
+  const plateCan = document.createElement('canvas');
+  plateBox.appendChild(plateCan);
+  container.appendChild(plateBox);
+  drawPlateView(plateCan, p);
+
+  // spray + fielders
+  const sprayBox = document.createElement('div');
+  sprayBox.className = 'canvas-container';
+  const sprayCan = document.createElement('canvas');
+  sprayBox.appendChild(sprayCan);
+  container.appendChild(sprayBox);
+  const key = p.GameUID + '|' + p.PitchUID;
+const fr  = fPosIndex[key];
+
+  drawSprayCanvas(sprayCan, [p], fr);
+}
 
     
 function drawPlateView(canvas, p) {
@@ -376,96 +669,122 @@ function drawPlateView(canvas, p) {
   // fallback for anything else
   'undefined': '#888888'
 };
+  function drawSprayCanvas(canvas, rows, fr){
+    const ctx = canvas.getContext('2d');
+    canvas.width  = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
 
-function drawSprayCanvas(canvas, rows, park) {
-  const ctx = canvas.getContext('2d');
-  canvas.width  = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
+    const park   = currentPark;
+    const origin = { x:canvas.width/2, y:canvas.height-20 };
+    const scale  = (canvas.height-40)/park.center;
 
-  const origin = { x: canvas.width/2, y: canvas.height - 20 };
-  const scale  = (canvas.height - 40) / park.center;
-
-  // 1) foul lines at -90° & +90°
-  [ -90, 90 ].forEach(deg => {
-    const rad = deg * Math.PI/180;
-    ctx.strokeStyle = '#888';
-    ctx.beginPath();
-    ctx.moveTo(origin.x, origin.y);
-    ctx.lineTo(
-      origin.x + Math.sin(rad)*park[ deg < 0 ? 'leftFoul' : 'rightFoul']*scale,
-      origin.y - Math.cos(rad)*park[ deg < 0 ? 'leftFoul' : 'rightFoul']*scale
-    );
+    // foul lines
+    const ang = Math.PI/4;
+    ctx.strokeStyle='#888'; ctx.lineWidth=1.5; ctx.beginPath();
+    ctx.moveTo(origin.x,origin.y);
+    ctx.lineTo(origin.x+Math.sin(-ang)*park.leftFoul*scale,
+               origin.y-Math.cos(-ang)*park.leftFoul*scale);
+    ctx.moveTo(origin.x,origin.y);
+    ctx.lineTo(origin.x+Math.sin( ang)*park.rightFoul*scale,
+               origin.y-Math.cos( ang)*park.rightFoul*scale);
     ctx.stroke();
-  });
 
-  // 2) outfield wall: same angles as fenceDist()
-  const angles = [ -90, -45, 0, 45, 90 ];
-  ctx.strokeStyle = '#555';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  angles.forEach((deg, i) => {
-    const rad = deg * Math.PI/180;
-    const radius = park[
-      ['leftFoul','leftCenter','center','rightCenter','rightFoul'][i]
+    // outfield wall (5‐point)
+    const angles = [-45,-22.5,0,22.5,45];
+    const radii  = [park.leftFoul,park.leftCenter,park.center,park.rightCenter,park.rightFoul];
+    ctx.strokeStyle='#555'; ctx.lineWidth=3; ctx.beginPath();
+    angles.forEach((d,i)=>{
+      const rad = d*Math.PI/180;
+      const dx  = Math.sin(rad)*radii[i]*scale;
+      const dy  = Math.cos(rad)*radii[i]*scale;
+      const x   = origin.x+dx, y = origin.y-dy;
+      i===0? ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+
+    // fence labels
+    ctx.fillStyle='#000'; ctx.font='12px sans-serif';
+    angles.forEach((d,i)=>{
+      const rad = d*Math.PI/180;
+      const dx  = Math.sin(rad)*radii[i]*scale;
+      const dy  = Math.cos(rad)*radii[i]*scale;
+      const px  = origin.x+dx, py = origin.y-dy;
+      ctx.fillText(Math.round(radii[i])+"'", px + (d<0?-25:5), py+15);
+    });
+
+    // infield diamond
+    const bases = [
+      {x:0,z:0},
+      {x:90*Math.cos(Math.PI/4), z:90*Math.sin(Math.PI/4)},
+      {x:90*Math.sqrt(2),       z:0},
+      {x:90*Math.cos(Math.PI/4), z:-90*Math.sin(Math.PI/4)}
     ];
-    const x = origin.x + Math.sin(rad)*radius*scale;
-    const y = origin.y - Math.cos(rad)*radius*scale;
-    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-  });
-  ctx.stroke();
+    ctx.strokeStyle='#444'; ctx.lineWidth=2; ctx.beginPath();
+    bases.forEach((pt,i)=>{
+      const x = origin.x + pt.z*scale;
+      const y = origin.y - pt.x*scale;
+      i===0? ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.closePath(); ctx.stroke();
 
-  // 3) fence labels
-  ctx.fillStyle = '#000';
-  ctx.font = '12px sans-serif';
-  angles.forEach((deg, i) => {
-    const rad = deg * Math.PI/180;
-    const radius = park[
-      ['leftFoul','leftCenter','center','rightCenter','rightFoul'][i]
-    ];
-    const x = origin.x + Math.sin(rad)*radius*scale;
-    const y = origin.y - Math.cos(rad)*radius*scale;
-    ctx.fillText(Math.round(radius) + "'", x + (deg<0 ? -30 : 5), y + 15);
-  });
+    // base squares
+    ctx.fillStyle='#fff';
+    bases.forEach(pt=>{
+      const x = origin.x + pt.z*scale;
+      const y = origin.y - pt.x*scale;
+      ctx.fillRect(x-6,y-6,12,12);
+    });
 
-  // 4) infield diamond
-  const bases = [
-    { x: 0, z: 0 }, 
-    { x: 90/Math.SQRT2, z: 90/Math.SQRT2 },
-    { x: 90, z: 0 },
-    { x: 90/Math.SQRT2, z: -90/Math.SQRT2 }
-  ];
-  ctx.strokeStyle = '#444';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  bases.forEach((pt,i) => {
-    const px = origin.x + pt.z*scale;
-    const py = origin.y - pt.x*scale;
-    i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
-  });
-  ctx.closePath();
-  ctx.stroke();
-  ctx.fillStyle = '#fff';
-  bases.forEach(pt => {
-    const px = origin.x + pt.z*scale;
-    const py = origin.y - pt.x*scale;
-    ctx.fillRect(px-6, py-6, 12, 12);
-  });
+    // infield arc
+    const extraC = 55, extraM = 28.5;
+    ctx.strokeStyle='#aaa'; ctx.lineWidth=2; ctx.beginPath();
+    for(let d=-45; d<=45; d++){
+      const rad = d*Math.PI/180;
+      const r0  = 90+extraC, r1=90*Math.sqrt(2)+extraM;
+      const t   = 1-Math.abs(d)/45;
+      const r   = r0 + t*(r1-r0);
+      const x   = origin.x + Math.sin(rad)*r*scale;
+      const y   = origin.y - Math.cos(rad)*r*scale;
+      d===-45? ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+   
+    rows.filter(r=>r.PitchCall==='InPlay').forEach(r=>{
+       const hitType = r.PlayResult || 'undefined';
 
-  // 5) hit point
-  rows.forEach(r => {
-    const dir  = parseFloat(r.Direction),
-          dist = parseFloat(r.Distance);
-    if (isNaN(dir) || isNaN(dist)) return;
-    const rad = dir * Math.PI/180,
-          dpx = Math.min(dist, park.center) * scale,
-          x   = origin.x + Math.sin(rad)*dpx,
-          y   = origin.y - Math.cos(rad)*dpx;
-    ctx.fillStyle = 'red';
-    ctx.beginPath();
-    ctx.arc(x, y, 6, 0, 2*Math.PI);
-    ctx.fill();
-  });
-}
+    // spray
+        const baseColor = HIT_PALETTE[hitType] || HIT_PALETTE['undefined'];
+
+      const dir = parseFloat(r.Direction), dist=parseFloat(r.Distance),
+            ev  = parseFloat(r.ExitSpeed);
+      if(isNaN(dir)||isNaN(dist)) return;
+      const rad = dir*Math.PI/180,
+            dpx = Math.min(dist,park.center)*scale,
+            x   = origin.x + Math.sin(rad)*dpx,
+            y   = origin.y - Math.cos(rad)*dpx,
+            size= isNaN(ev)?6:Math.min(ev/4,8);
+    ctx.fillStyle  = baseColor;
+      ctx.beginPath(); ctx.arc(x,y,size,0,2*Math.PI); ctx.fill();
+    });
+
+    // fielders in blue
+    if (fr) {
+      ['1B','2B','3B','SS','LF','CF','RF'].forEach(lbl=>{
+        const px = parseFloat(fr[lbl+'_PositionAtReleaseX']),
+              pz = parseFloat(fr[lbl+'_PositionAtReleaseZ']),
+              name = fr[lbl+'_Name']||lbl;
+        if(!isNaN(px)&&!isNaN(pz)){
+          const x = origin.x + pz*scale,
+                y = origin.y - px*scale;
+          ctx.fillStyle='rgba(50,100,220,0.8)';
+          ctx.beginPath(); ctx.arc(x,y,6,0,2*Math.PI); ctx.fill();
+          ctx.fillStyle='#000'; ctx.font='12px sans-serif';
+          ctx.textAlign='left'; ctx.textBaseline='middle';
+          ctx.fillText(name, x+8, y);
+        }
+      });
+    }
+  }
 
 
      function switchView(view) {

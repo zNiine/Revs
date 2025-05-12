@@ -80,82 +80,66 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 2rem;
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+  }
 
-           body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #f9f9f9;
-      color: #333;
-    }
-    a { color: #0066cc; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+  header h1 {
+    font-size: 1.5rem;
+    margin: 0;
+    color: #333;
+  }
 
-    /* --- header & nav container --- */
-    .site-header {
-      background: #fff;
-      border-bottom: 1px solid #ddd;
-    }
-    .header-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 1rem 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+  nav#menu ul {
+    list-style: none;
+    display: flex;
+    gap: 1.5rem;
+    margin: 0;
+    padding: 0;
+  }
 
-    /* --- logo/title --- */
-    .site-title {
-      font-size: 1.5rem;
-      font-weight: bold;
-      margin: 0;
-    }
+  nav#menu a {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    color: #555;
+    text-decoration: none;
+    font-weight: 500;
+    border-radius: 4px;
+    transition: background 0.2s, color 0.2s;
+  }
 
-    /* --- nav styling --- */
-    nav#menu ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      gap: 1.5rem;
-    }
-    nav#menu li {
-      margin: 0;
-    }
-    nav#menu a {
-      display: block;
-      padding: 0.5rem 0.75rem;
-      border-radius: 4px;
-      font-weight: 500;
-      transition: background 0.2s;
-    }
-    nav#menu a:hover {
-      background: #f0f4ff;
-    }
-    nav#menu a.active {
-      color: #0056b3;
-      background: #e6f0ff;
-    }
+  nav#menu a:hover {
+    background: #f0f8ff;
+    color: #007bff;
+  }
+
+  nav#menu a.active {
+    background: #007bff;
+    color: #fff;
+  }
 
   </style>
 </head>
 <body>
 <!-- NAVIGATION -->
-  <header class="site-header">
-    <div class="header-inner">
-      <h1 class="site-title">Would It Dong?</h1>
-      <nav id="menu">
-        <ul>
-          <li><a href="index.html" class="active">Home</a></li>
-          <li><a href="leaderboards.html">Leaderboards</a></li>
-          <li><a href="park-factors.html">Park Factors</a></li>
-          <li><a href="fielding.html">Fielding</a></li>
-          <li><a href="dong.html">Would It Dong?</a></li>
-        </ul>
-      </nav>
-    </div>
-  </header>
+<header>
+  <h1>Would It Dong?</h1>
+  <nav id="menu">
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="leaderboards.html">Leaderboards</a></li>
+      <li><a href="park-factors.html">Park Factors</a></li>
+      <li><a href="fielding.html">Fielding</a></li>
+      <li><a href="dong.html" class="active">Would It Dong?</a></li>
+    </ul>
+  </nav>
+</header>
 
     <!-- 1) Filter controls -->
   <div class="filters">
@@ -238,8 +222,10 @@
 
 /**
  * Compute the distance along a ray (given by dirDeg) to the first intersection
- * with the outfield wall defined by park. Returns the horizontal distance (ft).
+ * with the outfield wall defined by `park`. Returns the horizontal distance (ft).
  */
+
+ 
 function fenceDist(park, dirDeg) {
   // Ray direction unit vector
   const θ = dirDeg * Math.PI/180;
@@ -436,30 +422,33 @@ function renderTable() {
 
   // 4) header
   const parkNames = Object.keys(parks).filter(n => n !== 'default');
-   let html = '<table><thead><tr>'
+  let html = '<table><thead><tr>'
            + '<th>Date</th><th>Batter</th><th>Inning</th>'
            + '<th>Result</th><th>Dist (ft)</th><th>ExitSpeed</th>'
            + '<th>LaunchAngle</th>';
-  parkNames.forEach(p => {
-    html += `<th class="park">${p}</th>`;      // backticks here
-  });
-  html += '</tr></thead><tbody>';
+  parkNames.forEach(p => html += `<th class="park">${p}</th>`);
+  html += '<th>Details</th></tr></thead><tbody>';
 
-  // build the rows
+  // 5) rows
   filtered.forEach((r, i) => {
-    // compute your values…
+    const dist = +r.Distance || 0;
+    const dir  = +r.Direction || 0;
+    const exit = +r.ExitSpeed || 0;
+    const ang  = +r.Angle || 0;
+    const actualPark = teamParkMap[r.HomeTeam] || null;
+
     const dateLink   = `<a href="./Game-view.html?gameUID=${encodeURIComponent(r.GameUID)}">${r.Date}</a>`;
     const batterLink = `<a href="batter-profiles.html?player=${encodeURIComponent(r.Batter)}">${r.Batter}</a>`;
     const detailLink = `<a href="Game-view.html?pitchUID=${encodeURIComponent(r.PitchUID)}">Details</a>`;
 
     html += '<tr>';
-    html += `<td>${dateLink}</td>`;             // backticks here, too
+    html += `<td>${dateLink}</td>`;
     html += `<td>${batterLink}</td>`;
     html += `<td>${r.Inning}</td>`;
     html += `<td>${r.PlayResult}</td>`;
-    html += `<td>${r.distance}</td>`;
-    html += `<td>${r.exitSpeed}</td>`;
-    html += `<td>${r.LaunchAngle}</td>`;
+    html += `<td>${dist.toFixed(0)}</td>`;
+    html += `<td>${exit.toFixed(0)}</td>`;
+    html += `<td>${ang.toFixed(0)}</td>`;
 
     // per‐park logic
     parkNames.forEach(p => {
@@ -483,10 +472,10 @@ function renderTable() {
         }
       }
 
-      html += '<td class="park" data-index="${i}" data-park="${p}">${mark}</td>';
+      html += `<td class="park" data-index="${i}" data-park="${p}">${mark}</td>`;
     });
 
-    html += '<td>${detailLink}</td>';
+    html += `<td>${detailLink}</td>`;
     html += '</tr>';
   });
 
@@ -517,4 +506,4 @@ function renderTable() {
   }
   </script>
 </body>
-</html>  
+</html>

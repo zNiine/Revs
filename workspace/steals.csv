@@ -1,0 +1,11 @@
+gameid,inning,half,batting_team,defense_team,player,base,result,balls,strikes,outs
+624485,6,bottom,York Revolution,Hagerstown Flying Boxcars,Jalen Miller,2,CS,0,1,2
+628664,1,top,Southern Maryland Blue Crabs,Lancaster Stormers,Jackson Loftin,2,SB,1,0,0
+628664,1,top,Southern Maryland Blue Crabs,Lancaster Stormers,John Taylor,2,SB,2,1,1
+628664,1,top,Southern Maryland Blue Crabs,Lancaster Stormers,Jackson Loftin,3,SB,2,1,1
+628664,6,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Ariel Sandoval,2,SB,2,0,1
+628664,7,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Joseph Carpenter,2,SB,1,0,2
+628664,8,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Yeison Coca,2,SB,1,0,3
+628664,10,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Nick Lucky,3,SB,3,1,1
+628664,10,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Yeison Coca 10 Slater Schield,3,CS,0,0,1
+628664,10,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Alex Isola 25 Andrew Semo,2,SB,0,0,2
