@@ -323,20 +323,60 @@ function renderMiniBoards() {
 
 
 
-    function populateSearchDatalist() {
-      const dl = document.getElementById('suggestions');
-      new Set([
-        ...data.map(r=>r.Batter),
-        ...data.map(r=>r.Pitcher),
-        ...data.map(r=>r.Umpire),
-        ...data.map(r=>r.HomeNameFull),
-        ...data.map(r=>r.AwayNameFull)
-      ]).forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        dl.appendChild(opt);
-      });
+   function populateSearchDatalist() {
+  const dl = document.getElementById('suggestions');
+  dl.innerHTML = ''; // clear any existing
+
+  // collect unique names
+  const batters  = new Set(data.map(r => r.Batter));
+  const pitchers = new Set(data.map(r => r.Pitcher));
+  const umps     = new Set(data.map(r => r.Umpire));
+  const teams    = new Set([
+    ...data.map(r => r.HomeNameFull),
+    ...data.map(r => r.AwayNameFull)
+  ]);
+
+  // helper to append one option
+  function addOption(label, url) {
+    const opt = document.createElement('option');
+    opt.value      = label;
+    opt.dataset.url = url;
+    dl.appendChild(opt);
+  }
+
+  // 1) Umpires
+  umps.forEach(name => {
+    addOption(`${name} (Umpire)`,
+      `ump-profiles.html?player=${encodeURIComponent(name)}`);
+  });
+
+  // 2) Batters vs Pitchers (disambiguate duplicates)
+  const allPlayers = new Set([...batters, ...pitchers]);
+  allPlayers.forEach(name => {
+    const isB = batters.has(name);
+    const isP = pitchers.has(name);
+
+    if (isB && isP) {
+      // both roles → two entries
+      addOption(`${name} (Batter)`,
+        `batter-profiles.html?player=${encodeURIComponent(name)}`);
+      addOption(`${name} (Pitcher)`,
+        `pitcher-profiles.html?player=${encodeURIComponent(name)}`);
+    } else if (isB) {
+      addOption(name,
+        `batter-profiles.html?player=${encodeURIComponent(name)}`);
+    } else {
+      addOption(name,
+        `pitcher-profiles.html?player=${encodeURIComponent(name)}`);
     }
+  });
+
+  // 3) Teams
+  teams.forEach(name => {
+    addOption(name,
+      `team-profiles.html?team=${encodeURIComponent(name)}`);
+  });
+}
 
     function buildRecentGames() {
   // Group by GameUID
@@ -390,39 +430,26 @@ function renderMiniBoards() {
 
 
     // (Reuse your existing search handler here if desired)
-    document.getElementById('search-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const q = document.getElementById('search').value.trim();
+document.getElementById('search-form')
+  .addEventListener('submit', function(e) {
+    e.preventDefault();
+    const input = document.getElementById('search');
+    const q     = input.value.trim();
+    if (!q) return;
 
-        const isUmp = data.some(r => r.Umpire === q);
-        if (isUmp) {
-          window.location.href = `ump-profiles.html?player=${encodeURIComponent(q)}`;
-          return;
-        }
+    // find the matching <option> in the datalist
+    const opts  = Array.from(
+      document.getElementById('suggestions').options
+    );
+    const match = opts.find(o => o.value === q);
 
-        const isPitcher = data.some(r => r.Pitcher === q);
-        if (isPitcher) {
-          window.location.href = `pitcher-profiles.html?player=${encodeURIComponent(q)}`;
-          return;
-        }
-
-        // Check if query matches a batter
-        const isBatter = data.some(r => r.Batter === q);
-        if (isBatter) {
-          window.location.href = `batter-profiles.html?player=${encodeURIComponent(q)}`;
-          return;
-        }
-
-        // Otherwise check if it matches a team
-        const isTeam = data.some(r => r.HomeNameFull === q || r.AwayNameFull === q);
-        if (isTeam) {
-          window.location.href = `team-profiles.html?team=${encodeURIComponent(q)}`;
-          return;
-        }
-
-        // Fallback: no match
-        alert('No matching player or team found.');
-      });
+    if (match && match.dataset.url) {
+      // redirect to the URL we stored in data-url
+      window.location.href = match.dataset.url;
+    } else {
+      alert('No matching player, umpire, or team found.');
+    }
+  });
   </script>
 </body>
 </html>

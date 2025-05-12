@@ -2922,6 +2922,19 @@ function drawSaberMetrics(rows) {
             });
         }
 
+function safeDateString(d) {
+  // if it’s already a Date and valid
+  if (d instanceof Date && !isNaN(d)) {
+    return d.toISOString().slice(0,10);
+  }
+  // if it’s a non-empty string, try parsing
+  if (typeof d === 'string' && d.trim()) {
+    const d2 = new Date(d);
+    if (!isNaN(d2)) return d2.toISOString().slice(0,10);
+  }
+  // fallback: empty string (or you could return d as-is)
+  return '';
+}
 
 function renderTable(data) {
   const rows = data.filter(r => r.PlayResult !== 'Undefined');
@@ -2947,9 +2960,8 @@ function renderTable(data) {
   rows.forEach(r => {
     const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall);
     // ensure Date is a JS Date object (if it's a string, wrap new Date(r.Date))
-    const dateStr = (r.Date instanceof Date
-                     ? r.Date.toISOString().slice(0,10)
-                     : new Date(r.Date).toISOString().slice(0,10));
+    const dateStr = safeDateString(r.Date);
+
 
     html += 
       `<tr>
@@ -2968,7 +2980,10 @@ function renderTable(data) {
   html += `</tbody></table>`;
   document.getElementById('battedBallTable').innerHTML = html;
 }
-        function renderAtBatDetails(data) { const at = document.getElementById('atBatFilter').value; const t = document.getElementById('atBatPitchTable'); if (!at) { t.style.display = 'none'; return; } t.style.display = 'block'; let html = '<table><thead><tr><th>#</th><th>Pitch Type</th><th>Result</th><th>RelSpeed</th><th>SpinRate</th><th>InducedVertBreak</th><th>HorzBreak</th><th>Drop</th></tr></thead><tbody>'; data.forEach((r, i) => { const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall); html += `<tr><td>${i + 1}</td><td>${r.AutoPitchType}</td><td>${result}</td><td>${r.RelSpeed || ''}</td><td>${r.SpinRate || ''}</td><td>${r.InducedVertBreak || ''}</td><td>${r.HorzBreak || ''}</td><td>${r.SpeedDrop || ''}</td></tr>`; }); html += '</tbody></table>'; t.innerHTML = html; }
+        function renderAtBatDetails(data) { 
+            const at = document.getElementById('atBatFilter').value; 
+            const t = document.getElementById('atBatPitchTable'); 
+            if (!at) { t.style.display = 'none'; return; } t.style.display = 'block'; let html = '<table><thead><tr><th>#</th><th>Pitch Type</th><th>Result</th><th>RelSpeed</th><th>SpinRate</th><th>InducedVertBreak</th><th>HorzBreak</th><th>Drop</th></tr></thead><tbody>'; data.forEach((r, i) => { const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall); html += `<tr><td>${i + 1}</td><td>${r.AutoPitchType}</td><td>${result}</td><td>${r.RelSpeed || ''}</td><td>${r.SpinRate || ''}</td><td>${r.InducedVertBreak || ''}</td><td>${r.HorzBreak || ''}</td><td>${r.SpeedDrop || ''}</td></tr>`; }); html += '</tbody></table>'; t.innerHTML = html; }
 
 function renderUsageTree() {
   const side = document.getElementById('treeSideFilter').value;
