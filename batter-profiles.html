@@ -206,6 +206,42 @@
   border-bottom: 2px solid #0074D9;  /* highlight active tab */
 }
 
+.card {
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+
+:root {
+  --gutter: 1rem;
+}
+.row { gap: var(--gutter); }
+.card { padding: calc(var(--gutter) / 2); }
+
+#subMenu button {
+  transition: background 0.2s;
+}
+#subMenu button:hover {
+  background: rgba(0, 116, 217, 0.1);
+}
+#gameLogTable tbody tr:hover {
+  background: #f0f8ff;
+}
+
+#subMenu {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 10;
+}
+
+
 
          .row { display: flex; gap: 1rem; margin-bottom: 1rem; }
     .col { flex: 1; }
@@ -227,10 +263,11 @@
     <nav id="menu">
         <ul>
             <li><a href="index.html" class="active">Home</a></li>
+                              <li><a href="games.html">Games</a></li>
+
             <li><a href="leaderboards.html">Leaderboards</a></li>
             <li><a href="park-factors.html">Park Factors</a></li>
-            <li><a href="#">Point Streak</a></li>
-        </ul>
+ <li><a href="dong.html">Would it Dong?</a></li>        </ul>
     </nav>
 
     <div class="container">
