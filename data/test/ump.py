@@ -61,8 +61,16 @@ umpire_mapping = {
     "cdbe141f-85c1-4ec0-b01b-4ff613b0d959" :"Charles Hudson",
     "d13439de-49cf-4d93-a5d1-81facb36b9f2" : "Ben Wilson",
     "f01349d1-2159-4eab-9565-88c37aebcfca" :"Chris Minter",
-    
-
+    "a2085154-2742-4142-8529-d60496dafa64" : "Andrew Eng",
+    "01508901-e379-42f5-a727-01c168d6f620" : "Ruben Ramirez",
+    "2ad5662f-85be-42af-83ff-5ad4bbc39175" : "Daniel Wetzel",
+    "e06c27d5-6c48-48ac-8759-9d346f023e37" : "Rob Massaro",
+    "e4b017d0-e04c-4cc3-a4ad-fa5dacba9c8a" : "Antonio Pinzon",
+    "34af2fbd-ede4-4fdf-8bf0-b4442da43986" : "Gavin Holdgreve",
+    "6b79a3a4-498b-496a-b046-361789efc2e5" : "Steve Bartelstein",
+    "b443c376-7290-48c0-b053-48757c91e219" : "Nick Rosa",
+    "188f2178-f08f-494d-a81b-6cbfa4e4630b" : "Layne Landesman",
+    "ccf3d0b3-053e-430f-99d7-5a67acd8da32": "Justin Clarke"
 
 
 
