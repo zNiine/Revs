@@ -188,7 +188,7 @@ fPositions.forEach(r => {
           viewBreakdowns = $('viewBreakdowns'), viewSpray = $('viewSpray');
 
 
-              btnSummary.onclick = ()=>switchView('summary');
+              btnSummary.onclick = ()=>location.search = `?gameUID=${gameUID}`; 
     btnMatchups.onclick = ()=>switchView('matchups');
     btnBreakdowns.onclick = ()=>switchView('breakdowns');
     btnSpray.onclick = ()=>switchView('spray');
@@ -442,26 +442,66 @@ async function buildCatchModel(mainCsvUrl, positionsCsvUrl) {
       summary.appendChild(bsCard);
 
       // top N helper
-      const topN = (arr, key, n=3) => arr.filter(p=>p[key]).sort((a,b)=> +b[key] - +a[key]).slice(0,n);
-      [ ['RelSpeed','Release Speed'], ['ExitSpeed','Exit Velocity'], ['Distance','Distance'] ]
-      .forEach(([key,label])=>{
-        const card = document.createElement('div'); card.className = 'card';
-        card.innerHTML = `<h2>${label} Leaders</h2>`;
-        const tbl = document.createElement('table');
-        tbl.innerHTML = `<thead><tr><th>${key==='RelSpeed'?'Pitcher':'Batter'}</th><th>${label}</th></tr></thead><tbody>` +
-                        topN(gamePitches,key).map(p=>
-                          `<tr><td>${key==='RelSpeed'?p.Pitcher:p.Batter}</td><td>${p[key]}</td></tr>`
-                        ).join('') +`</tbody>`;
-        card.appendChild(tbl);
-        summary.appendChild(card);
-      });
+  const topN = (arr, key, n=3) =>
+  arr
+    .filter(p => p[key])
+    .sort((a,b) => +b[key] - +a[key])
+    .slice(0, n);
+
+[ ['RelSpeed','Release Speed'], ['ExitSpeed','Exit Velocity'], ['Distance','Distance'] ]
+.forEach(([key,label]) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<h2>${label} Leaders</h2>`;
+  
+  const tbl = document.createElement('table');
+  tbl.innerHTML =
+    `<thead>
+       <tr>
+         <th>${key === 'RelSpeed' ? 'Pitcher' : 'Batter'}</th>
+         <th>${label}</th>
+       </tr>
+     </thead>
+     <tbody>` +
+    topN(gamePitches, key).map(p => {
+      // choose name & URL based on metric
+      if (key === 'RelSpeed') {
+        const name = p.Pitcher;
+        return `
+          <tr>
+            <td>
+              <a href="pitcher-profiles.html?player=${encodeURIComponent(name)}">
+                ${name}
+              </a>
+            </td>
+            <td>${p[key]}</td>
+          </tr>`;
+      } else {
+        const name = p.Batter;
+        return `
+          <tr>
+            <td>
+              <a href="batter-profiles.html?player=${encodeURIComponent(name)}">
+                ${name}
+              </a>
+            </td>
+            <td>${p[key]}</td>
+          </tr>`;
+      }
+    }).join('') +
+    `</tbody>`;
+
+  card.appendChild(tbl);
+  summary.appendChild(card);
+});
+
 
       // at-bats table
       const dv = $('detailView'); dv.innerHTML = '';
       const abTable = document.createElement('table');
       abTable.innerHTML = `<thead><tr>
         <th>Batter</th>
-        <th>PA</th>
+        <th>Pitch</th>
         <th>Inning</th>
         <th>Result</th>
         <th>ExitSpeed</th>
@@ -475,7 +515,9 @@ async function buildCatchModel(mainCsvUrl, positionsCsvUrl) {
           let result = p.KorBB && p.KorBB!=='Undefined' ? p.KorBB :
                        (p.PitchCall==='InPlay' ? p.PlayResult : p.PitchCall);
           return `<tr>
-            <td>${p.Batter}</td>
+            <td> <a href="batter-profiles.html?player=${encodeURIComponent(p.Batter)}">
+                ${p.Batter}
+              </a></td>
             <td>${p.PitchNo}</td>
             <td>${p.Inning} ${p['Top/Bottom']}</td>
             <td>${result}</td>
@@ -630,7 +672,7 @@ function drawPlateView(canvas, p) {
   const originY = (canvas.height + pixH) / 2; // y of zone bottom
 
   // Mapping functions
-  const mapX = x => originX + (x - zone.left) * scale;
+const mapX = x => originX + (zone.right - x) * scale;
   const mapY = y => originY - (y - zone.bottom) * scale;
 
   // Clear
@@ -848,7 +890,7 @@ function drawMatchup(puid, canvas, tableDiv) {
   const originX = (canvas.width - pixW)/2;
   const originY = (canvas.height + pixH)/2;
 
-  const mapX = x => originX + (x - zone.left)*scale;
+const mapX = x => originX + (zone.right - x) * scale;
   const mapY = y => originY - (y - zone.bottom)*scale;
 
   ctx.strokeStyle = 'black';
@@ -1108,7 +1150,13 @@ function renderBreakdowns() {
     // ——— USAGE STATS ———
     const usageCard = document.createElement('div');
     usageCard.className = 'card';
-    usageCard.innerHTML = `<h2>${pitcher} Usage</h2>`;
+usageCard.innerHTML = `
+  <h2>
+    <a href="pitcher-profiles.html?player=${encodeURIComponent(pitcher)}">
+      ${pitcher}
+    </a> Usage
+  </h2>
+`;
     const usageTbl = document.createElement('table');
     usageTbl.innerHTML = `
       <thead>
@@ -1156,7 +1204,13 @@ function renderBreakdowns() {
     const swingCard = document.createElement('div');
     swingCard.className = 'card';
     swingCard.style.marginTop = '1em';
-    swingCard.innerHTML = `<h2>${pitcher} Swing Stats</h2>`;
+swingCard.innerHTML = `
+  <h2>
+    <a href="pitcher-profiles.html?player=${encodeURIComponent(pitcher)}">
+      ${pitcher}
+    </a> Usage
+  </h2>
+`;
     const swingTbl = document.createElement('table');
     swingTbl.innerHTML = `
       <thead>

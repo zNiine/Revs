@@ -114,6 +114,33 @@
             overflow: auto;
         }
 
+        /* Game Log Table Styling */
+#gameLogTable table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+#gameLogTable th,
+#gameLogTable td {
+  border: 1px solid #ccc;
+  padding: 0.5rem;
+  text-align: left;
+}
+#gameLogTable th {
+  background: #f4f4f4;
+}
+#gameLogTable tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+#gameLogTable a {
+  color: #0066cc;
+  text-decoration: none;
+}
+#gameLogTable a:hover {
+  text-decoration: underline;
+}
+
+
           
         #sprayCanvas { border: 1px solid #ccc; background: #e8f5e9; display: block; margin: 1rem auto; }
         #parkSelect2 { margin-bottom: 0.5rem; }
@@ -222,6 +249,8 @@
     <!-- Sub-menu: toggle between the two profile panels -->
     <div id="subMenu">
         <button id="tabPA" class="sub-active">Plate Appearances</button>
+        <button id="tabGameLog">Game Log</button>
+
         <button id="tabTree">Usage Tree</button>
         <button id="printTree">Print</button>
         
@@ -475,6 +504,11 @@
 
 
         </div>
+
+        <div class="main" id="gameLogContainer" style="display:none;">
+  <h2 id="gameLogTitle">Game Log</h2>
+  <div id="gameLogTable"></div>
+</div>
 
         <!-- Usage Tree view -->
         <div class="main" id="usageContainer" style="display:none;">
@@ -2306,6 +2340,100 @@ function drawLocationHeatmap() {
     width: 500
   });
 }
+function renderGameLog() {
+  // 1) Filter to this pitcher’s data
+  const rows = allData.filter(r => r.Pitcher === playerName);
+
+  // 2) Group by GameUID
+  const byGame = {};
+  rows.forEach(r => {
+    const g = r.GameUID;
+    if (!byGame[g]) byGame[g] = [];
+    byGame[g].push(r);
+  });
+
+  // 3) Build table
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th># Pitches</th>
+          <th>K</th>
+          <th>BB</th>
+          <th>Avg RelSpeed</th>
+          <th>Avg SpinRate</th>
+          <th>Max RelSpeed</th>
+          <th>Top Pitch</th>
+          <th># Batters</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  Object.entries(byGame).forEach(([gameUID, pitches]) => {
+    const dateStr = pitches[0].Date.toISOString().slice(0,10);
+    const totalP  = pitches.length;
+
+    // Strikeouts & walks
+    const Ks = pitches.filter(r => r.KorBB === 'Strikeout').length;
+    const BBs = pitches.filter(r => r.KorBB === 'Walk').length;
+
+    // Avg RelSpeed & Avg SpinRate
+    const relSpeeds = pitches.map(r => parseFloat(r.RelSpeed)).filter(v => !isNaN(v));
+    const spinRates = pitches.map(r => parseFloat(r.SpinRate)).filter(v => !isNaN(v));
+    const avgRel = relSpeeds.length
+      ? (relSpeeds.reduce((a,v)=>a+v,0) / relSpeeds.length).toFixed(1)
+      : '—';
+    const avgSpin = spinRates.length
+      ? (spinRates.reduce((a,v)=>a+v,0) / spinRates.length).toFixed(0)
+      : '—';
+
+    // Max RelSpeed
+    const maxRel = relSpeeds.length
+      ? Math.max(...relSpeeds).toFixed(1)
+      : '—';
+
+    // Top pitch
+    const freq = {};
+    pitches.forEach(r => {
+      const pt = r.AutoPitchType || 'undefined';
+      freq[pt] = (freq[pt]||0) + 1;
+    });
+    const topPitch = Object.entries(freq)
+                          .sort((a,b)=>b[1]-a[1])[0][0];
+
+    // # of unique batters
+    const batCount = new Set(pitches.map(r => r.Batter)).size;
+
+    html += `
+      <tr>
+        <td>${dateStr}</td>
+        <td>${totalP}</td>
+        <td>${Ks}</td>
+        <td>${BBs}</td>
+        <td>${avgRel}</td>
+        <td>${avgSpin}</td>
+        <td>${maxRel}</td>
+        <td>${topPitch}</td>
+        <td>${batCount}</td>
+        <td>
+          <a href="./Game-view.html?gameUID=${encodeURIComponent(gameUID)}">
+            View
+          </a>
+        </td>
+      </tr>
+    `;
+  });
+
+  html += `
+      </tbody>
+    </table>
+  `;
+  document.getElementById('gameLogTable').innerHTML = html;
+}
+
 
 
 
@@ -2349,6 +2477,29 @@ pts.forEach(t => {
   locSelect.appendChild(opt);
 });
 
+document.getElementById('tabGameLog').addEventListener('click', () => {
+  // show game log, hide others
+  document.getElementById('paContainer').style.display      = 'none';
+  document.getElementById('usageContainer').style.display   = 'none';
+  document.getElementById('gameLogContainer').style.display = '';
+  // adjust button styles
+  ['tabPA','tabGameLog','tabTree'].forEach(id => {
+    document.getElementById(id)
+      .classList.toggle('sub-active', id === 'tabGameLog');
+  });
+  renderGameLog();
+});
+
+
+const title = handAbbrev
+  ? `${playerName} (${handAbbrev}) Game Log`
+  : `${playerName} Game Log`;
+
+// set the button label
+// set the section heading
+document.getElementById('gameLogTitle').textContent = title;
+
+
 
 const spinSel = document.getElementById('spinTypeToggle');
 [...new Set(allData.map(r=>r.AutoPitchType))].sort()
@@ -2361,10 +2512,14 @@ const spinSel = document.getElementById('spinTypeToggle');
                 document.getElementById('usageContainer').style.display = 'none';
                 document.getElementById('tabPA').classList.add('sub-active');
                 document.getElementById('tabTree').classList.remove('sub-active');
+                  document.getElementById('gameLogContainer').style.display = 'none';
+
             });
             document.getElementById('tabTree').addEventListener('click', () => {
                 document.getElementById('paContainer').style.display = 'none';
                 document.getElementById('usageContainer').style.display = '';
+                  document.getElementById('gameLogContainer').style.display = 'none';
+
                 document.getElementById('tabTree').classList.add('sub-active');
                 document.getElementById('tabPA').classList.remove('sub-active');
                 document.getElementById('playerNameTree').textContent = handAbbrev
@@ -2935,51 +3090,68 @@ function safeDateString(d) {
   // fallback: empty string (or you could return d as-is)
   return '';
 }
-
 function renderTable(data) {
+  // 1) filter & number every row
   const rows = data.filter(r => r.PlayResult !== 'Undefined');
   rows.forEach((r, i) => r.__hitNumber = i + 1);
 
-  let html = 
-    `<table>
-       <thead>
-         <tr>
-           <th>#</th>
-           <th>Date</th>
-           <th>Batter</th>
-           <th>Inning</th>
-           <th>PlayCall</th>
-           <th>ExitSpeed</th>
-           <th>Angle</th>
-           <th>Distance</th>
-           <th>Details</th>
-         </tr>
-       </thead>
-       <tbody>`;
+  // 2) build the HTML with a scrollable container
+  let html =
+    `<div style="
+        max-height: 400px;      /* ~10 rows */
+        overflow-y: auto;       /* vertical scroll */
+        border: 1px solid #ddd; /* optional frame */
+      ">
+       <table style="width:100%; border-collapse:collapse; min-width:800px;">
+         <thead style="background:#f4f4f4; position:sticky; top:0; z-index:1;">
+           <tr>
+             <th>#</th>
+             <th>Date</th>
+             <th>Batter</th>
+             <th>Inning</th>
+             <th>PlayCall</th>
+             <th>ExitSpeed</th>
+             <th>Angle</th>
+             <th>Distance</th>
+             <th>Details</th>
+           </tr>
+         </thead>
+         <tbody>`;
 
+  // 3) populate all rows
   rows.forEach(r => {
-    const result = (r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall);
-    // ensure Date is a JS Date object (if it's a string, wrap new Date(r.Date))
+    const result  = r.PitchCall === 'InPlay' ? r.PlayResult : r.PitchCall;
     const dateStr = safeDateString(r.Date);
 
-
-    html += 
+       html +=
       `<tr>
          <td>${r.__hitNumber}</td>
          <td>${dateStr}</td>
-         <td>${r.Batter}</td>
+         <td>
+           <a href="batter-profiles.html?player=${encodeURIComponent(r.Batter)}">
+             ${r.Batter}
+           </a>
+         </td>
          <td>${r.Inning}</td>
          <td>${result}</td>
          <td>${r.ExitSpeed}</td>
          <td>${r.Angle}</td>
          <td>${r.Distance}</td>
-         <td><a href="Game-view.html?pitchUID=${r.PitchUID}">View</a></td>
+         <td>
+           <a href="Game-view.html?pitchUID=${r.PitchUID}">
+             View
+           </a>
+         </td>
        </tr>`;
   });
 
-  html += `</tbody></table>`;
+  html += `</tbody>
+       </table>
+     </div>`;
+
   document.getElementById('battedBallTable').innerHTML = html;
 }
+
         function renderAtBatDetails(data) { 
             const at = document.getElementById('atBatFilter').value; 
             const t = document.getElementById('atBatPitchTable'); 
