@@ -254,7 +254,7 @@ function renderRunnersPage(container, displayName, pitcher, side, rows) {
   if (runnerRows.length === 0) {
     const msg = document.createElement('div');
     msg.style.cssText = 'text-align:center;color:#888;margin-top:40px;';
-    msg.textContent = 'No runners on base in this half-inning.';
+    msg.textContent = 'No At bats with runner on';
     pg.appendChild(msg);
     return;
   }

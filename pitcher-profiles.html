@@ -3290,6 +3290,7 @@ tier.sort((a, b) => b.b - a.b);
     `;
   });
   container.appendChild(legend);
+//pitchers = pitchers.filter(p => p === 'Hennessey, Joey');
 
   // 5) Build & inject pitch‐type statistics table below (unchanged)
   const stats = {};
@@ -3321,6 +3322,7 @@ tier.sort((a, b) => b.b - a.b);
     });
   tbody.innerHTML = html;
 }
+//      pitchers = pitchers.filter(p => p === 'Hennessey, Joey');
 
   
 function populateSuggestions() {
