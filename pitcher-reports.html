@@ -18,6 +18,27 @@
   display: none !important;
 }
 
+
+/* Don’t force a page-break after the last page, and hide empty pages */
+.page:last-child {
+  page-break-after: auto !important;
+}
+.page:empty {
+  display: none !important;
+}
+
+
+/* for print, ensure it prints exactly at bottom-right */
+@media print {
+  .release-chart-container {
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    width: 50vw !important;
+    height: 40vh !important;
+  }
+}
+
 /* Only show & fix the stats table on the very first .page */
 .card-grid {
   display: grid;
@@ -62,35 +83,6 @@
       margin: 0 auto;
       transform-origin: center;
     }
-
-    /* Stats table */
-    .small-table { margin-top: 20px; }
-    @media print {
-      /* reset by default */
-      .print-stats-table { position: static !important; }
-      /* only first page */
-      .page:nth-of-type(1) .print-stats-table {
-        position: fixed !important;
-        top: 20px;
-        left: 20px;
-        background: white;
-        z-index: 100;
-        width: 300px;
-      }
-    }
-
-    @media print {
-  .page:nth-of-type(1) .print-stats-table,
-  .page:nth-of-type(4) .print-stats-table {
-    display: table !important;
-    position: absolute !important;
-    top: 20px;
-    left: 20px;
-    background: white;
-    z-index: 100;
-    width: 300px;
-  }
-}
 
 
 @media print {
@@ -188,7 +180,6 @@
         allData.filter(r => r.PitcherTeam === team).map(r => r.Pitcher)
       )];
       // filter to Joey Hennessey only while testing
-      pitchers = pitchers.filter(p => p === 'Hennessey, Joey');
 
       pitchers.forEach(pitcher => {
         ['Left','Right'].forEach(side => {
@@ -199,213 +190,294 @@
           createReportsForPitcher(container, pitcher, side, rows);
         });
       });
+
+
+    
     }
 
-    function createReportsForPitcher(container, pitcher, side, rows) {
-      const hand = rows[0].PitcherThrows === 'R' ? 'RHP' : 'LHP';
-      const parts = pitcher.split(' ');
-      const displayName = `${parts.slice(-1)} ${parts.slice(0,-1).join(' ')} (${hand})`;
-      let pc = 0;
-      function newPage() {
-        const d = document.createElement('div');
-        d.className = 'page';
-        container.appendChild(d);
-        pc++;
-        return d;
-      }
+    
+    // old (refactored) signature — drop this:
+// function createReportsForPitcher(container, pitcher, rows) { … }
 
-      // Page 1: UsageTree + Stats
-      const pg1 = newPage();
-      const header = document.createElement('div');
-      header.className = 'report-header';
-      header.innerHTML = `<h1>${displayName}</h1>`;
-      pg1.appendChild(header);
-      const vs = document.createElement('div');
-      vs.style = 'text-align:center;font-weight:bold;';
-      vs.textContent = `vs ${side}`;
-      pg1.appendChild(vs);
+// new (fixed) signature:
+function createReportsForPitcher(container, pitcher, side, rows) {
+  // ensure rows is a true Array
+  if (!Array.isArray(rows)) rows = Array.from(rows);
 
-      // usage tree
-      const usageCont = document.createElement('div');
-      usageCont.className = 'usage-container';
-      const uDiv = document.createElement('div');
-      uDiv.id = `usage_${sanitize(pitcher)}_${side}_1`;
-      uDiv.className = 'usage-chart';
-      usageCont.appendChild(uDiv);
-      pg1.appendChild(usageCont);
-      renderUsageTree(rows, uDiv.id);
+  const hand = rows[0].PitcherThrows === 'R' ? 'RHP' : 'LHP';
+  const parts = pitcher.split(' ');
+  const displayName = `${parts.slice(-1)} ${parts.slice(0,-1).join(' ')} (${hand}) vs ${side}`;
 
-      // stats table (only on page 1)
-      const statsTbl1 = document.createElement('table');
-      statsTbl1.className = 'small-table print-stats-table';
-      statsTbl1.innerHTML = `
-        <thead><tr>
-          <th>Pitch</th><th>Count</th><th>Mean V</th><th>Std</th>
-        </tr></thead>
-        <tbody id="stats_${sanitize(pitcher)}_${side}_1"></tbody>
-      `;
-      pg1.appendChild(statsTbl1);
-      renderStats(rows, `stats_${sanitize(pitcher)}_${side}_1`);
+  // now just render the 4 pages for this one side:
+  renderUsageStatsPage (container, displayName, pitcher, side, rows);
+  renderRunnersPage    (container, displayName, pitcher, side, rows);
+  renderMovementGridPage(container, displayName, pitcher, side, rows);
+  renderSummaryPage    (container, displayName, pitcher, side, rows);
+}
 
-      // Page 2 (for Left)
-      if (side === 'Left') {
-        const pg2 = newPage();
-        const grid = document.createElement('div');
-        grid.className = 'card-grid';
-        pg2.appendChild(grid);
 
-        // Movement Profile
-        const card1 = document.createElement('div');
-        card1.className = 'card';
-        card1.innerHTML = `<h2>Movement Profile</h2><div id="movement_${pc}" class="chart"></div>`;
-        grid.appendChild(card1);
-        drawMovementProfile(rows, `movement_${pc}`);
+// ---------------------------------------------------
+// each of these takes the same arguments and
+// appends exactly one .page to `container`.
 
-        // Spin Axis Rose
-        const card2 = document.createElement('div');
-        card2.className = 'card';
-        card2.innerHTML = `<h2>Spin Axis Rose</h2><div id="spin_${pc}" class="chart"></div>`;
-        grid.appendChild(card2);
-        drawSpinAxisRose(rows, `spin_${pc}`);
+function renderUsageStatsPage(container, displayName, pitcher, side, rows) {
+  const pg = newPage(container);
+  pg.appendChild(makeHeader(displayName));
+  pg.appendChild(makeVsLine(side));
 
-        // Plate Location Clusters
-        const card3 = document.createElement('div');
-        card3.className = 'card';
-        card3.innerHTML = `<h2>Plate Location Clusters</h2><div id="loc_${pc}" class="chart"></div>`;
-        grid.appendChild(card3);
-        plotLocationPieClusters(rows, `loc_${pc}`);
+  const usageCont = document.createElement('div');
+  usageCont.className = 'usage-container';
+  const uDiv = document.createElement('div');
+  uDiv.id = `usage_${sanitize(pitcher)}_${side}_usage`;
+  uDiv.className = 'usage-chart';
+  usageCont.appendChild(uDiv);
+  pg.appendChild(usageCont);
+  renderUsageTree(rows, uDiv.id);
 
-        // Sunburst
-        const card4 = document.createElement('div');
-        card4.className = 'card';
-        card4.innerHTML = `<h2>Pitch Transitions</h2><div id="sun_${pc}" class="chart"></div>`;
-        grid.appendChild(card4);
-        drawSunburst(rows, `sun_${pc}`);
-      }
+  const statsTbl = document.createElement('table');
+  statsTbl.className = 'small-table';
+  statsTbl.innerHTML = `
+    <thead><tr><th>Pitch</th><th>Count</th><th>Mean V</th><th>Std</th></tr></thead>
+    <tbody id="stats_${sanitize(pitcher)}_${side}_usage"></tbody>
+  `;
+  pg.appendChild(statsTbl);
+  renderStats(rows, `stats_${sanitize(pitcher)}_${side}_usage`);
+}
 
-      // Page 3: (existing content…)const pgX = newPage();        // this is page 3 or page 8
-pgX.appendChild(header.cloneNode(true));
+function renderRunnersPage(container, displayName, pitcher, side, rows) {
+  const pg = newPage(container);
+  
+  pg.appendChild(makeHeader(displayName + ' — Runners on'));
+  pg.appendChild(makeVsLine(side));
 
-// Summary table (same as before)
-const sumTableX = document.createElement('table');
-sumTableX.id = `sum_${sanitize(pitcher)}_${side}_${pc}_pg`;
-sumTableX.className = 'print-summary-table';
-sumTableX.innerHTML = `
-  <thead>
-    <tr>
-      <th>Type</th><th>#</th><th>%</th><th>V</th>
-      <th>S</th><th>IVB</th><th>HB</th><th>Ext</th>
-      <th>Z</th><th>Whiff%</th><th>Swg%</th>
-    </tr>
-  </thead><tbody></tbody>
-`;
-pgX.appendChild(sumTableX);
-renderSummaryTable(rows, sumTableX.id);
+  const runnerRows = filterRowsWithRunners(rows);
+  if (runnerRows.length === 0) {
+    const msg = document.createElement('div');
+    msg.style.cssText = 'text-align:center;color:#888;margin-top:40px;';
+    msg.textContent = 'No runners on base in this half-inning.';
+    pg.appendChild(msg);
+    return;
+  }
 
-// Count table
-const favX = getFavPitch(rows);
-const cntTableX = document.createElement('table');
-cntTableX.id = `cnt_${sanitize(pitcher)}_${side}_${pc}_pg`;
-cntTableX.innerHTML = `
-  <thead><tr><th>Count</th><th>V</th><th>S</th><th>RH</th></tr></thead><tbody></tbody>
-`;
-pgX.appendChild(cntTableX);
-renderCountTable(rows, favX, cntTableX.id);
+  // usage tree
+  const usageCont = document.createElement('div');
+  usageCont.className = 'usage-container';
+  const uDiv = document.createElement('div');
+  uDiv.id = `usage_${sanitize(pitcher)}_${side}_runners`;
+  uDiv.className = 'usage-chart';
+  usageCont.appendChild(uDiv);
+  pg.appendChild(usageCont);
+  renderUsageTree(runnerRows, uDiv.id);
 
-// ---- release-point + average cloud ----
-const releaseDiv = document.createElement('div');
-releaseDiv.id = `release_${sanitize(pitcher)}_${side}_${pc}_pg`;
-releaseDiv.style = 'width:500px;height:400px;margin:20px auto;';
-pgX.appendChild(releaseDiv);
+  // stats table
+  const statsTbl = document.createElement('table');
+  statsTbl.className = 'small-table';
+  statsTbl.innerHTML = `
+    <thead><tr><th>Pitch</th><th>Count</th><th>Mean V</th><th>Std</th></tr></thead>
+    <tbody id="stats_${sanitize(pitcher)}_${side}_runners"></tbody>
+  `;
+  pg.appendChild(statsTbl);
+  renderStats(runnerRows, `stats_${sanitize(pitcher)}_${side}_runners`);
+}
 
-drawReleasePointWithAverages(rows, releaseDiv.id);
+function renderMovementGridPage(container, displayName, pitcher, side, rows) {
+  const pg = newPage(container);
+      pg.style.cssText = `height: 95vh;
+      width: 100%`
 
-      // Page 4: Summary & Count for Left, Usage+Stats for Right
-      const pg4 = newPage();
-      pg4.appendChild(header.cloneNode(true));
-      if (side === 'Right') {
-        // usage
-        const usageCont2 = document.createElement('div');
-        usageCont2.className = 'usage-container';
-        const uDiv2 = document.createElement('div');
-        uDiv2.id = `usage_${sanitize(pitcher)}_${side}_4`;
-        uDiv2.className = 'usage-chart';
-        usageCont2.appendChild(uDiv2);
-        pg4.appendChild(usageCont2);
-        renderUsageTree(rows, uDiv2.id);
-        // stats
-        const statsTbl4 = document.createElement('table');
-        statsTbl4.className = 'small-table';
-        statsTbl4.innerHTML = `
-          <thead><tr>
-            <th>Pitch</th><th>Count</th><th>Mean V</th><th>Std</th>
-          </tr></thead>
-          <tbody id="stats_${sanitize(pitcher)}_${side}_4"></tbody>
-        `;
-        pg4.appendChild(statsTbl4);
-        renderStats(rows, `stats_${sanitize(pitcher)}_${side}_4`);
-      } else {
-        // summary
-        const sumTable = document.createElement('table');
-        sumTable.id = `sum_${sanitize(pitcher)}_${side}_4`;
-        sumTable.className = 'print-summary-table';
-        sumTable.innerHTML = `
-          <thead>
-            <tr>
-              <th>Type</th><th>#</th><th>%</th><th>V</th>
-              <th>S</th><th>IVB</th><th>HB</th><th>Ext</th>
-              <th>Z</th><th>Whiff%</th><th>Swg%</th>
-            </tr>
-          </thead><tbody></tbody>
-        `;
-        pg4.appendChild(sumTable);
-        renderSummaryTable(rows, sumTable.id);
-        // count
-        const fav = getFavPitch(rows);
-        const cntTable = document.createElement('table');
-        cntTable.id = `cnt_${sanitize(pitcher)}_${side}_4`;
-        cntTable.innerHTML = `
-          <thead><tr><th>Count</th><th>V</th><th>S</th><th>RH</th></tr></thead><tbody></tbody>
-        `;
-        pg4.appendChild(cntTable);
-        renderCountTable(rows, fav, cntTable.id);
-      }
+  pg.appendChild(makeHeader(displayName));
+  pg.appendChild(makeVsLine(side));
 
-      // Page 5 (for Right)
-      if (side === 'Right') {
-        const pg5 = newPage();
-        const grid2 = document.createElement('div');
-        grid2.className = 'card-grid';
-        pg5.appendChild(grid2);
+  const grid = document.createElement('div');
+  grid.className = 'card-grid';
+  pg.appendChild(grid);
 
-        const card1b = document.createElement('div');
-        card1b.className = 'card';
-        card1b.innerHTML = `<h2>Movement Profile</h2><div id="movement5_${pc}" class="chart"></div>`;
-        grid2.appendChild(card1b);
-        drawMovementProfile(rows, `movement5_${pc}`);
+  // four charts
+  const specs = [
+    ['Movement Profile',   'movement',       drawMovementProfile],
+    ['Spin Axis Rose',     'spin',           drawSpinAxisRose],
+    ['Plate Location',     'loc',            plotLocationPieClusters],
+    ['Pitch Transitions',  'sun',            drawSunburst],
+  ];
+  specs.forEach(([title, idBase, fn]) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const chartId = `${idBase}_${sanitize(pitcher)}_${side}`;
+    card.innerHTML = `<h2>${title}</h2><div id="${chartId}" class="chart"></div>`;
+    grid.appendChild(card);
+    fn(rows, chartId);
+  });
+}
+function renderSummaryPage(container, displayName, pitcher, side, rows) {
+  const pg = newPage(container);
+  pg.style.cssText = `height: 100vh`
 
-        const card2b = document.createElement('div');
-        card2b.className = 'card';
-        card2b.innerHTML = `<h2>Spin Axis Rose</h2><div id="spin5_${pc}" class="chart"></div>`;
-        grid2.appendChild(card2b);
-        drawSpinAxisRose(rows, `spin5_${pc}`);
+  pg.appendChild(makeHeader(displayName));
+  pg.appendChild(makeVsLine(side));
 
-        const card3b = document.createElement('div');
-        card3b.className = 'card';
-        card3b.innerHTML = `<h2>Plate Location Clusters</h2><div id="loc5_${pc}" class="chart"></div>`;
-        grid2.appendChild(card3b);
-        plotLocationPieClusters(rows, `loc5_${pc}`);
+  // summary table
+  const sumId = `sum_${sanitize(pitcher)}_${side}`;
+  const sumTable = document.createElement('table');
+  sumTable.id = sumId;
+  sumTable.className = 'print-summary-table';
+  sumTable.innerHTML = `
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>#</th>
+        <th>%</th>
+        <th>V</th>
+        <th>S</th>
+        <th>IVB</th>
+        <th>HB</th>
+        <th>Ext</th>
+        <th>Z</th>
+        <th>Whiff%</th>
+        <th>Swg%</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  pg.appendChild(sumTable);
 
-        const card4b = document.createElement('div');
-        card4b.className = 'card';
-        card4b.innerHTML = `<h2>Pitch Transitions</h2><div id="sun5_${pc}" class="chart"></div>`;
-        grid2.appendChild(card4b);
-        drawSunburst(rows, `sun5_${pc}`);
-      }
+  // now this will find the <tbody> you just created:
+  renderSummaryTable(rows, sumId);
 
-      // Duplex blank if needed
-      if (pc % 2 !== 0) newPage();
+  // favorite pitch count table
+  const fav = getFavPitch(rows);
+  const label = document.createElement('div');
+  label.style = 'font-weight:bold; margin-bottom:4px;';
+  label.textContent = `Pitch Type: ${fav}`;
+  pg.appendChild(label);
+
+  const cntId = `cnt_${sanitize(pitcher)}_${side}`;
+  const cntTable = document.createElement('table');
+  cntTable.id = cntId;
+  // also give it a <tbody> if renderCountTable expects one:
+  cntTable.innerHTML = `<tbody></tbody>`;
+  pg.appendChild(cntTable);
+  renderCountTable(rows, fav, cntId);
+
+  // release‐point chart
+  const relId = `release_${sanitize(pitcher)}_${side}`;
+  const relDiv = document.createElement('div');
+  relDiv.id = relId;
+  relDiv.style.cssText = `
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    width: 60%;
+    height: 70%;
+  `;
+  pg.appendChild(relDiv);
+  drawReleasePointWithAverages(rows, relId);
+}
+
+function removeBlankPages(container) {
+  container.querySelectorAll('.page').forEach(pg => {
+    const hasContent = pg.querySelector('table, .chart, .usage-chart');
+    if (!hasContent) pg.remove();
+  });
+}
+
+
+
+// utility helpers
+function newPage(container) {
+  
+  const d = document.createElement('div');
+  d.className = 'page';
+  container.appendChild(d);
+  return d;
+}
+function makeHeader(text) {
+  const h = document.createElement('div');
+  h.className = 'report-header';
+  h.innerHTML = `<h1>${text}</h1>`;
+  return h;
+}
+function makeVsLine(side) {
+  const vs = document.createElement('div');
+  vs.style.cssText = 'text-align:center;font-weight:bold;';
+  vs.textContent = `vs ${side}`;
+  return vs;
+}
+
+    /**
+ * Given a chronological list of pitch rows for one PA, return only
+ * those rows where there was at least one runner on base before the pitch.
+ */
+function filterRowsWithRunners(rows) {
+  // 1) Sort by GameID, Date, PAofInning, PitchofPA
+  const sorted = rows.slice().sort((a,b) =>
+    a.GameID.localeCompare(b.GameID) ||
+    a.Date.localeCompare(b.Date) ||
+    a.PAofInning - b.PAofInning ||
+    a.PitchofPA  - b.PitchofPA
+  );
+
+  let runnersOnBase = 0;
+  let prevGame   = null;
+  let prevDate   = null;
+  let prevPA     = null;
+  const output = [];
+
+  sorted.forEach(row => {
+    // 2) If we detect a new game/date or PAofInning has reset to 1 (new half-inning),
+    //    clear the runner count
+    if (
+      row.GameID !== prevGame ||
+      row.Date   !== prevDate ||
+      (row.PAofInning === 1 && prevPA !== 1 && prevPA !== null)
+    ) {
+      runnersOnBase = 0;
     }
+
+    // 3) If there was a runner on base *before* this pitch, keep it
+    if (runnersOnBase > 0) {
+      output.push(row);
+    }
+
+    // 4) Now update runnersOnBase *after* the pitch
+    const pr     = row.PlayResult;
+    const kb     = row.KorBB;
+    const pb     = row.PitchCall;
+    const outs   = parseInt(row.OutsOnPlay) || 0;
+    const scored = parseInt(row.RunsScore)  || 0;
+
+    // Walk or HBP → add one runner
+    if (kb === 'Walk' || kb === 'HBP') {
+      runnersOnBase++;
+    }
+    // Single/Double/Triple/Error → add one runner
+    else if (['Single','Double','Triple','Error'].includes(pr)) {
+      runnersOnBase++;
+    }
+
+    // If runs scored → remove that many
+    if (scored > 0) {
+      runnersOnBase = Math.max(0, runnersOnBase - scored);
+    }
+
+    // Fielder’s‐choice style out: KorBB undefined + ball/strike‐swinging out
+    if (kb==='Undefined' &&
+        ['BallCalled','StrikeSwinging'].includes(pb) &&
+        outs===1) {
+      runnersOnBase = Math.max(0, runnersOnBase - 1);
+    }
+    // Double‐play (2 outs at once) → remove one
+    if (outs === 2) {
+      runnersOnBase = Math.max(0, runnersOnBase - 1);
+    }
+
+    // 5) Save current as previous
+    prevGame = row.GameID;
+    prevDate = row.Date;
+    prevPA   = row.PAofInning;
+  });
+
+  return output;
+}
 
 /**
  * Renders a usage tree of pitch counts as pie charts.
@@ -631,14 +703,14 @@ Object.values(tree).forEach(distMap => {
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor:  'rgba(0,0,0,0)',
 
-    showlegend: true,
+    showlegend: false,
     legend: {
       bgcolor:     'rgba(0,0,0,0)',
       bordercolor: 'rgba(0,0,0,0)',
       font:        { size: 10 }
     },
 
-    margin: { t: 40, l: 25, r: 0, b: 40 },
+    margin: { t: 40, l: 5, r: 0, b: 40 },
 
   annotations: [
     {
@@ -821,21 +893,84 @@ function drawSpinAxisRose(rows, containerId) {
 });
 
     }
+    
+function drawReleasePointWithAverages(rows, containerId) {
+  // 1) Group raw points by pitch type
+  const grouped = {};
+  rows.forEach(r => {
+    const t = r.AutoPitchType || 'undefined';
+    const ex = parseFloat(r.Extension), rh = parseFloat(r.RelHeight);
+    if (isNaN(ex)||isNaN(rh)) return;
+    if (!grouped[t]) grouped[t] = { x: [], y: [] };
+    grouped[t].x.push(ex);
+    grouped[t].y.push(rh);
+  });
 
-    function drawReleasePoint(rows, containerId) {
-      const ext = rows.map(r=>parseFloat(r.Extension));
-      const rh  = rows.map(r=>parseFloat(r.RelHeight));
-      const c   = rows.map(r=>r.AutoPitchType);
-      const colors = c.map(t=> PTYPE_COLORS[t]||'#666');
-      Plotly.newPlot(containerId, [{
-        x: ext, y: rh, mode:'markers', type:'scatter',
-        marker:{ size:6, color: colors }, text: c,
-        hovertemplate:'Ext:%{x:.2f}ft<br>H:%{y:.2f}ft<br>Type:%{text}<extra></extra>'
-      }], {
-        xaxis:{ title:'Extension (ft)' },
-        yaxis:{ title:'Release Height (ft)' }, margin:{t:20}
-      });
+  // 2) Build one trace per type for raw points
+  const rawTraces = Object.entries(grouped).map(([type, pts]) => ({
+    x: pts.x, y: pts.y, mode: 'markers', type: 'scatter',
+    name: type,
+    marker: {
+      size: 10,                              // slightly bigger
+      color: PTYPE_COLORS[type] || '#666',
+      opacity: 0.7
     }
+  }));
+
+  // 3) Compute per‐type averages
+  const avgTypes = Object.entries(grouped).map(([type, pts]) => {
+    const avgX = pts.x.reduce((a,b)=>a+b,0)/pts.x.length;
+    const avgY = pts.y.reduce((a,b)=>a+b,0)/pts.y.length;
+    return { type, x: avgX, y: avgY };
+  });
+
+  // 4) Overlay average diamonds
+  const avgTrace = {
+    x: avgTypes.map(a=>a.x),
+    y: avgTypes.map(a=>a.y),
+    mode: 'markers+text',
+    name: 'Average',
+      showlegend: false,    // ← hide this legend item
+
+    marker: {
+      symbol: 'diamond',
+      size: 16,
+      color: avgTypes.map(a=>PTYPE_COLORS[a.type]||'#000'),
+      line: { width: 1, color: '#333' }
+    },
+    text: avgTypes.map(a=>a.type),
+    textposition: 'top center',
+    hoverinfo: 'none'
+  };
+Plotly.newPlot(containerId, [...rawTraces, avgTrace], {
+  xaxis: {
+    title: { text: 'Extension (ft)', standoff: 10 },
+    gridcolor: '#eee',
+    automargin: true
+  },
+  yaxis: {
+    title: { text: 'Release Height (ft)', standoff: 20 },  // <- standoff pushes title away
+    gridcolor: '#eee',
+    automargin: true                                  // <- lets Plotly expand left margin
+  },
+  margin: { t: 120, l: 80, r: 20, b: 60 },  // <- increase l to accommodate title
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  legend: {
+    orientation: 'h',
+    x: 0.5, xanchor: 'center',
+    y: -0.2,
+    font: { size: 10 },
+    bgcolor: 'rgba(0,0,0,0)'
+  }
+}, {
+  displayModeBar: false,
+  staticPlot:     true
+});
+
+}
+
+
 
     function drawTunnelMap(rows, idX, idY) {
       function trace(xArr,yArr,name) {
@@ -903,30 +1038,65 @@ function drawSpinAxisRose(rows, containerId) {
       return Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
     }
 
-    function renderCountTable(rows, fav, tableId) {
-      const byCount = {};
-      rows.filter(r=>r.AutoPitchType===fav).forEach(r=>{
-        const key = `${r.Balls}-${r.Strikes}`;
-        if (!byCount[key]) byCount[key] = { count:0, sumV:0, sumS:0, sumRH:0 };
-        const v = parseFloat(r.RelSpeed); if(!isNaN(v)) byCount[key].sumV += v;
-        const sp= parseFloat(r.SpinRate); if(!isNaN(sp)) byCount[key].sumS += sp;
-        const rh= parseFloat(r.RelHeight); if(!isNaN(rh)) byCount[key].sumRH += rh;
-        byCount[key].count++;
-      });
-      const rowsArr = Object.entries(byCount).map(([k,v])=>({
-        count:k,
-        avgV:(v.sumV/v.count).toFixed(1),
-        avgS:(v.sumS/v.count).toFixed(1),
-        avgRH:(v.sumRH/v.count).toFixed(2)
-      })).sort((a,b)=>parseInt(a.count.split('-')[0]) - parseInt(b.count.split('-')[0]));
-      const tbody = document.getElementById(tableId).querySelector('tbody');
-      tbody.innerHTML='';
-      rowsArr.forEach(r=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${r.count}</td><td>${r.avgV}</td><td>${r.avgS}</td><td>${r.avgRH}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
+    /**
+ * Renders a transposed count‐matrix:
+ *   columns = each count state (e.g. "0-0", "1-0", …)
+ *   rows    = Velocity, Spin, Release Height
+ */
+function renderCountTable(rows, fav, tableId) {
+  // 1) Gather stats by count
+  const byCount = {};
+  rows.filter(r => r.AutoPitchType === fav).forEach(r => {
+    const key = `${r.Balls}-${r.Strikes}`;
+    if (!byCount[key]) byCount[key] = { v: [], s: [], rh: [] };
+    const speed = parseFloat(r.RelSpeed),
+          spin  = parseFloat(r.SpinRate),
+          rh    = parseFloat(r.RelHeight);
+    if (!isNaN(speed)) byCount[key].v.push(speed);
+    if (!isNaN(spin))  byCount[key].s.push(spin);
+    if (!isNaN(rh))    byCount[key].rh.push(rh);
+  });
+
+  // 2) Sort the count keys in natural order
+  const counts = Object.keys(byCount)
+    .sort((a,b) => {
+      const [aB,aS] = a.split('-').map(Number),
+            [bB,bS] = b.split('-').map(Number);
+      return aB - bB || aS - bS;
+    });
+
+  // 3) Build header row
+  const table = document.getElementById(tableId);
+  const thead = document.createElement('thead');
+  const headTr = document.createElement('tr');
+  headTr.innerHTML = '<th></th>' + counts.map(c => `<th>${c}</th>`).join('');
+  thead.appendChild(headTr);
+  table.appendChild(thead);
+
+  // 4) Helper to compute average
+  function avg(arr) {
+    if (!arr.length) return '–';
+    const sum = arr.reduce((a,b)=>a+b, 0);
+    return (sum/arr.length).toFixed(1);
+  }
+
+  // 5) Build body rows: Velocity, Spin, Release Height
+  const tbody = document.createElement('tbody');
+  const metrics = [
+    { label: 'Velocity (mph)', key: 'v' },
+    { label: 'Spin (rpm)',    key: 's' },
+    { label: 'Release Height (ft)', key: 'rh' }
+  ];
+  metrics.forEach(m => {
+    const tr = document.createElement('tr');
+    // row label
+    tr.innerHTML = `<td><strong>${m.label}</strong></td>` +
+      counts.map(c => `<td>${avg(byCount[c][m.key])}</td>`).join('');
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+}
+
   </script>
 </body>
 </html>

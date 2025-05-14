@@ -650,30 +650,29 @@ function drawPlateView(canvas, p) {
     bottom:  1.5,     // 1.5 ft
     top:     3.5      // 3.5 ft
   };
-  const zoneW = zone.right - zone.left;   // ≈1.416 ft
-  const zoneH = zone.top   - zone.bottom; // 2 ft
+ // 1) reserve margins
+const margin = 20;
+const availW = canvas.width  - 2*margin;
+const availH = canvas.height - 2*margin;
+const shrink = 0.7
+// 2) compute scale
+const zoneW = zone.right  - zone.left;
+const zoneH = zone.top    - zone.bottom;
+const baseScale = Math.min(availW/zoneW, availH/zoneH);
+const scale     = baseScale * shrink;
 
-  // Compute base scale to fit zone
-  const margin = 20;
-  const availW = canvas.width  - 2*margin;
-  const availH = canvas.height - 2*margin;
-  const baseScale = Math.min(availW/zoneW, availH/zoneH);
+// 3) pixel size
+const pixW = zoneW * scale;
+const pixH = zoneH * scale;
 
-  // Shrink factor (70%)
-  const shrink = 0.7;
-  const scale  = baseScale * shrink;
+// 4) origin at bottom-left of the *margin area*, centered in that area
+const originX = margin + (availW - pixW)/2;
+const originY = canvas.height - margin - (availH - pixH)/2;
 
-  // Pixel size of zone
-  const pixW = zoneW * scale;
-  const pixH = zoneH * scale;
+// 5) proper mapping (no flip!)
+const mapX = x => originX + (x - zone.left)  * scale;
+const mapY = y => originY - (y - zone.bottom) * scale;
 
-  // Center zone
-  const originX = (canvas.width  - pixW) / 2;
-  const originY = (canvas.height + pixH) / 2; // y of zone bottom
-
-  // Mapping functions
-const mapX = x => originX + (zone.right - x) * scale;
-  const mapY = y => originY - (y - zone.bottom) * scale;
 
   // Clear
   ctx.clearRect(0, 0, canvas.width, canvas.height);
