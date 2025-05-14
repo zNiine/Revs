@@ -1,932 +1,340 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Scouting Reports</title>
-  <!-- Include PapaParse for CSV parsing and Plotly for charts -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <meta charset="utf-8"/>
+  <title>3D Ballpark + Fly Ball (With Walls)</title>
   <style>
-    /* Global Styles */
-    body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
-    #controls { margin-bottom: 20px; }
-    button, select { margin-left: 8px; padding: 4px 8px; }
-
-    /* Page & Print Settings */
-    .page { page-break-after: always; padding: 20px; position: relative; }
-.print-stats-table {
-  display: none !important;
-}
-
-/* Only show & fix the stats table on the very first .page */
-.card-grid {
-  display: grid;
-  grid-template-columns: 45% 45%;
-  column-gap: 10%;
-  row-gap: 20px;
-  margin-top: 20px;
-}
-/* Card styling unchanged… */
-/* Make cards center their content */
-.card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;    /* center horizontally */
-  background: #fff;
-  border-top: 1px solid #ccc;
-  border-bottom: 1px solid #ccc;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  padding: 12px;
-}
-
-/* Chart container sits centered and takes full card width */
-.card .chart {
-  width: 100%;
-  height: 45vh;
-  min-height: 300px;
-  margin: 0 auto;         /* center itself if it were narrower */
-}
-
-/* Optionally, trim Plotly margins to give more room */
-.card .chart > .js-plotly-plot .plotly {
-  margin: 0 auto !important;
-}
-
-
-    /* Usage Tree */
-    .usage-container { text-align: center; }
-    .usage-chart {
-      width: 900px;
-      height: 800px;
-      margin: 0 auto;
-      transform-origin: center;
+    body { margin:0; overflow:hidden; }
+    #stats {
+      position:absolute; top:10px; left:10px;
+      font-family:sans-serif; z-index:10;
+      background:rgba(255,255,255,0.8); padding:8px; border-radius:4px;
     }
-
-    /* Stats table */
-    .small-table { margin-top: 20px; }
-    @media print {
-      /* reset by default */
-      .print-stats-table { position: static !important; }
-      /* only first page */
-      .page:nth-of-type(1) .print-stats-table {
-        position: fixed !important;
-        top: 20px;
-        left: 20px;
-        background: white;
-        z-index: 100;
-        width: 300px;
-      }
+    #stats div, #stats select, #stats button {
+      margin-bottom:6px; display:block;
     }
-
-    @media print {
-  .page:nth-of-type(1) .print-stats-table,
-  .page:nth-of-type(4) .print-stats-table {
-    display: table !important;
-    position: absolute !important;
-    top: 20px;
-    left: 20px;
-    background: white;
-    z-index: 100;
-    width: 300px;
-  }
-}
-
-
-@media print {
-  /* 1) Make each card exactly 45% of viewport height */
-  .card {
-    height: 45vh !important;
-    padding: 8px !important;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    background-color: transparent;
-  }
-
-  /* 2) Let the chart fill 100% of its parent card */
-  .chart {
-    width: 80% !important;
-    background-color: transparent;
-    height: 100% !important;
-    margin: 0 auto !important;
-  }
-
-  /* 3) Nix any extra right‐offset in the grid */
-  .card-grid {
-    justify-items: center !important;
-    column-gap: 0 !important;
-  }
-}
-
-
-
-    /* Report Header */
-    .report-header { text-align: center; margin-bottom: 20px; }
-    .report-header h1 { margin: 0; font-size: 1.5rem; }
-
-    /* Tables */
-    table { border-collapse: collapse; margin-bottom: 20px; }
-    th, td { border: 1px solid #ccc; padding: 6px 8px; }
-    th { background: #eee; text-align: left; }
-    td { text-align: right; }
-    td:first-child, th:first-child { text-align: left; }
-
-    .legend { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    canvas { display:block; }
+    #ballLabel, #apexLabel {
+      position:absolute; transform-origin:50% 100%; pointer-events:none;
+      font-family:sans-serif; background:rgba(255,255,255,0.8);
+      padding:2px 6px; border-radius:4px; z-index:10;
+    }
+    #apexLabel { display:none; }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <label for="teamFilter">Select Team:</label>
-    <select id="teamFilter" disabled></select>
-    <button id="generateBtn" disabled>Generate Reports</button>
+  <div id="stats">
+    <div id="homeInfo">Exit Velo: – mph, Angle: –°</div>
+    <div id="apexInfo">Max Height: – ft</div>
+    <label for="viewSelect">Snap View:</label>
+    <select id="viewSelect">
+      <option value="">— select view —</option>
+      <option value="home">Home Plate</option>
+      <option value="first">First Base</option>
+      <option value="third">Third Base</option>
+      <option value="outfield">Center Field</option>
+    </select>
+    <button id="resetBtn">Reset</button>
+    <button id="followBtn">Follow Ball: Off</button>
   </div>
+  <div id="ballLabel">Distance: – ft</div>
+  <div id="apexLabel">Max Height: – ft</div>
+  <canvas id="c"></canvas>
 
-  <div id="reportContainer"></div>
-
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
   <script>
-    function sanitize(str) {
-      return str.replace(/\W+/g, '_');
-    }
-    const PTYPE_COLORS = {
-      'Four-Seam': '#000000',
-      'Sinker':    '#FF69B4',
-      'Slider':    '#0000FF',
-      'Changeup':  '#00FF00',
-      'Curveball': '#FFA500',
-      'Cutter':    '#800080',
-      'Splitter':  '#00FFFF',
-      'undefined':'#888888'
+  window.addEventListener('DOMContentLoaded', () => {
+    // Renderer, Scene, Camera
+    const canvas   = document.getElementById('c');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 2000);
+    camera.position.set(0,200,400);
+    camera.lookAt(0,0,0);
+    scene.add(new THREE.DirectionalLight(0xffffff,1.2).position.set(-200,300,100));
+    scene.add(new THREE.AmbientLight(0x888888));
+
+        const parks = {
+      default: { leftFoul:325, leftCenter:(325+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 },
+      "Meritus Park":              { leftFoul:346, leftCenter:(346+387)/2, center:400, rightCenter:(400+360)/2, rightFoul:325, leftFoulHeight:10, leftCenterHeight:10, centerHeight:10, rightCenterHeight:10, rightFoulHeight:10 },
+      "Wellspan Park":             { leftFoul:300, leftCenter:(300+405)/2, center:405, rightCenter:(405+326)/2, rightFoul:326, leftFoulHeight:37.8, leftCenterHeight:10, centerHeight:10, rightCenterHeight:10, rightFoulHeight:10 },
+      "CaroMont Health Park":      { leftFoul:315, leftCenter:361,            center:400, rightCenter:367,            rightFoul:325, leftFoulHeight:10, leftCenterHeight:10, centerHeight:10, rightCenterHeight:10, rightFoulHeight:10 },
+      "Penn Medicine Park":        { leftFoul:320, leftCenter:409,            center:400, rightCenter:363,            rightFoul:300, leftFoulHeight:10, leftCenterHeight:10, centerHeight:10, rightCenterHeight:10, rightFoulHeight:10 },
+      "Fairfield Properties BallPark": { leftFoul:325, leftCenter:(325+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325, leftFoulHeight:10, leftCenterHeight:10, centerHeight:10, rightCenterHeight:10, rightFoulHeight:10 },
+      "SIUH Community Park":       { leftFoul:320, leftCenter:(320+390)/2, center:390, rightCenter:(390+318)/2, rightFoul:318, leftFoulHeight:10, leftCenterHeight:10, centerHeight:10, rightCenterHeight:10, rightFoulHeight:10 },
+      "GoMart BallPark":           { leftFoul:330, leftCenter:(330+400)/2, center:400, rightCenter:(400+320)/2, rightFoul:320, leftFoulHeight:10, leftCenterHeight:10, centerHeight:10, rightCenterHeight:10, rightFoulHeight:10 },
+      "Truist Point":              { leftFoul:336, leftCenter:363,            center:400, rightCenter:366,            rightFoul:339, leftFoulHeight:10, leftCenterHeight:10, centerHeight:10, rightCenterHeight:10, rightFoulHeight:10 },
+      "Legends Field":             { leftFoul:320, leftCenter:(320+401)/2, center:401, rightCenter:(401+318)/2, rightFoul:318, leftFoulHeight:10, leftCenterHeight:10, centerHeight:10, rightCenterHeight:10, rightFoulHeight:10 },
+      "Regency Furniture Stadium": { leftFoul:310, leftCenter:(310+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325, leftFoulHeight:10, leftCenterHeight:10, centerHeight:10, rightCenterHeight:10, rightFoulHeight:10 }
     };
-    const allData = [];
-    Papa.parse('data.csv', {
-      download: true, header: true, skipEmptyLines: true,
-      complete: results => { allData.push(...results.data); initUI(); }
+
+    // UI
+    const homeInfo   = document.getElementById('homeInfo'),
+          apexInfo   = document.getElementById('apexInfo'),
+          viewSelect = document.getElementById('viewSelect'),
+          resetBtn   = document.getElementById('resetBtn'),
+          followBtn  = document.getElementById('followBtn'),
+          ballLabel  = document.getElementById('ballLabel'),
+          apexLabel  = document.getElementById('apexLabel');
+
+    // Pan/Orbit
+    let dragMode=null, px=0, py=0;
+    canvas.addEventListener('contextmenu', e=>e.preventDefault());
+    canvas.addEventListener('mousedown', e=>{
+      px=e.clientX; py=e.clientY;
+      dragMode = e.button===0?'pan': e.button===2?'orbit':null;
     });
-
-    function initUI() {
-      const teamFilter = document.getElementById('teamFilter'),
-            generateBtn = document.getElementById('generateBtn');
-      const teams = [...new Set(allData.map(r => r.PitcherTeam))].sort();
-      teamFilter.innerHTML = '';
-      teams.forEach(team => {
-        const opt = document.createElement('option');
-        opt.value = team; opt.textContent = team;
-        teamFilter.appendChild(opt);
-      });
-      teamFilter.disabled = false;
-      generateBtn.disabled = false;
-      generateBtn.onclick = () => generateReports(teamFilter.value);
-    }
-
-    function generateReports(team) {
-      const container = document.getElementById('reportContainer');
-      container.innerHTML = '';
-      let pitchers = [...new Set(
-        allData.filter(r => r.PitcherTeam === team).map(r => r.Pitcher)
-      )];
-      // filter to Joey Hennessey only while testing
-      pitchers = pitchers.filter(p => p === 'Hennessey, Joey');
-
-      pitchers.forEach(pitcher => {
-        ['Left','Right'].forEach(side => {
-          const rows = allData.filter(
-            r => r.Pitcher === pitcher && r.BatterSide === side
-          );
-          if (!rows.length) return;
-          createReportsForPitcher(container, pitcher, side, rows);
-        });
-      });
-    }
-
-    function createReportsForPitcher(container, pitcher, side, rows) {
-      const hand = rows[0].PitcherThrows === 'R' ? 'RHP' : 'LHP';
-      const parts = pitcher.split(' ');
-      const displayName = `${parts.slice(-1)} ${parts.slice(0,-1).join(' ')} (${hand})`;
-      let pc = 0;
-      function newPage() {
-        const d = document.createElement('div');
-        d.className = 'page';
-        container.appendChild(d);
-        pc++;
-        return d;
-      }
-
-      // Page 1: UsageTree + Stats
-      const pg1 = newPage();
-      const header = document.createElement('div');
-      header.className = 'report-header';
-      header.innerHTML = `<h1>${displayName}</h1>`;
-      pg1.appendChild(header);
-      const vs = document.createElement('div');
-      vs.style = 'text-align:center;font-weight:bold;';
-      vs.textContent = `vs ${side}`;
-      pg1.appendChild(vs);
-
-      // usage tree
-      const usageCont = document.createElement('div');
-      usageCont.className = 'usage-container';
-      const uDiv = document.createElement('div');
-      uDiv.id = `usage_${sanitize(pitcher)}_${side}_1`;
-      uDiv.className = 'usage-chart';
-      usageCont.appendChild(uDiv);
-      pg1.appendChild(usageCont);
-      renderUsageTree(rows, uDiv.id);
-
-      // stats table (only on page 1)
-      const statsTbl1 = document.createElement('table');
-      statsTbl1.className = 'small-table print-stats-table';
-      statsTbl1.innerHTML = `
-        <thead><tr>
-          <th>Pitch</th><th>Count</th><th>Mean V</th><th>Std</th>
-        </tr></thead>
-        <tbody id="stats_${sanitize(pitcher)}_${side}_1"></tbody>
-      `;
-      pg1.appendChild(statsTbl1);
-      renderStats(rows, `stats_${sanitize(pitcher)}_${side}_1`);
-
-      // Page 2 (for Left)
-      if (side === 'Left') {
-        const pg2 = newPage();
-        const grid = document.createElement('div');
-        grid.className = 'card-grid';
-        pg2.appendChild(grid);
-
-        // Movement Profile
-        const card1 = document.createElement('div');
-        card1.className = 'card';
-        card1.innerHTML = `<h2>Movement Profile</h2><div id="movement_${pc}" class="chart"></div>`;
-        grid.appendChild(card1);
-        drawMovementProfile(rows, `movement_${pc}`);
-
-        // Spin Axis Rose
-        const card2 = document.createElement('div');
-        card2.className = 'card';
-        card2.innerHTML = `<h2>Spin Axis Rose</h2><div id="spin_${pc}" class="chart"></div>`;
-        grid.appendChild(card2);
-        drawSpinAxisRose(rows, `spin_${pc}`);
-
-        // Plate Location Clusters
-        const card3 = document.createElement('div');
-        card3.className = 'card';
-        card3.innerHTML = `<h2>Plate Location Clusters</h2><div id="loc_${pc}" class="chart"></div>`;
-        grid.appendChild(card3);
-        plotLocationPieClusters(rows, `loc_${pc}`);
-
-        // Sunburst
-        const card4 = document.createElement('div');
-        card4.className = 'card';
-        card4.innerHTML = `<h2>Pitch Transitions</h2><div id="sun_${pc}" class="chart"></div>`;
-        grid.appendChild(card4);
-        drawSunburst(rows, `sun_${pc}`);
-      }
-
-      // Page 3: (existing content…)const pgX = newPage();        // this is page 3 or page 8
-pgX.appendChild(header.cloneNode(true));
-
-// Summary table (same as before)
-const sumTableX = document.createElement('table');
-sumTableX.id = `sum_${sanitize(pitcher)}_${side}_${pc}_pg`;
-sumTableX.className = 'print-summary-table';
-sumTableX.innerHTML = `
-  <thead>
-    <tr>
-      <th>Type</th><th>#</th><th>%</th><th>V</th>
-      <th>S</th><th>IVB</th><th>HB</th><th>Ext</th>
-      <th>Z</th><th>Whiff%</th><th>Swg%</th>
-    </tr>
-  </thead><tbody></tbody>
-`;
-pgX.appendChild(sumTableX);
-renderSummaryTable(rows, sumTableX.id);
-
-// Count table
-const favX = getFavPitch(rows);
-const cntTableX = document.createElement('table');
-cntTableX.id = `cnt_${sanitize(pitcher)}_${side}_${pc}_pg`;
-cntTableX.innerHTML = `
-  <thead><tr><th>Count</th><th>V</th><th>S</th><th>RH</th></tr></thead><tbody></tbody>
-`;
-pgX.appendChild(cntTableX);
-renderCountTable(rows, favX, cntTableX.id);
-
-// ---- release-point + average cloud ----
-const releaseDiv = document.createElement('div');
-releaseDiv.id = `release_${sanitize(pitcher)}_${side}_${pc}_pg`;
-releaseDiv.style = 'width:500px;height:400px;margin:20px auto;';
-pgX.appendChild(releaseDiv);
-
-drawReleasePointWithAverages(rows, releaseDiv.id);
-
-      // Page 4: Summary & Count for Left, Usage+Stats for Right
-      const pg4 = newPage();
-      pg4.appendChild(header.cloneNode(true));
-      if (side === 'Right') {
-        // usage
-        const usageCont2 = document.createElement('div');
-        usageCont2.className = 'usage-container';
-        const uDiv2 = document.createElement('div');
-        uDiv2.id = `usage_${sanitize(pitcher)}_${side}_4`;
-        uDiv2.className = 'usage-chart';
-        usageCont2.appendChild(uDiv2);
-        pg4.appendChild(usageCont2);
-        renderUsageTree(rows, uDiv2.id);
-        // stats
-        const statsTbl4 = document.createElement('table');
-        statsTbl4.className = 'small-table';
-        statsTbl4.innerHTML = `
-          <thead><tr>
-            <th>Pitch</th><th>Count</th><th>Mean V</th><th>Std</th>
-          </tr></thead>
-          <tbody id="stats_${sanitize(pitcher)}_${side}_4"></tbody>
-        `;
-        pg4.appendChild(statsTbl4);
-        renderStats(rows, `stats_${sanitize(pitcher)}_${side}_4`);
+    window.addEventListener('mouseup', ()=>{ dragMode=null; });
+    window.addEventListener('mousemove', e=>{
+      if (!dragMode) return;
+      const dx=e.clientX-px, dy=e.clientY-py;
+      px=e.clientX; py=e.clientY;
+      if (dragMode==='orbit') {
+        camera.rotation.y -= dx*0.005;
+        camera.rotation.x -= dy*0.005;
       } else {
-        // summary
-        const sumTable = document.createElement('table');
-        sumTable.id = `sum_${sanitize(pitcher)}_${side}_4`;
-        sumTable.className = 'print-summary-table';
-        sumTable.innerHTML = `
-          <thead>
-            <tr>
-              <th>Type</th><th>#</th><th>%</th><th>V</th>
-              <th>S</th><th>IVB</th><th>HB</th><th>Ext</th>
-              <th>Z</th><th>Whiff%</th><th>Swg%</th>
-            </tr>
-          </thead><tbody></tbody>
-        `;
-        pg4.appendChild(sumTable);
-        renderSummaryTable(rows, sumTable.id);
-        // count
-        const fav = getFavPitch(rows);
-        const cntTable = document.createElement('table');
-        cntTable.id = `cnt_${sanitize(pitcher)}_${side}_4`;
-        cntTable.innerHTML = `
-          <thead><tr><th>Count</th><th>V</th><th>S</th><th>RH</th></tr></thead><tbody></tbody>
-        `;
-        pg4.appendChild(cntTable);
-        renderCountTable(rows, fav, cntTable.id);
+        camera.translateX(-dx*0.5);
+        camera.translateY( dy*0.5);
       }
-
-      // Page 5 (for Right)
-      if (side === 'Right') {
-        const pg5 = newPage();
-        const grid2 = document.createElement('div');
-        grid2.className = 'card-grid';
-        pg5.appendChild(grid2);
-
-        const card1b = document.createElement('div');
-        card1b.className = 'card';
-        card1b.innerHTML = `<h2>Movement Profile</h2><div id="movement5_${pc}" class="chart"></div>`;
-        grid2.appendChild(card1b);
-        drawMovementProfile(rows, `movement5_${pc}`);
-
-        const card2b = document.createElement('div');
-        card2b.className = 'card';
-        card2b.innerHTML = `<h2>Spin Axis Rose</h2><div id="spin5_${pc}" class="chart"></div>`;
-        grid2.appendChild(card2b);
-        drawSpinAxisRose(rows, `spin5_${pc}`);
-
-        const card3b = document.createElement('div');
-        card3b.className = 'card';
-        card3b.innerHTML = `<h2>Plate Location Clusters</h2><div id="loc5_${pc}" class="chart"></div>`;
-        grid2.appendChild(card3b);
-        plotLocationPieClusters(rows, `loc5_${pc}`);
-
-        const card4b = document.createElement('div');
-        card4b.className = 'card';
-        card4b.innerHTML = `<h2>Pitch Transitions</h2><div id="sun5_${pc}" class="chart"></div>`;
-        grid2.appendChild(card4b);
-        drawSunburst(rows, `sun5_${pc}`);
-      }
-
-      // Duplex blank if needed
-      if (pc % 2 !== 0) newPage();
-    }
-
-/**
- * Renders a usage tree of pitch counts as pie charts.
- *
- * @param {Array<Object>} rows - Array of pitch data objects, each with Balls, Strikes, and AutoPitchType properties.
- * @param {string} containerId - The ID of the container element in which to render the tree.
- */
-function renderUsageTree(rows, containerId) {
-  // 1) Build a nested count map: { "balls-strikes": { pitchType: count, … }, … }
-  const tree = {};
-  rows.forEach(row => {
-    const countKey = `${row.Balls}-${row.Strikes}`;
-    const pitchType = row.AutoPitchType || 'undefined';
-    if (!tree[countKey]) {
-      tree[countKey] = {};
-    }
-    tree[countKey][pitchType] = (tree[countKey][pitchType] || 0) + 1;
-  });
-
-  // 2) Figure out the maximum sum of (balls + strikes) so we know how many rows (tiers) to draw
-  const countKeys = Object.keys(tree);
-  const numericPairs = countKeys.map(key => key.split('-').map(Number));  // [[balls, strikes], …]
-  const maxTier = numericPairs.reduce((max, [balls, strikes]) => {
-    return Math.max(max, balls + strikes);
-  }, 0);
-
-  // 3) Prepare the container
-  const container = document.getElementById(containerId);
-  container.innerHTML = '';
-  container.style.position = 'relative';
-
-  // 4) Layout constants
-  
-  const BOX_SIZE = 140;      // width & height of each cell
-  const X_SPACING = 160;     // horizontal distance between cells
-  const Y_SPACING = 128;     // vertical distance between rows
-  const LEGEND_PADDING = 430; // padding around the legend box
-
-  // 5) Draw each tier (sum of balls+strikes from 0 up to maxTier)
-  for (let sum = 0; sum <= maxTier; sum++) {
-    // 5a) Collect all valid (balls, strikes) pairs whose sum === current tier
-    const tierCells = [];
-    for (let balls = 0; balls <= 3; balls++) {
-      const strikes = sum - balls;
-      if (strikes < 0 || strikes > 2) continue;
-      const key = `${balls}-${strikes}`;
-      const distMap = tree[key] || {};
-      tierCells.push({ balls, strikes, distMap });
-    }
-
-    // 5b) Sort so that highest-ball counts are leftmost (optional)
-    tierCells.sort((a, b) => b.balls - a.balls);
-
-    // 5c) Center this row of cells within the container
-    const rowWidth = (tierCells.length - 1) * X_SPACING + BOX_SIZE;
-    const startX = (container.clientWidth - rowWidth) / 2;
-
-    // 5d) Render each cell as a Plotly pie chart + a label
-    tierCells.forEach((cell, index) => {
-      // Create a wrapper div
-      const cellDiv = document.createElement('div');
-      cellDiv.style.cssText = `
-        position: absolute;
-        left: ${startX + index * X_SPACING}px;
-        top: ${sum * Y_SPACING + (sum > 2 ? 10 : 0)}px;
-        width: ${BOX_SIZE}px;
-        height: ${BOX_SIZE}px;
-      `;
-      container.appendChild(cellDiv);
-
-      // Prepare pie chart data
-      const labels = Object.keys(cell.distMap).length
-        ? Object.keys(cell.distMap)
-        : ['none'];
-      const values = labels.map(label => cell.distMap[label] || 0);
-
-      // Draw the pie chart
-      Plotly.newPlot(
-        cellDiv,
-        [{
-          type: 'pie',
-          labels: labels,
-          values: values,
-          hole: 0.6,
-          marker: { colors: labels.map(l => PTYPE_COLORS[l] || PTYPE_COLORS.undefined) },
-          textinfo: 'percent',
-          textposition: 'inside',
-          textfont: { color: '#fff' },
-          hoverinfo: 'label+value'
-        }],
-        {
-          margin: { t: 0, b: 0, l: 0, r: 0 },
-          showlegend: false,
-          paper_bgcolor: 'rgba(0,0,0,0)',
-          plot_bgcolor: 'rgba(0,0,0,0)'
-        },
-        { displayModeBar: false }
-      );
-
-      // Overlay the "balls-strikes" label and total count
-      const totalCount = values.reduce((sum, v) => sum + v, 0);
-      const labelDiv = document.createElement('div');
-      labelDiv.innerHTML = `${cell.balls}-${cell.strikes}<br>${totalCount}`;
-      labelDiv.style.cssText = `
-        position: absolute;
-        left: 50%; top: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        font-size: 12px;
-        pointer-events: none;
-      `;
-      cellDiv.appendChild(labelDiv);
     });
-  }
+    // Zoom clamp
+    const MIN_HEIGHT = 5;
+    canvas.addEventListener('wheel', e=>{
+      const dir = camera.getWorldDirection(new THREE.Vector3());
+      camera.position.addScaledVector(dir, e.deltaY*0.1);
+      if (camera.position.y < MIN_HEIGHT) camera.position.y = MIN_HEIGHT;
+    });
 
-  const usedTypes = new Set();
-Object.values(tree).forEach(distMap => {
-  Object.keys(distMap).forEach(type => {
-    if ((distMap[type] || 0) > 0) usedTypes.add(type);
-  });
-});
+    // Field Group
+    const fieldGroup = new THREE.Group();
+    scene.add(fieldGroup);
 
-  // 6) Draw a legend in the top-right corner
-  const legend = document.createElement('div');
-  legend.className = 'legend';
-  legend.style.cssText = `
-    position: absolute;
-    right: 0px;
-    top: ${LEGEND_PADDING}px;
-    padding: 5px;
-    background: rgba(255, 255, 255, 0.0);
-    font-size: 2rem;
-    -webkit-print-color-adjust: exact;
-  `;
-  usedTypes.forEach(type => {
-  const colorBox = `<span style="
-    display:inline-block;
-    width:20px;
-    height:20px;
-    background:${PTYPE_COLORS[type] || PTYPE_COLORS.undefined};
-    margin-left:54px;
-  "></span>`;
-  legend.innerHTML += `${colorBox}${type}<br>`;
-});
+    // FENCE CONFIG
+    const fenceCfg = [
+      {deg:-45, dist:325}, {deg:-22.5, dist:362.5},
+      {deg:   0, dist:400}, {deg: 22.5, dist:362.5},
+      {deg:  45, dist:325}
+    ];
+    const lineMat = new THREE.LineBasicMaterial({ color:0xffffff });
+    const fenceGroup = new THREE.Group();
 
-  container.appendChild(legend);
-}
-
-
-
-    function renderStats(rows, tbodyId) {
-      const stats = {};
-      rows.forEach(r => {
-        const type = r.AutoPitchType || 'undefined';
-        const speed = parseFloat(r.RelSpeed);
-        if (isNaN(speed)) return;
-        if (!stats[type]) stats[type] = { count:0, sum:0, sumSq:0 };
-        stats[type].count++;
-        stats[type].sum += speed;
-        stats[type].sumSq += speed*speed;
-      });
-      const tbody = document.getElementById(tbodyId);
-      tbody.innerHTML = '';
-      Object.entries(stats)
-        .sort(([,a],[,b]) => b.count - a.count)
-        .forEach(([type,{count,sum,sumSq}]) => {
-          const mean = sum/count;
-          const variance = sumSq/count - mean*mean;
-          const std = Math.sqrt(Math.max(0, variance));
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${type}</td>
-            <td>${count}</td>
-            <td>${mean.toFixed(1)}</td>
-            <td>${std.toFixed(1)}</td>
-          `;
-          tbody.appendChild(row);
-        });
+    // foul lines
+    for (let deg of [-45,45]) {
+      const rad = (deg-90)*Math.PI/180;
+      const r   = fenceCfg.find(f=>f.deg===deg).dist;
+      const x   = r*Math.cos(rad), z = -r*Math.sin(rad);
+      fenceGroup.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0,1,0),
+          new THREE.Vector3(x,1,z)
+        ]),
+        lineMat
+      ));
     }
+// ─── OUTFIELD WALL (5 ft tall) ────────────────────────────────────────────
+const wallShape = new THREE.Shape();
+fenceCfg.forEach((p,i) => {
+  const a = (p.deg - 90) * Math.PI/180;
+  const x = p.dist * Math.cos(a);
+  const z = -p.dist * Math.sin(a);
+  i === 0
+    ? wallShape.moveTo(x, z)
+    : wallShape.lineTo(x, z);
+});
+wallShape.lineTo(0, 0);            // close back to home plate
 
-   function drawMovementProfile(rows, containerId) {
-  // 1) Prepare the data traces grouped by pitch type
-  const traceByType = {};
-  rows.forEach(r => {
-    const type = r.AutoPitchType || 'undefined';
-    const hb   = parseFloat(r.HorzBreak);
-    const vb   = parseFloat(r.InducedVertBreak);
-    if (isNaN(hb) || isNaN(vb)) return;
-    const angle = Math.atan2(vb, hb) * 180/Math.PI;  // degrees around circle
-    const mag   = Math.hypot(hb, vb);               // radial distance
-    if (!traceByType[type]) traceByType[type] = { r: [], theta: [], name: type };
-    traceByType[type].r.push(mag);
-    traceByType[type].theta.push(angle);
-  });
+const wallGeo = new THREE.ExtrudeGeometry(wallShape, {
+  depth: 5,                        // 5 ft tall
+  bevelEnabled: false
+});
+const wallMat = new THREE.MeshLambertMaterial({
+  color: 0xff7f00,
+  side: THREE.DoubleSide
+});
+const wallMesh = new THREE.Mesh(wallGeo, wallMat);
 
-  const traces = Object.values(traceByType).map(d => ({
-    type: 'scatterpolar',
-    r: d.r,
-    theta: d.theta,
-    mode: 'markers',
-    name: d.name,
-    marker: { color: PTYPE_COLORS[d.name] || '#999', size: 10 }
-  }));
+// rotate so extrusion (local Z) becomes world Y
+wallMesh.rotateX(-Math.PI/2);
 
-  Plotly.newPlot(containerId, traces, {
-    polar: {
-      radialaxis: {
-        title: 'Movement (in)',
-        tickfont: { size: 10 },
-        ticksuffix: '"',
-        angle: 0,
-        showline: true,
-        gridcolor: '#ddd'
-      },
-      angularaxis: {
-        showticklabels: false,
-        showgrid: false,
-        showline: false,
-        title: 'Movement (in)',
-        tickfont: { size: 10 },
+fenceGroup.add(wallMesh);
+
+
+    fieldGroup.add(fenceGroup);
+
+    // INFIELD
+    const infieldGroup = new THREE.Group();
+    const BASE = 90, s2 = Math.SQRT2;
+    const pts  = [[0,0],[BASE/s2,-BASE/s2],[0,-BASE*s2],[-BASE/s2,-BASE/s2]];
+
+    // dirt
+    const dirtShape = new THREE.Shape(pts.map(p=>new THREE.Vector2(p[0],p[1])));
+    const dirtMesh = new THREE.Mesh(
+      new THREE.ShapeGeometry(dirtShape),
+      new THREE.MeshLambertMaterial({ color: 0xAD8A56 })
+    );
+    dirtMesh.rotation.x = -Math.PI/2;
+    infieldGroup.add(dirtMesh);
+
+    // bases
+    const baseGeo = new THREE.BoxGeometry(4,1,4),
+          baseMat = new THREE.MeshLambertMaterial({ color:0xffffff });
+    pts.forEach(p=>{
+      const b = new THREE.Mesh(baseGeo, baseMat);
+      b.position.set(p[0],1,-p[1]);
+      infieldGroup.add(b);
+    });
+    // baselines
+    [-45,45].forEach(deg=>{
+      const rad = (deg-90)*Math.PI/180, r = BASE*1.5;
+      infieldGroup.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0,1,0),
+          new THREE.Vector3(r*Math.cos(rad),1,-r*Math.sin(rad))
+        ]), lineMat
+      ));
+    });
+
+    fieldGroup.add(infieldGroup);
+
+    // infield always on top of fence
+    infieldGroup.traverse(obj=>{
+      if (obj.isMesh) {
+        obj.renderOrder        = 1;
+        obj.material.depthTest = false;
       }
-    },
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor:  'rgba(0,0,0,0)',
+    });
 
-    showlegend: true,
-    legend: {
-      bgcolor:     'rgba(0,0,0,0)',
-      bordercolor: 'rgba(0,0,0,0)',
-      font:        { size: 10 }
-    },
+    // BALL & TRACE
+    const ball = new THREE.Mesh(
+      new THREE.SphereGeometry(3,16,16),
+      new THREE.MeshStandardMaterial({ color:0xffff00 })
+    );
+    ball.frustumCulled = false;
+    scene.add(ball);
 
-    margin: { t: 40, l: 25, r: 0, b: 40 },
+    const tracePts  = [], traceGeom = new THREE.BufferGeometry().setFromPoints(tracePts);
+    const traceLine = new THREE.Line(traceGeom, lineMat);
+    traceLine.frustumCulled    = false;
+    traceLine.renderOrder      = 2;
+    traceLine.material.depthTest = false;
+    scene.add(traceLine);
 
-  annotations: [
-    {
-      x: .76, y: 0.62,         // move a little closer in
-      xref: 'paper', yref: 'paper',
-      text: 'More<br>Rise<br>▲',
-      showarrow: false,
-      align: 'center',
-      font:  { size: 10 }
-    },
-    {
-      x: 0.76, y: 0.38,
-      xref: 'paper', yref: 'paper',
-      text: '▼<br>More<br>Drop',
-      showarrow: false,
-      align: 'center',
-      font:  { size: 10 }
-    },
-    {
-      x: 0.5, y: .0,          // pull down a touch
-      xref: 'paper', yref: 'paper',
-      text: '<b>1B ← moves toward → 3B</b>',
-      showarrow: false,
-      align: 'center',
-      font: { size: 12 }
+    ball.renderOrder        = 2;
+    ball.material.depthTest = false;
+
+    // ANIMATION SETUP
+    let D=0, T=1, Dir=0, elapsed=0, tApex=0, deflected=false, follow=false;
+    const g      = 32, clock = new THREE.Clock(), apexPos = new THREE.Vector3();
+
+    Papa.parse('data.csv',{ download:true, header:true, dynamicTyping:true, complete(res){
+      const o = res.data[1]||{};
+      D   = o.Distance||D;
+      T   = o.HangTime||T;
+      Dir = (o.Direction||0)*Math.PI/180;  // forward outfield
+      homeInfo.textContent = `Exit Velo: ${o.ExitSpeed} mph, Angle: ${o.Angle}°`;
+
+      const vy   = g*T/2; tApex = T/2;
+      const maxH = Math.round(vy*tApex - 0.5*g*tApex*tApex);
+      apexInfo.textContent = `Max Height: ${maxH} ft`;
+
+      // apex marker
+      const apexMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(2,8,8),
+        new THREE.MeshBasicMaterial({ color:0xff0000 })
+      );
+      const ar = Dir - Math.PI/2;
+      apexPos.set(
+        D/2 * Math.cos(ar),
+        vy*tApex - 0.5*g*tApex*tApex,
+        D/2 * Math.sin(ar)
+      );
+      apexMesh.position.copy(apexPos);
+      scene.add(apexMesh);
+      apexLabel.textContent = `Max Height: ${maxH} ft`;
+
+      clock.start();
+    }});
+
+    // keep distance label with ball
+    function updateLabel(){
+      const proj = ball.position.clone().project(camera);
+      ballLabel.style.transform = `
+        translate(-50%,-100%)
+        translate(${(proj.x*0.5+0.5)*window.innerWidth}px,
+                  ${(-proj.y*0.5+0.5)*window.innerHeight}px)
+      `;
     }
-  ]
-}, {
-  displayModeBar: false,
-  staticPlot:     true
-});
 
-   }
+    function animate(){
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta(); elapsed += dt;
+      if (D) {
+        const u  = Math.min(elapsed/T,1),
+              ar = Dir - Math.PI/2,
+              x  = D*u*Math.cos(ar),
+              z  = D*u*Math.sin(ar),
+              vy = g*T/2,
+              y  = vy*elapsed - 0.5*g*elapsed*elapsed;
 
-function drawSpinAxisRose(rows, containerId) {
-  const binSize = 15;
-  const countsByType = {};
-  rows.forEach(r => {
-    const pt   = r.AutoPitchType || 'undefined';
-    const axis = parseFloat(r.SpinAxis);
-    if (isNaN(axis)) return;
-    const bin  = Math.floor(axis/binSize)*binSize;
-    countsByType[pt] = countsByType[pt] || {};
-    countsByType[pt][bin] = (countsByType[pt][bin]||0) + 1;
-  });
+        if (!deflected && y>9 && Math.hypot(x,z)>fenceCfg[2].dist) {
+          deflected = true;
+          Dir = Math.PI - Dir;
+        }
 
-  const traces = Object.entries(countsByType).map(([pt,counts]) => {
-    const bins   = Object.keys(counts).map(b=>+b).sort((a,b)=>a-b);
-    const labels = bins.map(b=>`${b}°`);
-    const values = bins.map(b=>counts[b]);
-    return {
-      type: 'barpolar',
-      r: values,
-      theta: labels,
-      name: pt,
-      marker: { color: PTYPE_COLORS[pt] || '#999' }
+        if (!(elapsed>tApex && y<=6)) {
+          ball.position.set(x, Math.max(y,6), z);
+          tracePts.push(ball.position.clone());
+          traceGeom.setFromPoints(tracePts);
+          ballLabel.textContent = `Distance: ${Math.round(Math.hypot(x,z))} ft`;
+        }
+      }
+      updateLabel();
+      renderer.render(scene,camera);
+    }
+    animate();
+
+    // Snap views
+    const views = {
+      home:     {pos:[0,50,200],    look:[0,0,0]},
+      first:    {pos:[100,50,100],  look:[63.6,1,63.6]},
+      third:    {pos:[-100,50,100], look:[-63.6,1,63.6]},
+      outfield: {pos:[0,50,-500],   look:[0,0,0]}
     };
+    viewSelect.addEventListener('change', ()=>{
+      const v = views[viewSelect.value];
+      if (v) {
+        camera.position.set(...v.pos);
+        camera.lookAt(...v.look);
+      }
+    });
+
+    // Buttons & resize
+    resetBtn.onclick = ()=>{
+      elapsed=0; clock.start(); deflected=false;
+      ball.position.set(0,1,0);
+      tracePts.length=0; traceGeom.setFromPoints(tracePts);
+      camera.fov=60; camera.updateProjectionMatrix();
+      apexLabel.style.display='none';
+      viewSelect.value = '';
+    };
+    followBtn.onclick = ()=>{
+      follow = !follow;
+      followBtn.textContent = `Follow Ball: ${follow?'On':'Off'}`;
+      if (follow) camera.lookAt(ball.position);
+      else        camera.updateProjectionMatrix();
+    };
+    window.addEventListener('resize', ()=>{
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth,window.innerHeight);
+      updateLabel();
+    });
   });
-
-  Plotly.newPlot(containerId, traces, {
-    title: 'Spin Axis Distribution by Pitch Type',
-    legend: { orientation: 'h', x: 0.3, y: -0.1 },
-    polar: {
-      radialaxis: { angle: 90 },
-      angularaxis: { direction: 'clockwise' }
-    },
-    margin: { t:40, b:80 },
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor:  'rgba(0,0,0,0)'
-  }, {
-  displayModeBar: false,
-  staticPlot: true
-});
-}
-
-
-    function plotLocationPieClusters(rows, containerId) {
-      const grid = {};
-      rows.forEach(r => {
-        const x = parseFloat(r.PlateLocSide);
-        const y = parseFloat(r.PlateLocHeight);
-        if (isNaN(x)||isNaN(y)) return;
-        const bx = Math.round(x*5)/5;
-        const by = Math.round(y*5)/5;
-        const key = `${bx}_${by}`;
-        grid[key] = grid[key] || { x: bx, y: by, counts: {} };
-        const t = r.AutoPitchType || 'undefined';
-        grid[key].counts[t] = (grid[key].counts[t]||0) + 1;
-      });
-      const allTypes = new Set();
-      Object.values(grid).forEach(c => Object.keys(c.counts).forEach(t=>allTypes.add(t)));
-      const CM = {};
-      Array.from(allTypes).forEach((t,i) => { CM[t] = `hsl(${(i*60)%360},70%,50%)`; });
-      function makePie(counts) {
-        const entries = Object.entries(counts);
-        const total = entries.reduce((s,[,c])=>s+c,0);
-        const size = 64;
-        const ctx = document.createElement('canvas').getContext('2d');
-        ctx.canvas.width = ctx.canvas.height = size;
-        const cx = size/2, cy = size/2, r = size/2-2;
-        let start = 0;
-        entries.forEach(([t,c]) => {
-          const slice = c/total*2*Math.PI;
-          ctx.beginPath(); ctx.moveTo(cx,cy);
-          ctx.arc(cx,cy,r,start,start+slice);
-          ctx.closePath(); ctx.fillStyle = CM[t]; ctx.fill();
-          start += slice;
-        });
-        ctx.beginPath(); ctx.arc(cx,cy,r*0.4,0,2*Math.PI);
-        ctx.fillStyle = 'white'; ctx.fill();
-        return ctx.canvas.toDataURL();
-      }
-      const images = [];
-      Object.values(grid).forEach(cell => {
-        const total = Object.values(cell.counts).reduce((a,b)=>a+b,0);
-        if (!total) return;
-        images.push({
-          source: makePie(cell.counts), xref:'x', yref:'y',
-          x: cell.x, y: cell.y, xanchor:'center', yanchor:'middle',
-          sizex:0.2, sizey:0.2, layer:'above'
-        });
-      });
-      const legendTraces = Array.from(allTypes).map(t=>({
-        type:'scatter', x:[null], y:[null], mode:'markers',
-        marker:{ size:12, color: CM[t] }, name: t, showlegend:true
-      }));
-      const base = { x:[-0.8,0.8], y:[0,5], type:'scatter', mode:'markers', marker:{opacity:0} };
-      const layout = {
-        width:500, height:450,
-        margin:{t:20,b:40,l:40,r:120},
-        xaxis:{ range:[-0.8,0.8], fixedrange:true, title:'Horizontal (ft)'},
-        yaxis:{ range:[0,5], fixedrange:true, title:'Vertical (ft)'},
-        shapes:[{ type:'rect', xref:'x', yref:'y', x0:-0.708, x1:0.708, y0:1.5, y1:3.5, line:{color:'black',width:2} }],
-        images
-      };
-      Plotly.newPlot(containerId, [base, ...legendTraces], layout);
-    }
-
-    function drawSunburst(rows, containerId) {
-      const trans = {}, byPA = {};
-      rows.forEach(r => {
-        const key = `${r.GameID}|${r.Date}|${r.PAofInning}`;
-        byPA[key] = byPA[key] || [];
-        byPA[key].push(r);
-      });
-      Object.values(byPA).forEach(arr => {
-        arr.sort((a,b)=>+a.PitchofPA - +b.PitchofPA);
-        for (let i=0; i < arr.length-1; i++) {
-          const cur = arr[i].AutoPitchType || 'undefined';
-          const nxt = arr[i+1].AutoPitchType || 'undefined';
-          const k = `${cur}→${nxt}`;
-          trans[k] = (trans[k]||0) + 1;
-        }
-      });
-      const parentTotals = {};
-      Object.entries(trans).forEach(([k,v])=>{
-        const p = k.split('→')[0]; parentTotals[p] = (parentTotals[p]||0) + v;
-      });
-      const ids=[], labels=[], parents=[], values=[], colors=[];
-      Object.entries(parentTotals).forEach(([pt,sum])=>{
-        ids.push(pt); labels.push(pt); parents.push(''); values.push(sum); colors.push(PTYPE_COLORS[pt]||'#ccc');
-      });
-      Object.entries(trans).forEach(([k,c])=>{
-        const [p,n] = k.split('→'); const nid = `${p}|${n}`;
-        ids.push(nid); labels.push(n); parents.push(p); values.push(c); colors.push(PTYPE_COLORS[n]||'#ccc');
-      });
-      Plotly.newPlot(containerId, [{
-  type: 'sunburst',
-  ids, labels, parents, values,
-  marker: { colors },
-  branchvalues: 'total',
-  hovertemplate: '%{label}<br>Count:%{value}<extra></extra>'
-}], {
-  margin: { t: 30, l: 0, r: 0, b: 0 },
-  paper_bgcolor: 'rgba(0,0,0,0)',
-  plot_bgcolor:  'rgba(0,0,0,0)'
-}, {
-  displayModeBar: false,
-  staticPlot: true
-});
-
-    }
-
-    function drawReleasePoint(rows, containerId) {
-      const ext = rows.map(r=>parseFloat(r.Extension));
-      const rh  = rows.map(r=>parseFloat(r.RelHeight));
-      const c   = rows.map(r=>r.AutoPitchType);
-      const colors = c.map(t=> PTYPE_COLORS[t]||'#666');
-      Plotly.newPlot(containerId, [{
-        x: ext, y: rh, mode:'markers', type:'scatter',
-        marker:{ size:6, color: colors }, text: c,
-        hovertemplate:'Ext:%{x:.2f}ft<br>H:%{y:.2f}ft<br>Type:%{text}<extra></extra>'
-      }], {
-        xaxis:{ title:'Extension (ft)' },
-        yaxis:{ title:'Release Height (ft)' }, margin:{t:20}
-      });
-    }
-
-    function drawTunnelMap(rows, idX, idY) {
-      function trace(xArr,yArr,name) {
-        const cols = xArr.map((_,i)=>PTYPE_COLORS[rows[i].AutoPitchType]||'#666');
-        return { x:xArr, y:yArr, mode:'markers', type:'scatter', name,
-          marker:{ size:6, color: cols },
-          hovertemplate:`Ext:%{x:.2f} ft<br>${name}:%{y:.2f}<extra></extra>`
-        };
-      }
-      const ext = rows.map(r=>parseFloat(r.Extension));
-      const hb  = rows.map(r=>parseFloat(r.HorzBreak));
-      const vb  = rows.map(r=>parseFloat(r.InducedVertBreak));
-      Plotly.newPlot(idX, [ trace(ext,hb,'Horz Break') ], { xaxis:{ title:'Extension (ft)' }, yaxis:{ title:'Horz Break (in)' }, margin:{t:20} });
-      Plotly.newPlot(idY, [ trace(ext,vb,'Vert Break') ], { xaxis:{ title:'Extension (ft)' }, yaxis:{ title:'Vert Break (in)' }, margin:{t:20} });
-    }
-
-    function renderSummaryTable(rows, tableId) {
-      const stats = {};
-      rows.forEach(r => {
-        const t = r.AutoPitchType || 'undefined';
-        if (!stats[t]) stats[t] = { count:0, sumV:0, sumS:0, sumIVB:0, sumH:0, sumE:0, sumZT:0, whiff:0, swing:0 };
-        const s = stats[t];
-        s.count++;
-        const v = parseFloat(r.RelSpeed); if(!isNaN(v)) s.sumV += v;
-        const sp= parseFloat(r.SpinRate); if(!isNaN(sp)) s.sumS += sp;
-        const iv= parseFloat(r.InducedVertBreak); if(!isNaN(iv)) s.sumIVB += iv;
-        const ho= parseFloat(r.HorzBreak); if(!isNaN(ho)) s.sumH += ho;
-        const ex= parseFloat(r.Extension); if(!isNaN(ex)) s.sumE += ex;
-        const zt= parseFloat(r.ZoneTime); if(!isNaN(zt)) s.sumZT += zt;
-        const swing = r.PitchCall.startsWith('StrikeSwing') || r.PitchCall==='InPlay';
-        if (swing) {
-          s.swing++;
-          if (r.PitchCall==='StrikeSwinging') s.whiff++;
-        }
-      });
-      const tbody = document.getElementById(tableId).querySelector('tbody');
-      tbody.innerHTML='';
-      const total = rows.length;
-      Object.entries(stats).forEach(([t,s]) => {
-        const pct = (s.count/total*100).toFixed(1) + '%';
-        const avgV = (s.sumV/s.count).toFixed(1);
-        const avgS = (s.sumS/s.count).toFixed(1);
-        const avgIVB = (s.sumIVB/s.count).toFixed(1);
-        const avgH = (s.sumH/s.count).toFixed(1);
-        const avgE = (s.sumE/s.count).toFixed(1);
-        const avgZT = (s.sumZT/s.count).toFixed(2);
-        const pctWh = (s.whiff/s.count*100).toFixed(1)+'%';
-        const pctSw = (s.swing/s.count*100).toFixed(1)+'%';
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${t}</td><td>${s.count}</td><td>${pct}</td>
-          <td>${avgV}</td><td>${avgS}</td><td>${avgIVB}</td>
-          <td>${avgH}</td><td>${avgE}</td><td>${avgZT}</td>
-          <td>${pctWh}</td><td>${pctSw}</td>
-        `;
-        tbody.appendChild(row);
-      });
-    }
-
-    function getFavPitch(rows) {
-      const cnt = {};
-      rows.forEach(r => {
-        const t = r.AutoPitchType || 'undefined'; cnt[t] = (cnt[t]||0) + 1;
-      });
-      return Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
-    }
-
-    function renderCountTable(rows, fav, tableId) {
-      const byCount = {};
-      rows.filter(r=>r.AutoPitchType===fav).forEach(r=>{
-        const key = `${r.Balls}-${r.Strikes}`;
-        if (!byCount[key]) byCount[key] = { count:0, sumV:0, sumS:0, sumRH:0 };
-        const v = parseFloat(r.RelSpeed); if(!isNaN(v)) byCount[key].sumV += v;
-        const sp= parseFloat(r.SpinRate); if(!isNaN(sp)) byCount[key].sumS += sp;
-        const rh= parseFloat(r.RelHeight); if(!isNaN(rh)) byCount[key].sumRH += rh;
-        byCount[key].count++;
-      });
-      const rowsArr = Object.entries(byCount).map(([k,v])=>({
-        count:k,
-        avgV:(v.sumV/v.count).toFixed(1),
-        avgS:(v.sumS/v.count).toFixed(1),
-        avgRH:(v.sumRH/v.count).toFixed(2)
-      })).sort((a,b)=>parseInt(a.count.split('-')[0]) - parseInt(b.count.split('-')[0]));
-      const tbody = document.getElementById(tableId).querySelector('tbody');
-      tbody.innerHTML='';
-      rowsArr.forEach(r=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${r.count}</td><td>${r.avgV}</td><td>${r.avgS}</td><td>${r.avgRH}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
   </script>
 </body>
 </html>

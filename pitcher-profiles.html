@@ -17,6 +17,41 @@
             font-family: Arial, sans-serif;
         }
 
+
+        .modalOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modalOverlay.show {
+  display: flex;
+}
+#modalContent {
+  position: relative;
+  width: 80vw;
+  height: 80vh;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+#modalClose {
+  position: absolute;
+  top: 8px; right: 12px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 1001;
+}
+#animFrame {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
         header,
         nav {
             padding: 0.5rem 1rem;
@@ -545,6 +580,13 @@
 
        
     </div>
+
+    <div id="modalOverlay" class="modalOverlay">
+    <div id="modalContent">
+      <span id="modalClose">&times;</span>
+      <iframe id="animFrame" src="" allowfullscreen></iframe>
+    </div>
+  </div>
 
     <script>
         let allData = [], playerName = '';
@@ -3113,6 +3155,7 @@ function renderTable(data) {
              <th>ExitSpeed</th>
              <th>Angle</th>
              <th>Distance</th>
+             <th>Animate</th>
              <th>Details</th>
            </tr>
          </thead>
@@ -3138,6 +3181,9 @@ function renderTable(data) {
          <td>${r.Angle}</td>
          <td>${r.Distance}</td>
          <td>
+  <button class="viewBtn" data-pitchuid="${r.PitchUID}">View</button>
+</td>
+         <td>
            <a href="Game-view.html?pitchUID=${r.PitchUID}">
              View
            </a>
@@ -3150,7 +3196,32 @@ function renderTable(data) {
      </div>`;
 
   document.getElementById('battedBallTable').innerHTML = html;
+  attachViewButtons();
+
 }
+
+function attachViewButtons() {
+  const modalOverlay = document.getElementById('modalOverlay');
+  const animFrame    = document.getElementById('animFrame');
+
+  document.querySelectorAll('.viewBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.pitchuid;
+      animFrame.src = `animate.html?pitchUID=${encodeURIComponent(uid)}`;
+      modalOverlay.classList.add('show');
+    });
+  });
+}
+
+document.getElementById('modalClose').addEventListener('click', () => {
+  document.getElementById('modalOverlay').classList.remove('show');
+});
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('show');
+  }
+});
+
 
         function renderAtBatDetails(data) { 
             const at = document.getElementById('atBatFilter').value; 

@@ -26,6 +26,31 @@
     #menu a:hover, #menu a.active { background: #0066cc; color: #fff; }
     .canvas-container { position:relative; width:100%; height:400px; margin-bottom:1em; border:1px solid #ccc; }
     canvas { width:100%; height:100%; display:block; }
+  /* full-screen semi-transparent overlay */
+  #animOverlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.6);
+    z-index: 9999;
+  }
+  /* close “X” button */
+  #animClose {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    color: #fff; font-size: 2rem; cursor: pointer;
+    z-index: 10000;
+  }
+  /* iframe fills the rest */
+  #animFrame {
+    position: absolute;
+    top: 3rem; bottom: 1rem; left: 1rem; right: 1rem;
+    width: calc(100% - 2rem);
+    height: calc(100% - 4rem);
+    background: #fff;
+    border-radius: 4px;
+  }
 
       .subBtn {
     margin: 0 .5em;
@@ -83,6 +108,12 @@
 <div id="viewBreakdowns" class="view"></div>
 <div id="viewSpray" class="view"></div>
 
+  <!-- animation overlay (hidden by default) -->
+  <div id="animOverlay">
+    <div id="animClose">✕</div>
+    <iframe id="animFrame" src="" frameborder="0"></iframe>
+  </div>
+</body>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
@@ -119,7 +150,14 @@
 const fPosIndex = {};
 
     const DATA_CSV = 'data.csv';
-
+const HIT_PALETTE = {
+  'Single':  '#00FF00',  // green
+  'Double':  '#0000FF',  // blue
+  'Triple':  '#FFA500',  // orange
+  'HomeRun': '#FF0000',  // red
+  // fallback for anything else
+  'undefined': '#888888'
+};
     let allPitches = [], fPositions = [], gamePitches = [];
     var params = new URLSearchParams(location.search);
     var startPID = params.get('pitchUID');
@@ -564,6 +602,19 @@ function predictCatchProbability(runDistance, launchAngle, exitVelocity, stats, 
 
 
 
+// instead of “const btn = …” do:
+const animBtn = document.createElement('button');
+animBtn.textContent = 'Animate';
+animBtn.className   = 'details-button';
+// now you can safely do:
+animBtn.onclick = () => {
+  document.getElementById('animFrame').src =
+    'animate.html?pitchUID=' + encodeURIComponent(p.PitchUID);
+  document.getElementById('animOverlay').style.display = 'block';
+};
+// and then append animBtn to your <td>
+
+
     // Adjusted renderPitch to accept a container element instead of hardcoding 'pitchDetail'
 function renderPitch(container) {
   // current pitch record
@@ -611,6 +662,32 @@ function makeTable(fields, row, showProb = false) {
       p,
       p.PitchCall !== 'FoulBallNotFieldable'                                 // <-- show the probability here
     );
+    // find the 3rd .scrollTable that we just rendered
+    const tables = container.querySelectorAll('.scrollTable');
+    const bbWrapper = tables[tables.length - 1]; // that's the batted-ball table
+    const bbTable   = bbWrapper.querySelector('table');
+
+    // 1) append a new TH to the header
+    const headRow = bbTable.querySelector('thead tr');
+    const th = document.createElement('th');
+    th.textContent = 'Animate';
+    headRow.appendChild(th);
+
+    // 2) append a new TD with our button to the single-body row
+    const bodyRow = bbTable.querySelector('tbody tr');
+    const td      = document.createElement('td');
+    animBtn.textContent = 'Animate';
+    animBtn.className = 'details-button';
+    animBtn.onclick = () => {
+      // show your overlay (from the previous answer)
+      document.getElementById('animFrame').src =
+        'animate.html?pitchUID=' + encodeURIComponent(p.PitchUID);
+      document.getElementById('animOverlay').style.display = 'block';
+    };
+    td.appendChild(animBtn);
+    bodyRow.appendChild(td);
+
+    
   }
 
   // final table: result info
@@ -702,14 +779,7 @@ const mapY = y => originY - (y - zone.bottom) * scale;
 }
   // —— Drawing full field + spray + fielders —— 
 
-  const HIT_PALETTE = {
-  'Single':  '#00FF00',  // green
-  'Double':  '#0000FF',  // blue
-  'Triple':  '#FFA500',  // orange
-  'HomeRun': '#FF0000',  // red
-  // fallback for anything else
-  'undefined': '#888888'
-};
+  
   function drawSprayCanvas(canvas, rows, fr){
     const ctx = canvas.getContext('2d');
     canvas.width  = canvas.offsetWidth;
@@ -1291,6 +1361,34 @@ swingCard.innerHTML = `
       ).join('');
   viewSpray.appendChild(legend);
 }
+
+// after you append animBtn to the table wrapper…
+animBtn.onclick = () => {
+  // point the iframe at your animate.html (optionally pass pitchUID)
+  document.getElementById('animFrame').src =
+    'animate.html?pitchUID=' + encodeURIComponent(p.PitchUID);
+  document.getElementById('animOverlay').style.display = 'block';
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const overlay = document.getElementById('animOverlay')
+  const closeBtn = document.getElementById('animClose')
+
+  function closeOverlay() {
+    overlay.style.display = 'none'
+    document.getElementById('animFrame').src = ''
+  }
+
+  // close when you click the “X”
+  closeBtn.addEventListener('click', closeOverlay)
+
+  // also close when you click *outside* the iframe (i.e. on the overlay itself)
+  overlay.addEventListener('click', e => {
+    // only if they clicked the overlay background, not the iframe
+    if (e.target === overlay) closeOverlay()
+  })
+})
+
 
     
   </script>
