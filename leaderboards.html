@@ -1006,7 +1006,12 @@ const hrDisplay = hrRows.slice(0,10).map(r => ({
           style="padding:.2rem .5rem;cursor:pointer;"
           onclick="watchVideo('${r.GameUID}', '${r.PlayID}')">
           ▶️ Watch
-        </button>`
+        </button>
+        
+         <button class="details-button"
+          onclick="watchImage('${r.GameUID}', '${r.PlayID}')">
+    Composite
+  </button>`
 }));
 
 // 3) Render with a dedicated Watch column
@@ -1058,7 +1063,14 @@ const evDisplay = evRows.slice(0,10).map(r => ({
           style="padding:.2rem .5rem;cursor:pointer;"
           onclick="watchVideo('${r.GameUID}', '${r.PlayID}')">
           ▶️ Watch
-        </button>`
+        </button>
+        
+         <button class="details-button"
+          onclick="watchImage('${r.GameUID}', '${r.PlayID}')">
+    Composite
+  </button>`
+
+        
 }));
 
 renderLeaderboard(
@@ -1670,6 +1682,54 @@ function populateSuggestions() {
       dl.appendChild(opt);
     });
 }
+
+function watchImage(gameUID, pitchUID) {
+  // build overlay container
+  const overlay = document.createElement('div');
+  Object.assign(overlay.style, {
+    position: 'fixed',
+    top: 0, left: 0, right: 0, bottom: 0,
+    background: 'rgba(0,0,0,0.8)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10000
+  });
+
+  // build image element
+  const img = document.createElement('img');
+  Object.assign(img.style, {
+    maxWidth: '90%',
+    maxHeight: '90%',
+    boxShadow: '0 0 8px rgba(0,0,0,0.5)'
+  });
+
+  // point at your Flask image-stream endpoint
+  img.src = `https://helloworld.idkconflict1.workers.dev/stream_image`
+    + `?session_id=${encodeURIComponent(gameUID)}`
+  + `&play_id=${encodeURIComponent(pitchUID)}`;
+
+  // close button
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  Object.assign(closeBtn.style, {
+    position: 'absolute',
+    top: '10px',
+    right: '10px',
+    fontSize: '1.5rem',
+    background: 'transparent',
+    border: 'none',
+    color: '#fff',
+    cursor: 'pointer'
+  });
+  closeBtn.addEventListener('click', () => overlay.remove());
+
+  // assemble and show
+  overlay.appendChild(img);
+  overlay.appendChild(closeBtn);
+  document.body.appendChild(overlay);
+}
+
 
     
 
