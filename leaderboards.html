@@ -7,6 +7,33 @@
   <title>Leaderboards – Baseball Analytics</title>
 
 <style>
+
+   .modalOverlay {
+          display: none;
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.6);
+          align-items: center;
+          justify-content: center;
+          z-index: 10000;
+        }
+        .modalOverlay.show { display: flex; }
+        #modalContent {
+          background: #fff;
+          border-radius: 8px;
+          width: 80vw;
+          height: 80vh;
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        #modalClose {
+          position: absolute; top: 8px; right: 12px;
+          font-size: 1.5rem; cursor: pointer; z-index: 1;
+        }
+        #animFrame {
+          width:100%; height:100%; border:none;
+        }
     /* === RESET & BASE === */
 * {
   box-sizing: border-box;
@@ -336,7 +363,7 @@ aside#sidebar h3 {
               <tr>
                 <th>Team</th><th>Batter</th><th>Pitcher</th>
                 <th>Exit Vel</th><th>Launch Ang</th><th>Distance</th>
-                <th>PitchType</th><th>Date</th><th>Details</th>
+                <th>PitchType</th><th>Date</th><th>Details</th><th>Watch</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -361,8 +388,8 @@ aside#sidebar h3 {
             <thead>
               <tr>
                 <th>Team</th><th>Batter</th><th>Pitcher</th>
-                <th>Exit Vel</th><th>Launch Ang</th><th>Distance</th>
-                <th>Result</th><th>Type</th><th>Date</th><th>Details</th>
+                <th>Exit Vel</th><th>Launch Ang</th><th>Distance</th><th>Result</th>
+                <th>PitchType</th><th>Date</th><th>Details</th><th>Watch</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -617,6 +644,13 @@ aside#sidebar h3 {
     </aside>
   </div>
 
+
+     <div id="modalOverlay" class="modalOverlay">
+      <div id="modalContent">
+        <span id="modalClose">&times;</span>
+        <iframe id="animFrame" src="" allowfullscreen></iframe>
+      </div>
+    </div>
   <datalist id="team-suggestions"></datalist>
   <datalist id="player-suggestions"></datalist>
  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -743,7 +777,11 @@ let fullUmpireRows = [];
         // render the HTML you prepared in r.Details
         td.innerHTML = r.Details;
 
-      } else {
+      } else if (c === 'Details' || c === 'Watch' || c === 'Animate') {
+    // render HTML for both Details and Watch
+    td.innerHTML = val;
+
+  } else {
         td.textContent = val;
       }
 
@@ -908,6 +946,24 @@ function drawBatterHardHit(rows) {
 }
 
 
+function bindWatchButtons() {
+  document.querySelectorAll('.watch-btn').forEach(btn => {
+    btn.removeEventListener('click', btn._watchHandler);
+    const handler = () => {
+      const gameUID  = btn.dataset.game;
+      const pitchUID = btn.dataset.pitch;
+      watchVideo(gameUID, pitchUID);
+    };
+    btn.addEventListener('click', handler);
+    // keep a reference so we can remove() before re-binding if you re-render
+    btn._watchHandler = handler;
+  });
+}
+
+// inside computeAndRender(), at the very end:
+bindWatchButtons();
+
+
     function computeAndRender() {
       // time filter
       // pick up how many days the user wants (1 = yesterday-today)
@@ -927,29 +983,50 @@ const filtered = data.filter(r =>
 );
 
 
-      // 1. HR Distance
-      let hrRows = filtered.filter(r => r[columns.playResult] === 'HomeRun');
-      const hrTeam = document.getElementById('hr-team-filter').value;
-      const hrPlayer = document.getElementById('hr-player-filter').value;
-      if (hrTeam)   hrRows = hrRows.filter(r => getFullTeamName(r[columns.playerTeam],r) === hrTeam);
-      if (hrPlayer) hrRows = hrRows.filter(r => r[columns.player] === hrPlayer);
-      hrRows.sort((a,b) => parseFloat(b[columns.distance]) - parseFloat(a[columns.distance]));
-      const hrDisplay = hrRows.slice(0,10).map(r => ({
-  Team: getFullTeamName(r[columns.playerTeam],r),
-  Batter: r[columns.player],
-  Pitcher: r[columns.pitcher],
-  'Exit Vel': r[columns.exitSpeed],
-  'Launch Ang': r[columns.angle],
-  Distance: r[columns.distance],
+  // 1) Filter to HomeRuns
+let hrRows = filtered.filter(r => r[columns.playResult] === 'HomeRun');
+const hrTeam   = document.getElementById('hr-team-filter').value;
+const hrPlayer = document.getElementById('hr-player-filter').value;
+if (hrTeam)   hrRows = hrRows.filter(r => getFullTeamName(r[columns.playerTeam], r) === hrTeam);
+if (hrPlayer) hrRows = hrRows.filter(r => r[columns.player] === hrPlayer);
+hrRows.sort((a,b) => parseFloat(b[columns.distance]) - parseFloat(a[columns.distance]));
+
+// 2) Map into display objects (including Details + Watch)
+const hrDisplay = hrRows.slice(0,10).map(r => ({
+  Team:          getFullTeamName(r[columns.playerTeam], r),
+  Batter:        r[columns.player],
+  Pitcher:       r[columns.pitcher],
+  'Exit Vel':    r[columns.exitSpeed],
+  'Launch Ang':  r[columns.angle],
+  Distance:      r[columns.distance],
   AutoPitchType: r[columns.autoType],
-  Date: r[columns.date],
-  Details: `<a href="Game-view.html?pitchUID=${r.PitchUID}">View</a>`
+  Date:          r[columns.date],
+  Details:       `<a href="Game-view.html?pitchUID=${r.PitchUID}">View</a>`,
+  Watch:         `<button
+          style="padding:.2rem .5rem;cursor:pointer;"
+          onclick="watchVideo('${r.GameUID}', '${r.PlayID}')">
+          ▶️ Watch
+        </button>`
 }));
+
+// 3) Render with a dedicated Watch column
 renderLeaderboard(
   'hr-distance',
   hrDisplay,
-  ['Team','Batter','Pitcher','Exit Vel','Launch Ang','Distance','AutoPitchType','Date','Details']
+  [
+    'Team',
+    'Batter',
+    'Pitcher',
+    'Exit Vel',
+    'Launch Ang',
+    'Distance',
+    'AutoPitchType',
+    'Date',
+    'Details',
+    'Watch'            // <-- New column here
+  ]
 );
+
 
       // 2. Fastest Exit Velocity
       let evRows = filtered.filter(r =>
@@ -966,28 +1043,29 @@ const evType = document.getElementById('ev-autotype-filter').value;
 if (evType) evRows = evRows.filter(r => r.AutoPitchType === evType);
 
       evRows.sort((a,b) => parseFloat(b[columns.exitSpeed]) - parseFloat(a[columns.exitSpeed]));
-      const evDisplay = evRows.slice(0,10).map(r => ({
-  Team:          getFullTeamName(r[columns.playerTeam], r),
-  Batter:        r[columns.player],
-  Pitcher:       r[columns.pitcher],
-  'Exit Vel':    r[columns.exitSpeed],
-  'Launch Ang':  r[columns.angle],
-  Distance:      r[columns.distance],
-  PlayResult:    r[columns.playResult],
+const evDisplay = evRows.slice(0,10).map(r => ({
+  Team:       getFullTeamName(r[columns.playerTeam],r),
+  Batter:     r[columns.player],
+  Pitcher:    r[columns.pitcher],
+  'Exit Vel': r[columns.exitSpeed],
+  'Launch Ang': r[columns.angle],
+  Distance:   r[columns.distance],
+  PlayResult: r[columns.playResult],
   AutoPitchType: r[columns.autoType],
-  Date:          r[columns.date],
-  Details:       `<a href="Game-view.html?pitchUID=${r.PitchUID}">View</a>`
+  Date:       r[columns.date],
+  Details:    `<a href="Game-view.html?pitchUID=${r.PitchUID}">View</a>`,
+  Watch:      `<button
+          style="padding:.2rem .5rem;cursor:pointer;"
+          onclick="watchVideo('${r.GameUID}', '${r.PlayID}')">
+          ▶️ Watch
+        </button>`
 }));
 
 renderLeaderboard(
   'ev-speed',
   evDisplay,
-  [
-    'Team','Batter','Pitcher','Exit Vel','Launch Ang',
-    'Distance','PlayResult','AutoPitchType','Date','Details'
-  ]
+  ['Team','Batter','Pitcher','Exit Vel','Launch Ang','Distance','PlayResult','AutoPitchType','Date','Details','Watch']
 );
-
 
 
       [
@@ -1352,6 +1430,39 @@ drawBarrelPct(filtered);
   renderLeaderboard('barrel-pct', rowsOut, ['Player','Barrel %','Plate Apps']);
 }
 
+
+function watchVideo(gameUID, pitchUID) {
+  const overlay = document.createElement('div');
+  Object.assign(overlay.style, {
+    position: 'fixed', top:0, left:0, right:0, bottom:0,
+    background: 'rgba(0,0,0,0.8)', display:'flex',
+    alignItems:'center', justifyContent:'center', zIndex:10000
+  });
+  const video = document.createElement('video');
+  video.controls = true;
+  video.autoplay = true;
+  Object.assign(video.style, {
+    maxWidth:'90%', maxHeight:'90%', background:'#000'
+  });
+  video.src = `https://helloworld.idkconflict1.workers.dev/stream_video`
+    + `?session_id=${encodeURIComponent(gameUID)}`
+    + `&track_id=${encodeURIComponent(pitchUID)}`;
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  Object.assign(closeBtn.style, {
+    position:'absolute', top:'10px', right:'10px',
+    fontSize:'1.5rem', background:'transparent',
+    border:'none', color:'#fff', cursor:'pointer'
+  });
+  closeBtn.addEventListener('click', () => {
+    video.pause();
+    overlay.remove();
+  });
+  overlay.appendChild(video);
+  overlay.appendChild(closeBtn);
+  document.body.appendChild(overlay);
+}
+
 function drawSweetSpotPct(rows) {
   const teamF = document.getElementById('ss-team-filter').value;
   const playerF = document.getElementById('ss-player-filter').value;
@@ -1694,7 +1805,26 @@ function drawTruePitchRunExp(rows) {
     };
   });
 
+     document.getElementById('modalClose').addEventListener('click', () => {
+          document.getElementById('modalOverlay').classList.remove('show');
+          document.getElementById('animFrame').src = '';
+        });
+        document.getElementById('modalOverlay').addEventListener('click', e => {
+          if (e.target.id === 'modalOverlay') {
+            document.getElementById('modalOverlay').classList.remove('show');
+            document.getElementById('animFrame').src = '';
+          }
+        });
 
+        function attachViewButtons() {
+          document.querySelectorAll('.viewBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const uid = btn.dataset.pitchuid;
+              document.getElementById('animFrame').src = `animate.html?pitchUID=${encodeURIComponent(uid)}`;
+              document.getElementById('modalOverlay').classList.add('show');
+            });
+          });
+        }
 
     // Attach form submit after data is ready
     function initSearchHandler() {

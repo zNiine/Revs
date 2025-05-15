@@ -2099,6 +2099,7 @@ function computeContactPercentages(data) {
   };
 }
 
+
 // Example usage: call this after filtering your data
 
 
@@ -3132,6 +3133,39 @@ function safeDateString(d) {
   // fallback: empty string (or you could return d as-is)
   return '';
 }
+
+function watchVideo(gameUID, pitchUID) {
+  const overlay = document.createElement('div');
+  Object.assign(overlay.style, {
+    position: 'fixed', top:0, left:0, right:0, bottom:0,
+    background: 'rgba(0,0,0,0.8)', display:'flex',
+    alignItems:'center', justifyContent:'center', zIndex:10000
+  });
+  const video = document.createElement('video');
+  video.controls = true;
+  video.autoplay = true;
+  Object.assign(video.style, {
+    maxWidth:'90%', maxHeight:'90%', background:'#000'
+  });
+  video.src = `https://helloworld.idkconflict1.workers.dev/stream_video`
+    + `?session_id=${encodeURIComponent(gameUID)}`
+    + `&track_id=${encodeURIComponent(pitchUID)}`;
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  Object.assign(closeBtn.style, {
+    position:'absolute', top:'10px', right:'10px',
+    fontSize:'1.5rem', background:'transparent',
+    border:'none', color:'#fff', cursor:'pointer'
+  });
+  closeBtn.addEventListener('click', () => {
+    video.pause();
+    overlay.remove();
+  });
+  overlay.appendChild(video);
+  overlay.appendChild(closeBtn);
+  document.body.appendChild(overlay);
+}
+
 function renderTable(data) {
   // 1) filter & number every row
   const rows = data.filter(r => r.PlayResult !== 'Undefined');
@@ -3156,6 +3190,7 @@ function renderTable(data) {
              <th>Angle</th>
              <th>Distance</th>
              <th>Animate</th>
+             <th>Watch</th>
              <th>Details</th>
            </tr>
          </thead>
@@ -3183,6 +3218,14 @@ function renderTable(data) {
          <td>
   <button class="viewBtn" data-pitchuid="${r.PitchUID}">View</button>
 </td>
+
+<td>
+        <button
+          style="padding:.2rem .5rem;cursor:pointer;"
+          onclick="watchVideo('${r.GameUID}', '${r.PlayID}')">
+          ▶️ Watch
+        </button>
+      </td>
          <td>
            <a href="Game-view.html?pitchUID=${r.PitchUID}">
              View
