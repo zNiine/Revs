@@ -70,7 +70,11 @@ umpire_mapping = {
     "6b79a3a4-498b-496a-b046-361789efc2e5" : "Steve Bartelstein",
     "b443c376-7290-48c0-b053-48757c91e219" : "Nick Rosa",
     "188f2178-f08f-494d-a81b-6cbfa4e4630b" : "Layne Landesman",
-    "ccf3d0b3-053e-430f-99d7-5a67acd8da32": "Justin Clarke"
+    "ccf3d0b3-053e-430f-99d7-5a67acd8da32": "Justin Clarke",
+    "cac88f87-7562-47f7-bf27-fd9d97d200ba" :"Mike Williams",
+    "3cfad78d-20af-4ac4-b668-798dcbc53f87" : "Greg Losh",
+    "04eb1c98-57da-4b8c-94e6-42be2924eb06" : "Antonio Pinzon",
+
 
 
 
