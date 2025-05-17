@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Transactions Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 1rem;
+      background: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    #loading {
+      text-align: center;
+      margin: 2rem 0;
+      font-style: italic;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      background: white;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 0.5rem;
+      text-align: left;
+    }
+    th {
+      background: #333;
+      color: #fff;
+      position: sticky;
+      top: 0;
+    }
+    tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <h1>Recent Transactions</h1>
+  <div id="loading">Loading transactions…</div>
+  <table id="tx-table" hidden>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Source</th>
+        <th>Team</th>
+        <th>Transaction</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    (async function() {
+      const endpoint = 'https://helloworld.idkconflict1.workers.dev/data';
+      const sources = ['milb','lmb'];
+      const daysToFetch = 6; // last 6 days
+      const msPerDay = 86400000;
+
+      // build array of YYYY-MM-DD strings
+      const today = new Date();
+      const dates = [];
+      for (let i = daysToFetch - 1; i >= 0; i--) {
+        const d = new Date(Date.now() - i * msPerDay);
+        const yyyy = d.getUTCFullYear();
+        const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+        const dd = String(d.getUTCDate()).padStart(2,'0');
+        dates.push(`${yyyy}-${mm}-${dd}`);
+      }
+
+      // fetch all data
+      const all = [];
+      await Promise.all(
+        sources.flatMap(src =>
+          dates.map(async date => {
+            try {
+              const res = await fetch(`${endpoint}?source=${src}&date=${date}`);
+              if (!res.ok) return;
+              const arr = await res.json();
+              arr.forEach(item => item.source = src);
+              all.push(...arr);
+            } catch (e) {
+              console.warn(`Failed ${src} ${date}`, e);
+            }
+          })
+        )
+      );
+
+      // dedupe
+      const seen = new Set();
+      const unique = all.filter(item => {
+        const key = [item.source, item.date, item.team||'', item.transaction].join('|');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      // sort by date desc
+      unique.sort((a,b) => b.date.localeCompare(a.date));
+
+      // render
+      const tbody = document.querySelector('#tx-table tbody');
+      unique.forEach(({date, source, team, transaction}) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${date}</td>
+          <td>${source.toUpperCase()}</td>
+          <td>${team || ''}</td>
+          <td>${transaction}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('loading').hidden = true;
+      document.getElementById('tx-table').hidden = false;
+    })();
+  </script>
+</body>
+</html>

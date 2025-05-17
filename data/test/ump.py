@@ -21,7 +21,7 @@ umpire_mapping = {
     "a5af0568-dab4-410b-bb45-a776774ca1fc" : "Owen Ballard IV",
     "22bc2bb6-e6f8-4d30-8ba3-8b4f0e17b34c": "Clark Morgan",
     "20f844a7-56c2-4d88-8200-812a02e1843c" : "Derek Moccia",
-    "c93d5252-621e-4d6a-aa54-6d48e719fdf0" : "Gavin Handgreve",
+    "c93d5252-621e-4d6a-aa54-6d48e719fdf0" : "Gavin Holdgreve",
     "59cf5bee-24c1-4777-b79f-3b3745da95e0" : "Drew Ashcraft",
     "83cab867-0f58-4788-854e-7ebfb6ea39c6" : "Fred DeJesus (CC)",
     "e45d1561-6318-4851-8fe3-6c83c90e9931" : "Miguel De La Cruz Segura",
@@ -42,7 +42,7 @@ umpire_mapping = {
     "b37b87d7-194b-460d-b046-355e622c3c97" : "Owen Ballard IV",
     "9652c3f3-2e70-4a69-8258-82277be37020" : "Brett Stowe",
     "95553735-d073-44db-a869-8f4a8c22035d" : "Andrew Eng",
-    "57d9e984-5252-49f4-bef2-aa05a2418e8c" : "Gavin Holdgrove",
+    "57d9e984-5252-49f4-bef2-aa05a2418e8c" : "Gavin Holdgreve",
     "fba636bd-4f9f-422d-b3c9-49b81ea49f1e" : "Steve Zawisky",
     "e8478b86-44bf-4b06-8e97-f42fc55b0dfd" : "Pat Adkins",
     "e15b36c7-a39a-46d6-b809-151eadee9c21" : "Nick Sempert",
@@ -74,7 +74,14 @@ umpire_mapping = {
     "cac88f87-7562-47f7-bf27-fd9d97d200ba" :"Mike Williams",
     "3cfad78d-20af-4ac4-b668-798dcbc53f87" : "Greg Losh",
     "04eb1c98-57da-4b8c-94e6-42be2924eb06" : "Antonio Pinzon",
-
+    "1ca89383-f797-4ba0-afc7-a9cdf608bb7a" : "Tim Gansrow",
+    "9e99efec-aa64-4179-8320-17e26d56c041" : "",
+    "5bbf726d-487b-4711-b304-9e53f7a834b9" : "Darnell Ray",
+    "b0815800-e1f5-49f2-92a4-78bebbbb1d80" : "Bill Reuter",
+    "59b7ff80-018f-47cb-9fc1-1ad8e4eb1feb" : "Andy McPherson",
+    "b9a6d9bd-e582-40a3-b8d8-e8525c7bd68d" : "Brett Stowe",
+    "fa105889-b374-4258-a08a-3ee3d529db38" : "Jerry Martinez",
+    "79bcc505-1314-4766-ae17-2ac0f3963095" : "Antonio Pinzon"
 
 
 
