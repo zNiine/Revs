@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8"/>
   <title>Transactions Dashboard</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
@@ -14,10 +14,24 @@
       text-align: center;
       margin-bottom: 1rem;
     }
+    #controls {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
     #loading {
       text-align: center;
       margin: 2rem 0;
       font-style: italic;
+    }
+    #error {
+      color: red;
+      text-align: center;
+      margin: 1rem 0;
     }
     table {
       width: 100%;
@@ -43,7 +57,11 @@
 </head>
 <body>
   <h1>Recent Transactions</h1>
+  <div id="controls">
+    <button id="scrape-btn">Refresh Data (trigger scrape)</button>
+  </div>
   <div id="loading">Loading transactions…</div>
+  <div id="error" hidden></div>
   <table id="tx-table" hidden>
     <thead>
       <tr>
@@ -57,56 +75,77 @@
   </table>
 
   <script>
-    (async function() {
-      const endpoint = 'https://helloworld.idkconflict1.workers.dev/data';
-      const sources = ['milb','lmb'];
-      const daysToFetch = 6; // last 6 days
-      const msPerDay = 86400000;
+    const API_BASE = 'https://helloworld.idkconflict1.workers.dev';
+    const DATA_ENDPOINT = API_BASE + '/data';
+    const SCRAPE_ENDPOINT = API_BASE + '/scrape';
+    // include 'aa' so we actually pull those records
+    const SOURCES = ['milb', 'lmb', 'aa'];
+    const DAYS_TO_FETCH = 6;
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-      // build array of YYYY-MM-DD strings
-      const today = new Date();
+    async function loadData() {
+      document.getElementById('error').hidden = true;
+      document.getElementById('tx-table').hidden = true;
+      const loading = document.getElementById('loading');
+      loading.textContent = 'Loading transactions…';
+      loading.hidden = false;
+
+      // build the last N UTC dates
       const dates = [];
-      for (let i = daysToFetch - 1; i >= 0; i--) {
-        const d = new Date(Date.now() - i * msPerDay);
+      for (let i = DAYS_TO_FETCH - 1; i >= 0; i--) {
+        const d = new Date(Date.now() - i * MS_PER_DAY);
         const yyyy = d.getUTCFullYear();
-        const mm = String(d.getUTCMonth()+1).padStart(2,'0');
-        const dd = String(d.getUTCDate()).padStart(2,'0');
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
         dates.push(`${yyyy}-${mm}-${dd}`);
       }
+      console.log('Fetching dates:', dates);
 
-      // fetch all data
-      const all = [];
-      await Promise.all(
-        sources.flatMap(src =>
-          dates.map(async date => {
-            try {
-              const res = await fetch(`${endpoint}?source=${src}&date=${date}`);
-              if (!res.ok) return;
-              const arr = await res.json();
-              arr.forEach(item => item.source = src);
-              all.push(...arr);
-            } catch (e) {
-              console.warn(`Failed ${src} ${date}`, e);
-            }
-          })
-        )
-      );
+      const allItems = [];
+      for (const src of SOURCES) {
+        for (const date of dates) {
+          try {
+            const url = `${DATA_ENDPOINT}?source=${src}&date=${date}`;
+            const res = await fetch(url);
+            console.log(`Fetch ${src} ${date}:`, res.status);
+            if (!res.ok) continue;
+            const arr = await res.json();
+            console.log(` → ${arr.length} items`);
+            arr.forEach(item => {
+              item.source = src;
+              allItems.push(item);
+            });
+          } catch (e) {
+            console.error(`Error fetching ${src} ${date}:`, e);
+          }
+        }
+      }
 
       // dedupe
       const seen = new Set();
-      const unique = all.filter(item => {
+      const unique = allItems.filter(item => {
         const key = [item.source, item.date, item.team||'', item.transaction].join('|');
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
 
-      // sort by date desc
-      unique.sort((a,b) => b.date.localeCompare(a.date));
+      // sort descending by date
+      unique.sort((a, b) => b.date.localeCompare(a.date));
 
-      // render
+      if (unique.length === 0) {
+        loading.textContent = 'No transactions found for Milb, Lmb, or Aa in the last 6 days.';
+      } else {
+        renderTable(unique);
+        loading.hidden = true;
+        document.getElementById('tx-table').hidden = false;
+      }
+    }
+
+    function renderTable(data) {
       const tbody = document.querySelector('#tx-table tbody');
-      unique.forEach(({date, source, team, transaction}) => {
+      tbody.innerHTML = '';
+      for (const { date, source, team, transaction } of data) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${date}</td>
@@ -115,11 +154,28 @@
           <td>${transaction}</td>
         `;
         tbody.appendChild(tr);
-      });
+      }
+    }
 
-      document.getElementById('loading').hidden = true;
-      document.getElementById('tx-table').hidden = false;
-    })();
+    // wire up the “Refresh Data” button
+    document.getElementById('scrape-btn').addEventListener('click', async () => {
+      document.getElementById('scrape-btn').disabled = true;
+      try {
+        await fetch(SCRAPE_ENDPOINT);
+        console.log('Manual scrape triggered.');
+      } catch (e) {
+        console.error('Error triggering scrape:', e);
+        const errDiv = document.getElementById('error');
+        errDiv.textContent = 'Failed to trigger scrape: ' + e.message;
+        errDiv.hidden = false;
+      } finally {
+        document.getElementById('scrape-btn').disabled = false;
+        await loadData();
+      }
+    });
+
+    // initial load
+    loadData();
   </script>
 </body>
 </html>
