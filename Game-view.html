@@ -93,6 +93,8 @@
     <button id="btnSummary" class="subBtn active">Summary</button>
     <button id="btnMatchups" class="subBtn">Matchups</button>
     <button id="btnBreakdowns" class="subBtn">Pitcher Breakdowns</button>
+    <button id="btnCatcher" class="subBtn">Catcher</button>
+
     <button id="btnSpray" class="subBtn">Spray</button>
   </div>
 <!-- wrap your entire original <main> inside viewSummary -->
@@ -107,6 +109,7 @@
 <div id="viewMatchups" class="view"></div>
 <div id="viewBreakdowns" class="view"></div>
 <div id="viewSpray" class="view"></div>
+<div id="viewCatcher" class="view"></div>
 
   <!-- animation overlay (hidden by default) -->
   <div id="animOverlay">
@@ -117,7 +120,13 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
+        var $ = id => document.getElementById(id);
+
   const FIELDER_CSV = 'fielder_positions.csv';
+const btnCatcher   = $('btnCatcher'),
+      viewCatcher  = $('viewCatcher');
+
+btnCatcher.onclick = () => switchView('catcher');
 
   const teamParkMap = {
     'LAN'     : 'Penn Medicine Park',
@@ -164,7 +173,6 @@ const HIT_PALETTE = {
     var gameUID = params.get('gameUID');
     let idxCurrent = 0;
     var currentPark = parks.default
-    var $ = id => document.getElementById(id);
 
  
     Papa.parse(FIELDER_CSV, { header: true, download: true, complete: res => {
@@ -1053,8 +1061,61 @@ const away = gamePitches[0].AwayNameFull;
 
       renderSpray();
       break;
+
+      case 'catcher':
+      btnCatcher.classList.add('active');
+      viewCatcher.classList.add('active');
+      // update title if you like
+      renderCatcher();
+      break;
   }
 }
+
+
+function renderCatcher() {
+  viewCatcher.innerHTML = '';
+
+  // only rows where Poptime is defined (non-empty string)
+  const rows = gamePitches.filter(p => p.PopTime && p.PopTime !== '');
+
+  if (!rows.length) {
+    viewCatcher.textContent = 'No catcher pop times recorded for this game.';
+    return;
+  }
+
+  const tbl = document.createElement('table');
+  tbl.innerHTML = `
+    <thead>
+      <tr>
+        <th>Inning</th>
+        <th>Catcher</th>
+        <th>PopTime</th>
+        <th>ExchangeTime</th>
+        <th>ThrowSpeed</th>
+        <th>Watch</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(p => `
+        <tr>
+          <td>${p.Inning} ${p['Top/Bottom']}</td>
+          <td>${p.Catcher || '–'}</td>
+          <td>${p.PopTime}</td>
+          <td>${p.ExchangeTime || '–'}</td>
+          <td>${p.ThrowSpeed || '–'}</td>
+          <td>
+            <button class="details-button"
+                    onclick="watchVideo('${p.GameUID}', '${p.PlayID}')">
+              Watch
+            </button>
+          </td>
+        </tr>
+      `).join('')}
+    </tbody>`;
+
+  viewCatcher.appendChild(tbl);
+}
+
 function drawMatchup(puid, canvas, tableDiv) {
   // grab only that PA’s pitches
   const rows = gamePitches.filter(r => r.PitchUID === puid);
