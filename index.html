@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>zNiine</title>
@@ -477,6 +480,30 @@ document.getElementById('search-form')
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
+  firebase.initializeApp(firebaseConfig);
+
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+      const auth = firebase.auth();
+
+      // Redirect to login if not authenticated
+      auth.onAuthStateChanged(user => {
+        if (!user) {
+          window.location.href = 'login.html';
+        } else {
+          document.getElementById('userEmail').textContent = user.email;
+        }
+      });
+
+      // Logout handler
+      document.getElementById('logoutBtn').addEventListener('click', () => {
+        auth.signOut().then(() => {
+          window.location.href = 'login.html';
+        });
+      });
+    });
 </script>
 </body>
 </html>

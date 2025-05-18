@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Stealing Stats Dashboard</title>
@@ -243,7 +246,7 @@ html += `<td style="background:rgb(255,${gb},${gb})">${v}</td>`;
       fetch(stealsUrl).then(r=>r.text()).then(t=>Papa.parse(t,{header:true}).data)
     ]).then(([d,g,s])=>{dataRows=d;gameRows=g;stealRows=s;dataRows.forEach(r=>{r.HomeNameFull=normalizeTeam(r.HomeNameFull);r.AwayNameFull=normalizeTeam(r.AwayNameFull);});stealRows.forEach(s=>{s.batting_team=normalizeTeam(s.batting_team);s.defense_team=normalizeTeam(s.defense_team);});const merged=mergeData();populateStatsFilters(merged);populateCountFilters();['battingTeamFilter','defenseTeamFilter','pitcherFilter','catcherFilter','minAttempts','viewMode'].forEach(id=>document.getElementById(id).addEventListener('change',renderStats));document.getElementById('battingTeamCountFilter').addEventListener('change',renderCount);renderStats();renderCount();});
   </script>
-  <script type="module">
+<script type="module">
   // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-analytics.js";
@@ -265,6 +268,30 @@ html += `<td style="background:rgb(255,${gb},${gb})">${v}</td>`;
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
+  firebase.initializeApp(firebaseConfig);
+
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+      const auth = firebase.auth();
+
+      // Redirect to login if not authenticated
+      auth.onAuthStateChanged(user => {
+        if (!user) {
+          window.location.href = 'login.html';
+        } else {
+          document.getElementById('userEmail').textContent = user.email;
+        }
+      });
+
+      // Logout handler
+      document.getElementById('logoutBtn').addEventListener('click', () => {
+        auth.signOut().then(() => {
+          window.location.href = 'login.html';
+        });
+      });
+    });
 </script>
 </body>
 </html>
