@@ -70,6 +70,8 @@ const firebaseConfig = {
           messageDiv.className = 'success';
           loginBtn.style.display = 'none';
           logoutBtn.style.display = 'inline-block';
+          window.location.href = 'login.html';
+
         })
         .catch(err => {
           messageDiv.textContent = err.message;
