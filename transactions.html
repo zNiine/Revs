@@ -2,63 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>Transactions Dashboard</title>
+  <title>All League Transactions</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0; padding: 1rem;
-      background: #f4f4f4;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 1rem;
-    }
-    #controls {
-      text-align: center;
-      margin-bottom: 1rem;
-    }
-    button {
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    #loading {
-      text-align: center;
-      margin: 2rem 0;
-      font-style: italic;
-    }
-    #error {
-      color: red;
-      text-align: center;
-      margin: 1rem 0;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-      background: white;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 0.5rem;
-      text-align: left;
-    }
-    th {
-      background: #333;
-      color: #fff;
-      position: sticky;
-      top: 0;
-    }
-    tr:nth-child(even) {
-      background: #f9f9f9;
-    }
+    body { font-family: Arial, sans-serif; margin:0; padding:1rem; background:#f4f4f4 }
+    h1 { text-align: center; margin-bottom:1rem }
+    #controls { text-align:center; margin-bottom:1rem }
+    button { padding:.5rem 1rem; font-size:1rem; cursor:pointer }
+    #loading { text-align:center; margin:2rem 0; font-style:italic }
+    #error { color:red; text-align:center; margin:1rem 0 }
+    table { width:100%; border-collapse:collapse; margin-top:1rem; background:white }
+    th, td { border:1px solid #ddd; padding:.5rem; text-align:left }
+    th { background:#333; color:#fff; position:sticky; top:0 }
+    tr:nth-child(even) { background:#f9f9f9 }
   </style>
 </head>
 <body>
-  <h1>Recent Transactions</h1>
+  <h1>Recent Transactions (MiLB, LMB, AA)</h1>
   <div id="controls">
-    <button id="scrape-btn">Refresh Data (trigger scrape)</button>
+    <button id="scrape-btn">Refresh Data</button>
+    <div id="google_translate_element"></div>
+
   </div>
   <div id="loading">Loading transactions…</div>
   <div id="error" hidden></div>
@@ -75,70 +39,92 @@
   </table>
 
   <script>
-    const API_BASE = 'https://helloworld.idkconflict1.workers.dev';
-    const DATA_ENDPOINT = API_BASE + '/data';
-    const SCRAPE_ENDPOINT = API_BASE + '/scrape';
-    // include 'aa' so we actually pull those records
-    const SOURCES = ['milb', 'lmb', 'aa'];
-    const DAYS_TO_FETCH = 6;
-    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const API_BASE        = 'https://helloworld.idkconflict1.workers.dev';
+    const SCRAPE_ENDPOINT = `${API_BASE}/scrape`;
 
-    async function loadData() {
-      document.getElementById('error').hidden = true;
-      document.getElementById('tx-table').hidden = true;
-      const loading = document.getElementById('loading');
-      loading.textContent = 'Loading transactions…';
-      loading.hidden = false;
+    document.getElementById('scrape-btn')
+      .addEventListener('click', fetchAndRender);
 
-      // build the last N UTC dates
-      const dates = [];
-      for (let i = DAYS_TO_FETCH - 1; i >= 0; i--) {
-        const d = new Date(Date.now() - i * MS_PER_DAY);
-        const yyyy = d.getUTCFullYear();
-        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-        const dd = String(d.getUTCDate()).padStart(2, '0');
-        dates.push(`${yyyy}-${mm}-${dd}`);
-      }
-      console.log('Fetching dates:', dates);
+    // initial load
+    fetchAndRender();
 
-      const allItems = [];
-      for (const src of SOURCES) {
-        for (const date of dates) {
-          try {
-            const url = `${DATA_ENDPOINT}?source=${src}&date=${date}`;
-            const res = await fetch(url);
-            console.log(`Fetch ${src} ${date}:`, res.status);
-            if (!res.ok) continue;
-            const arr = await res.json();
-            console.log(` → ${arr.length} items`);
-            arr.forEach(item => {
-              item.source = src;
-              allItems.push(item);
-            });
-          } catch (e) {
-            console.error(`Error fetching ${src} ${date}:`, e);
+    async function fetchAndRender() {
+      const loadingEl = document.getElementById('loading');
+      const errorEl   = document.getElementById('error');
+      const tableEl   = document.getElementById('tx-table');
+      const btn       = document.getElementById('scrape-btn');
+
+      // reset UI
+      errorEl.hidden = true;
+      tableEl.hidden = true;
+      loadingEl.textContent = 'Refreshing transactions…';
+      loadingEl.hidden = false;
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(SCRAPE_ENDPOINT);
+        if (!res.ok) throw new Error(`Worker returned HTTP ${res.status}`);
+        const data = await res.json();
+
+        // flatten:
+        // - for MiLB: only keep “released…” entries, strip prefix
+        // - for LMB & AA: include everything as-is
+        const rows = [];
+        for (const date of Object.keys(data)) {
+          for (const src of ['milb','lmb','aa']) {
+            const arr = data[date][src] || [];
+            if (src === 'milb') {
+              for (const tx of arr) {
+                const desc = (tx.transaction||tx.description||'').trim();
+                const idx  = desc.toLowerCase().indexOf('released');
+                if (idx === -1) continue;
+                const trans = desc.substring(idx);
+                rows.push({
+                  date,
+                  source: 'MiLB',
+                  team:   tx.team,
+                  transaction: trans
+                });
+              }
+            } else {
+              for (const tx of arr) {
+                rows.push({
+                  date,
+                  source: src.toUpperCase(),
+                  team:   tx.team,
+                  transaction: tx.transaction
+                });
+              }
+            }
           }
         }
-      }
 
-      // dedupe
-      const seen = new Set();
-      const unique = allItems.filter(item => {
-        const key = [item.source, item.date, item.team||'', item.transaction].join('|');
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+        // dedupe on date|source|team|transaction
+        const seen = new Set();
+        const unique = rows.filter(r => {
+          const key = [r.date, r.source, r.team, r.transaction].join('|');
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
 
-      // sort descending by date
-      unique.sort((a, b) => b.date.localeCompare(a.date));
+        // sort newest-first
+        unique.sort((a,b) => b.date.localeCompare(a.date));
 
-      if (unique.length === 0) {
-        loading.textContent = 'No transactions found for Milb, Lmb, or Aa in the last 6 days.';
-      } else {
-        renderTable(unique);
-        loading.hidden = true;
-        document.getElementById('tx-table').hidden = false;
+        if (unique.length === 0) {
+          loadingEl.textContent = 'No transactions found.';
+        } else {
+          renderTable(unique);
+          loadingEl.hidden = true;
+          tableEl.hidden   = false;
+        }
+      } catch (err) {
+        console.error(err);
+        errorEl.textContent = 'Error: ' + err.message;
+        errorEl.hidden = false;
+        loadingEl.hidden = true;
+      } finally {
+        btn.disabled = false;
       }
     }
 
@@ -149,33 +135,28 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${date}</td>
-          <td>${source.toUpperCase()}</td>
-          <td>${team || ''}</td>
+          <td>${source}</td>
+          <td>${team}</td>
           <td>${transaction}</td>
         `;
         tbody.appendChild(tr);
       }
     }
-
-    // wire up the “Refresh Data” button
-    document.getElementById('scrape-btn').addEventListener('click', async () => {
-      document.getElementById('scrape-btn').disabled = true;
-      try {
-        await fetch(SCRAPE_ENDPOINT);
-        console.log('Manual scrape triggered.');
-      } catch (e) {
-        console.error('Error triggering scrape:', e);
-        const errDiv = document.getElementById('error');
-        errDiv.textContent = 'Failed to trigger scrape: ' + e.message;
-        errDiv.hidden = false;
-      } finally {
-        document.getElementById('scrape-btn').disabled = false;
-        await loadData();
-      }
-    });
-
-    // initial load
-    loadData();
   </script>
+
+  <script type="text/javascript">
+  function googleTranslateElementInit() {
+    new google.translate.TranslateElement({
+      pageLanguage: 'es',            // source page is Spanish
+      includedLanguages: 'en',       // offer only English
+      layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+    }, 'google_translate_element');
+  }
+</script>
+<script 
+  type="text/javascript" 
+  src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
+</script>
+
 </body>
 </html>
