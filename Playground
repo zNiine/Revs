@@ -1,1532 +1,511 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Leaderboards - Baseball Analytics</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Game Dashboard</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #fff; font-family: Arial, sans-serif; line-height: 1.4; }
-    header, nav { padding: 1rem 2rem; border-bottom: 1px solid #ddd; }
-    header { display: flex; justify-content: space-between; align-items: center; }
-    #logo { font-size: 1.5rem; font-weight: bold; }
-    #search-container { position: relative; }
-    #search { padding: 0.5rem; width: 250px; }
-    nav#menu ul { list-style: none; display: flex; gap: 2rem; }
-    nav#menu a { text-decoration: none; color: #333; font-weight: 500; }
-    nav#menu a.active { text-decoration: underline; }
-    main { padding: 2rem; }
-    .global-filters { margin-bottom: 1rem; }
-    .global-filters select { padding: 0.5rem; margin-right: 1rem; }
-    .leaderboard { margin-bottom: 3rem; }
-    .leaderboard h2 { margin-bottom: 0.5rem; }
-        header nav ul li a.active { color: #007bff; }
+    
+    body { margin:0; padding:0; font-family:sans-serif; display:flex; flex-direction:column; height:100vh; }
+    header { background:#222; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:.5em 1em; }
+    header button { background:#fff; color:#000; border:none; padding:.3em .6em; cursor:pointer; border-radius:3px; font-size:1.2em; }
+    header button:disabled { opacity:.4; cursor:default; }
+    main { flex:1; overflow:auto; padding:1em; }
+    .view { max-width:1000px; margin:0 auto 2em; }
 
-    .filters { margin-bottom: 1rem; display: flex; gap: 1rem; }
-    .filters input, .filters label { padding: 0.4rem; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 0.5rem; border: 1px solid #ccc; text-align: left; }
-.back-to-top {
-  margin-left: 1rem;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.8rem;
-  background: #eee;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  cursor: pointer;
+    /* Box‐score */
+    table { border-collapse:collapse; width:100%; margin-bottom:1em; }
+    th, td { border:1px solid #ddd; padding:.4em .6em; text-align:center; }
+    th { background:#f4f4f4; }
+
+    /* Detail tables */
+    .scrollTable { overflow-x:auto; margin-bottom:1em; }
+    .scrollTable table { border-collapse:collapse; width:max-content; min-width:100%; }
+    .scrollTable th, .scrollTable td { border:1px solid #ddd; padding:.3em .6em; white-space:nowrap; }
+    .scrollTable th { background:#eee; }
+
+    .canvas-container { position:relative; width:100%; height:400px; margin-bottom:1em; border:1px solid #ccc; }
+    canvas { width:100%; height:100%; display:block; }
+
+    /* Add to your existing <style> block (or external stylesheet) */
+#menu {
+    
+  background: #333;
+  font-family: sans-serif;
 }
-.back-to-top:hover {
-  background: #ddd;
+#menu ul {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  justify-content: center;     /* centers the menu items */
 }
-    html {
-    scroll-behavior: smooth;
+#menu li {
+  margin: 0;
+}
+#menu a {
+  display: block;
+  padding: 0.75em 1.5em;
+  color: #eee;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+#menu a:hover {
+  background: #444;
+  color: #fff;
+}
+#menu a.active {
+  background: #0066cc;
+  color: #fff;
+}
+@media (max-width: 600px) {
+  /* stack vertically on small screens */
+  #menu ul {
+    flex-direction: column;
+    align-items: stretch;
   }
-
-  /* Card style */
-.card {
-  margin-bottom: 1.5rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  padding: 0.5rem 1rem 1rem;
-  background: #fff;
-}
-
-/* Style for the summary bar */
-.card > summary {
-  cursor: pointer;
-  outline: none;
-  padding: 0.5rem 0;
-}
-.card > summary:hover {
-  background: #fafafa;
-}
-
-/* Table improvements */
-.leaderboard table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 0.5rem;
-}
-.leaderboard th, .leaderboard td {
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-}
-.leaderboard tbody tr:nth-child(odd) {
-  background: #f9f9f9;
-}
-
-/* Sticky header */
-.leaderboard thead th {
-  position: sticky;
-  top: 0;
-  background: #eee;
-  z-index: 1;
-}
-
-/* Tighter filter bar */
-.card .filters {
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-/* Shrink back‐to‐top button */
-.back-to-top {
-  font-size: 0.75rem;
-  padding: 0.2rem 0.4rem;
+  #menu a {
+    text-align: center;
+    border-top: 1px solid #444;
+  }
+  #menu a:first-child {
+    border-top: none;
+  }
 }
 
   </style>
 </head>
 <body>
-      <a id="top"></a>
-
+    
   <header>
-    <div id="logo">ALPB</div>
-        <form id="search-form">
-      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off" />
-      <button type="submit" id="search-btn">Go</button>
-      <datalist id="suggestions"></datalist>
-    </form>
-    </header>
- <nav id="menu">
-      <ul>
-        <li><a href="index.html">Home</a></li>
-        <li><a href="leaderboards.html" class="active">Leaderboards</a></li>
-        <li><a href="park-factors.html">Park Factors</a></li>
-        <li><a href="fielding.html">Fielding</a></li>
-      </ul>
-    </nav>
-
- <nav id="subMenu" style="background:#fafafa;border-bottom:1px solid #ddd;padding:0.5rem 2rem;">
-  <ul style="list-style:none;display:flex;gap:1rem;margin:0;padding:0;flex-wrap:wrap;">
-    <li><a href="#hr-distance">Home Run Distance</a></li>
-    <li><a href="#ev-speed">Exit Velocity</a></li>
-    <li><a href="#chase-rate">Chase Rate</a></li>
-    <li><a href="#release-speed">Release Speed</a></li>
-    <li><a href="#catcher-stats">Catcher Stats</a></li>
-    <li><a href="#avg-ev">Avg Exit Vel</a></li>
-    <li><a href="#umpire-accuracy">Umpire Accuracy</a></li>
-    <li><a href="#batter-run-exp">Batter RE by Pitch</a></li>
-    <li><a href="#pitch-run-exp">Pitcher RE by Pitch</a></li>
-    <li><a href="#spin-eff">Spin Efficiency</a></li>
-    <li><a href="#pitcher-hh">Pitcher HardHit %</a></li>
-    <li><a href="#batter-hh">Batter HardHit %</a></li>
-    <li><a href="#barrel-pct">Barrel %</a></li>
-      <li><a href="#sweetspot-pct">SweetSpot %</a></li>
+    <nav id="menu">
+  <ul>
+    <li><a href="index.html">Home</a></li>
+    <li><a href="leaderboards.html">Leaderboards</a></li>
   </ul>
+  
 </nav>
+<br />
+    <button id="prevPitch" disabled>&lt;</button>
+    <h1 id="title">Loading…</h1>
+    <button id="nextPitch" disabled>&gt;</button>
+  </header>
   <main>
-    <div class="global-filters">
-      <label for="time-filter">Time Range:</label>
-      <select id="time-filter">
-        <option value="0" selected>All Time</option>
-        <option value="3">Yesterday</option>
-        <option value="5">Last 3 Days</option>
-        <option value="9">Last 7 Days</option>
-        <option value="17">Last 15 Days</option>
-        <option value="30">Last 30 Days</option>
-      </select>
-    </div>
-
-    <!-- 1. Home Run Distance -->
-    <details open class="card">
-      <summary>
-        <h2>
-          1. Home Run Distance
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="hr-distance">
-        <div class="filters">
-          <input type="text" id="hr-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="hr-player-filter" placeholder="Filter by player" list="player-suggestions" />
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Team</th><th>Batter</th><th>Pitcher</th><th>Exit Vel</th>
-              <th>Launch Ang</th><th>Distance</th><th>AutoPitchType</th><th>Date</th><th>Details</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-    <!-- 2. Exit Velocity -->
-    <details open class="card">
-      <summary>
-        <h2>
-          2. Exit Velocity
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="ev-speed">
-        <div class="filters">
-  <input type="text" id="ev-team-filter"   placeholder="Filter by team"   list="team-suggestions" />
-  <input type="text" id="ev-player-filter" placeholder="Filter by player" list="player-suggestions" />
-
-  <!-- new: Play Result dropdown -->
-  <select id="ev-playresult-filter">
-    <option value="">All Results</option>
-  </select>
-
-  <!-- new: AutoPitchType dropdown -->
-  <select id="ev-autotype-filter">
-    <option value="">All Pitch Types</option>
-  </select>
-</div>
-        <table>
-          <thead>
-  <tr>
-    <th>Team</th>
-    <th>Batter</th>
-    <th>Pitcher</th>
-    <th>Exit Vel</th>
-    <th>Launch Ang</th>
-    <th>Distance</th>        <!-- ← new -->
-    <th>PlayResult</th>
-    <th>AutoPitchType</th>
-    <th>Date</th>
-    <th>Details</th>
-  </tr>
-</thead>
-
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-    <!-- 3. Chase Rate -->
-    <details open class="card">
-      <summary>
-        <h2>
-          3. Chase Rate
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="chase-rate">
-        <div class="filters">
-          <input type="text" id="chase-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <label for="chase-min-filter">Min Outside Pitches:</label>
-          <input type="number" id="chase-min-filter" value="20" min="1" />
-        </div>
-        <table>
-          <thead>
-            <tr><th>Player</th><th>Chase Rate</th><th>Total Outside</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-    <!-- 4. Release Speed -->
-    <details open class="card">
-      <summary>
-        <h2>
-          4. Release Speed
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="release-speed">
-        <div class="filters">
-          <input type="text" id="rel-team-filter" placeholder="Filter by team" list="team-suggestions" />
-        </div>
-        <table>
-          <thead>
-            <tr><th>Pitcher</th><th>Release Speed</th><th>PitchCall</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-    <!-- 5. Catcher Stats -->
-    <details open class="card">
-      <summary>
-        <h2>
-          5. Catcher Stats
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="catcher-stats">
-        <div class="filters">
-          <input type="text" id="catcher-player-filter" placeholder="Filter by catcher" list="player-suggestions" />
-          <input type="text" id="catcher-team-filter" placeholder="Filter by team" list="team-suggestions" />
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Catcher</th><th>Team</th><th>Avg PopTime</th>
-              <th>Avg ExchangeTime</th><th>Avg ThrowSpeed</th><th>Attempts</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-    <!-- 6. Avg Exit Vel by Batter -->
-    <details open class="card">
-      <summary>
-        <h2>
-          6. Avg Exit Vel by Batter
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="avg-ev">
-        <div class="filters">
-          <input type="text" id="avg-ev-team-filter" placeholder="Filter by team" list="team-suggestions" />
-        </div>
-        <table>
-          <thead>
-            <tr><th>Batter</th><th>Team</th><th>Avg Exit Velocity</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-
-    <!-- 8. Batter Run Expectancy -->
-    <details open class="card">
-      <summary>
-        <h2>
-          8. Batter Run Expectancy
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="batter-run-exp">
-        <div class="filters">
-          <input type="text" id="bre-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="bre-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Batter</th><th>Pitch Type</th><th>Avg Run Value</th><th>Count</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-    <!-- 9. Pitcher Run Expectancy -->
-    <details open class="card">
-      <summary>
-        <h2>
-          9. Pitcher Run Expectancy
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="pitch-run-exp">
-        <div class="filters">
-          <input type="text" id="pre-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="pre-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Pitcher</th><th>Pitch Type</th><th>Avg Run Value</th><th>Count</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-    <!-- 10. Spin Efficiency -->
-    <details open class="card">
-      <summary>
-        <h2>
-          10. Spin Efficiency
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="spin-eff">
-        <div class="filters">
-          <input type="text" id="seam-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="seam-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
-        </div>
-        <table>
-          <thead>
-            <tr><th>Pitcher</th><th>Pitch Type</th><th>Spin Eff.</th><th>Count</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
-    <!-- 11. Pitcher HardHit % -->
-    <details open class="card">
-      <summary>
-        <h2>
-          11. Pitcher HardHit %
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="pitcher-hh">
-        <div class="filters">
-          <input type="text" id="hh-p-team-filter" placeholder="Filter by team" list="team-suggestions" />
-          <input type="text" id="hh-p-pitcher-filter" placeholder="Filter by pitcher" list="player-suggestions" />
-          <label for="hh-threshold">Threshold:</label>
-          <input type="number" id="hh-threshold" value="95" min="0" style="width:4rem"/> mph
-        </div>
-        <table>
-          <thead>
-            <tr><th>Pitcher</th><th>HardHit %</th><th>Count</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-<details open class="card">
-  <summary>
-    <h2>
-      12. Batter HardHit %
-      <a href="#top" class="back-to-top">↑</a>
-    </h2>
-  </summary>
-  <div class="leaderboard" id="batter-hh">
-    <div class="filters">
-      <input type="text" id="hh-b-team-filter" placeholder="Filter by team" list="team-suggestions" />
-      <input type="text" id="hh-b-batter-filter" placeholder="Filter by batter" list="player-suggestions" />
-      <label for="hh-b-threshold">Threshold:</label>
-      <input type="number" id="hh-b-threshold" value="95" min="0" style="width:4rem"/> mph
-    </div>
-    <table>
-      <thead>
-        <tr><th>Batter</th><th>Team</th><th>HardHit %</th><th>Count</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</details>
-
-<!-- 13. Barrel % -->
-<details open class="card">
-   <summary>
-    <h2>
-      Barrel %
-      <a href="#top" class="back-to-top">↑</a>
-    </h2>
-  </summary>
-  <div class="leaderboard" id="barrel-pct">
-    <div class="filters">
-      <input type="text" id="barrel-team-filter" placeholder="Filter by team" list="team-suggestions" />
-      <input type="text" id="barrel-player-filter" placeholder="Filter by player" list="player-suggestions" />
-    </div>
-    <table>
-      <thead>
-        <tr><th>Player</th><th>Barrel %</th><th>Plate Apps</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</details>
-
-<!-- 14. SweetSpot % -->
-<details open class="card">
-   <summary>
-    <h2>
-      Sweetspot %
-      <a href="#top" class="back-to-top">↑</a>
-    </h2>
-  </summary>
-  <div class="leaderboard" id="sweetspot-pct">
-    <div class="filters">
-      <input type="text" id="ss-team-filter" placeholder="Filter by team" list="team-suggestions" />
-      <input type="text" id="ss-player-filter" placeholder="Filter by player" list="player-suggestions" />
-    </div>
-    <table>
-      <thead>
-        <tr><th>Player</th><th>SweetSpot %</th><th>Plate Apps</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</details>
-
-
-    <!-- 7. Umpire Accuracy -->
-    <details open class="card">
-      <summary>
-        <h2>
-          7. Umpire Accuracy
-          <a href="#top" class="back-to-top">↑</a>
-        </h2>
-      </summary>
-      <div class="leaderboard" id="umpire-accuracy">
-        <table>
-          <thead>
-            <tr><th>Umpire</th><th>Accuracy</th><th>Total Calls</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </details>
-
+    <div id="boxScore" class="view"></div>
+    <div id="pitchDetail" class="view"></div>
   </main>
 
-  <datalist id="team-suggestions"></datalist>
-  <datalist id="player-suggestions"></datalist>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
-    const columns = {
-      player: 'Batter',
-      playerTeam: 'BatterTeam',
-      pitcher: 'Pitcher',
-      pitcherTeam: 'PitcherTeam',
-      playResult: 'PlayResult',
-      distance: 'Distance',
-      exitSpeed: 'ExitSpeed',
-      relSpeed: 'RelSpeed',
-      angle: 'Angle',
-      ump: 'Umpire',
-      autoType: 'AutoPitchType',
-      plateHeight: 'PlateLocHeight',
-      plateSide: 'PlateLocSide',
-      pitchCall: 'PitchCall',
-      homeAbbr: 'HomeTeam',
-      awayAbbr: 'AwayTeam',
-      homeFull: 'HomeNameFull',
-      awayFull: 'AwayNameFull',
-      date: 'Date'
-    };
-let fullUmpireRows = [];
+  // —— Config —— 
+  const DATA_CSV    = 'data.csv';
+  const FIELDER_CSV = 'fielder_positions.csv';
 
-    let data = [];
-    const teams = new Set(), playersSet = new Set();
-
-    function getFullTeamName(abbr, row) {
-      if (abbr === row[columns.homeAbbr]) return row[columns.homeFull];
-      if (abbr === row[columns.awayAbbr]) return row[columns.awayFull];
-      return abbr;
-    }
-
-    function initFilters() {
-      teams.forEach(t => document.getElementById('team-suggestions').append(new Option(t)));
-      playersSet.forEach(p => document.getElementById('player-suggestions').append(new Option(p)));
-    }
-
-    function renderLeaderboard(id, rows, cols) {
-  const tbody = document.querySelector(`#${id} tbody`);
-  tbody.innerHTML = '';
-
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-
-    cols.forEach(c => {
-      const td = document.createElement('td');
-      const val = r[c];
-
-      // build profile links for known columns
-      let url = null;
-      if (c === 'Batter') {
-        url = `batter-profiles.html?player=${encodeURIComponent(val)}`;
-      } else if (c === 'Pitcher') {
-        url = `pitcher-profiles.html?player=${encodeURIComponent(val)}`;
-      } else if (c === 'Umpire') {
-        url = `ump-profiles.html?player=${encodeURIComponent(val)}`;
-      } else if (c === 'Team') {
-        url = `team-profiles.html?team=${encodeURIComponent(val)}`;
-      }
-
-      if (url) {
-        const a = document.createElement('a');
-        a.href = url;
-        a.textContent = val;
-        td.appendChild(a);
-
-      } else if (c === 'Details') {
-        // render the HTML you prepared in r.Details
-        td.innerHTML = r.Details;
-
-      } else {
-        td.textContent = val;
-      }
-
-      tr.appendChild(td);
-    });
-
-    tbody.appendChild(tr);
-  });
-}
-
-
-const RV = {
-  StrikeCalled:  0.1,
-  BallCalled:   -0.1,
-  StrikeSwinging: 0.3
-  // HomeRuns are handled separately as -0.5 in your code
-};
-
-// MLB run expectancy by Ball-Strike count (runs to come)
-// Source: aggregate across seasons (0-0 through 3-2)
-const RE_COUNT = {
-  '0-0': 0.496, '0-1': 0.383, '0-2': 0.254,
-  '1-0': 0.621, '1-1': 0.508, '1-2': 0.379,
-  '2-0': 0.703, '2-1': 0.590, '2-2': 0.455,
-  '3-0': 0.855, '3-1': 0.736, '3-2': 0.602
-};
-
-// League‐average RE after a hit/out ends the PA
-const RE_AFTER_HIT = {
-  Single: 0.757,   // avg RE with runner on 1st, 0 outs
-  Double: 1.053,   // runner on 2nd, 0 outs
-  Triple: 1.560,   // runner on 3rd, 0 outs
-  // for any generic out we'll approximate a single‐out transition
-  Out:    0.250    // avg RE after a typical out
-};
-
-
-// 10) Spin Efficiency
-function drawSpinEfficiency(rows) {
-  const map = {};
-  rows.forEach(r => {
-    const pit = r[columns.pitcher],
-          pt  = r[columns.autoType];
-    const sv = parseFloat(r.SpinRate),
-          vb = parseFloat(r.InducedVertBreak);
-    if (!pit || !pt || isNaN(sv) || isNaN(vb)) return;
-    const eff = vb/sv*1000;
-    map[pit] = map[pit] || {};
-    map[pit][pt] = map[pit][pt] || { sum:0, c:0, team: getFullTeamName(r[columns.pitcherTeam],r) };
-    map[pit][pt].sum += eff;
-    map[pit][pt].c   += 1;
-  });
-  let out = [];
-  Object.entries(map).forEach(([pit, pts]) => {
-    Object.entries(pts).forEach(([pt, v]) => {
-      if (v.c < 15) return;
-      out.push({
-        Pitcher: pit,
-        PitchType: pt,
-        SpinEff:   (v.sum/v.c).toFixed(1),
-        Count:     v.c,
-        Team:      v.team
-      });
-    });
-  });
-  // filters
-  const teamF = document.getElementById('seam-team-filter').value;
-  const pitF  = document.getElementById('seam-pitcher-filter').value;
-  if (teamF) out = out.filter(r=>r.Team===teamF);
-  if (pitF)  out = out.filter(r=>r.Pitcher===pitF);
-  // sort descending
-  out.sort((a,b)=>b.SpinEff - a.SpinEff);
-renderLeaderboard('spin-eff',
-  out.slice(0,10),
-  ['Pitcher','PitchType','SpinEff','Count']
-);  // sortable
-  const tbl = document.getElementById('spin-eff');
-  tbl.querySelectorAll('th[data-key]').forEach(th=>{
-    th.style.cursor = 'pointer';
-    th.onclick = ()=>{
-      const key = th.dataset.key;
-      const asc = !th.classList.contains('asc');
-      out.sort((a,b)=>
-        asc ? (a[key]>b[key]?1:-1) : (a[key]<b[key]?1:-1)
-      );
-renderLeaderboard('spin-eff',
-  out.slice(0,10),
-  ['Pitcher','PitchType','SpinEff','Count']
-);      tbl.querySelectorAll('th').forEach(h=>h.classList.remove('asc','desc'));
-      th.classList.add(asc?'asc':'desc');
-    };
-  });
-}
-
-// 11) Pitcher HardHit%
-function drawPitcherHardHit(rows) {
-  const threshold = +document.getElementById('hh-threshold').value;
-  const map = {};
-  rows.forEach(r => {
-    const pit = r[columns.pitcher];
-    const ev  = parseFloat(r[columns.exitSpeed]);
-    if (!pit || isNaN(ev)) return;
-    map[pit] = map[pit] || { hh:0, tot:0, team: getFullTeamName(r[columns.pitcherTeam],r) };
-    map[pit].tot++;
-    if (ev >= threshold) map[pit].hh++;
-  });
-  let out = Object.entries(map).map(([pit, v])=>({
-    Pitcher: pit,
-    HHPct:   ((v.hh/v.tot)*100).toFixed(1),
-    Count:   v.tot,
-    Team:    v.team
-  })).filter(r=>r.Count>=15);
-  // filters
-  const teamF = document.getElementById('hh-p-team-filter').value;
-  const pitF  = document.getElementById('hh-p-pitcher-filter').value;
-  if (teamF) out = out.filter(r=>r.Team===teamF);
-  if (pitF)  out = out.filter(r=>r.Pitcher===pitF);
-  // sort descending
-  out.sort((a,b)=>a.HHPct - b.HHPct);
-renderLeaderboard('pitcher-hh',
-  out.slice(0,10),
-  ['Pitcher','HHPct','Count']
-);}
-
-// 12) Batter HardHit%
-function drawBatterHardHit(rows) {
-  const threshold = +document.getElementById('hh-b-threshold').value;
-  const teamF     = document.getElementById('hh-b-team-filter').value;
-  const batF      = document.getElementById('hh-b-batter-filter').value;
-
-  // build per-batter counts and team
-  const map = {};
-  rows.forEach(r => {
-    if (r.PitchCall !== 'InPlay') return;
-    const ev = parseFloat(r.ExitSpeed);
-    if (isNaN(ev)) return;
-    const bat  = r[columns.player];
-    const team = getFullTeamName(r[columns.playerTeam], r);
-    if (!map[bat]) map[bat] = { hh:0, tot:0, team };
-    map[bat].tot++;
-    if (ev >= threshold) map[bat].hh++;
-  });
-
-  // flatten into array
-  let out = Object.entries(map).map(([bat, v]) => ({
-    Batter:    bat,
-    Team:       v.team,
-    HHPct:     ((v.hh/v.tot)*100).toFixed(1),
-    Count:     v.tot
-  }));
-
-  // apply filters
-  if (teamF) out = out.filter(r => r.Team === teamF);
-  if (batF)  out = out.filter(r => r.Batter === batF);
-
-  // only show those with enough PAs, sort and slice
-  out = out.filter(r => r.Count >= 15)
-           .sort((a,b)=>b.HHPct - a.HHPct)
-           .slice(0,10);
-
-  renderLeaderboard('batter-hh', out, ['Batter','Team','HHPct','Count']);
-}
-
-
-    function computeAndRender() {
-      // time filter
-      // pick up how many days the user wants (1 = yesterday-today)
-// and compute a cutoff that is midnight-of-(days-1) days ago
-const days = +document.getElementById('time-filter').value;
-let cutoff = 0;
-if (days > 0) {
-  // start with today at local midnight:
-  const d0 = new Date();
-  d0.setHours(0,0,0,0);
-  // back up (days - 1) full days
-  cutoff = d0.getTime() - (days - 1) * 24 * 3600 * 1000;
-}
-// now filter
-const filtered = data.filter(r =>
-  !cutoff || new Date(r[columns.date]).getTime() >= cutoff
-);
-
-
-      // 1. HR Distance
-      let hrRows = filtered.filter(r => r[columns.playResult] === 'HomeRun');
-      const hrTeam = document.getElementById('hr-team-filter').value;
-      const hrPlayer = document.getElementById('hr-player-filter').value;
-      if (hrTeam)   hrRows = hrRows.filter(r => getFullTeamName(r[columns.playerTeam],r) === hrTeam);
-      if (hrPlayer) hrRows = hrRows.filter(r => r[columns.player] === hrPlayer);
-      hrRows.sort((a,b) => parseFloat(b[columns.distance]) - parseFloat(a[columns.distance]));
-      const hrDisplay = hrRows.slice(0,10).map(r => ({
-  Team: getFullTeamName(r[columns.playerTeam],r),
-  Batter: r[columns.player],
-  Pitcher: r[columns.pitcher],
-  'Exit Vel': r[columns.exitSpeed],
-  'Launch Ang': r[columns.angle],
-  Distance: r[columns.distance],
-  AutoPitchType: r[columns.autoType],
-  Date: r[columns.date],
-  Details: `<a href="Game-view.html?pitchUID=${r.PitchUID}">View</a>`
-}));
-renderLeaderboard(
-  'hr-distance',
-  hrDisplay,
-  ['Team','Batter','Pitcher','Exit Vel','Launch Ang','Distance','AutoPitchType','Date','Details']
-);
-
-      // 2. Fastest Exit Velocity
-      let evRows = filtered.filter(r =>
-        r[columns.exitSpeed] && r[columns.playResult] !== 'Undefined'
-      );
-      const evTeam = document.getElementById('ev-team-filter').value;
-      const evPlayer = document.getElementById('ev-player-filter').value;
-      if (evTeam)   evRows = evRows.filter(r => getFullTeamName(r[columns.playerTeam],r) === evTeam);
-      if (evPlayer) evRows = evRows.filter(r => r[columns.player] === evPlayer);
-      const evResult = document.getElementById('ev-playresult-filter').value;
-if (evResult) evRows = evRows.filter(r => r.PlayResult === evResult);
-
-const evType = document.getElementById('ev-autotype-filter').value;
-if (evType) evRows = evRows.filter(r => r.AutoPitchType === evType);
-
-      evRows.sort((a,b) => parseFloat(b[columns.exitSpeed]) - parseFloat(a[columns.exitSpeed]));
-      const evDisplay = evRows.slice(0,10).map(r => ({
-  Team:          getFullTeamName(r[columns.playerTeam], r),
-  Batter:        r[columns.player],
-  Pitcher:       r[columns.pitcher],
-  'Exit Vel':    r[columns.exitSpeed],
-  'Launch Ang':  r[columns.angle],
-  Distance:      r[columns.distance],
-  PlayResult:    r[columns.playResult],
-  AutoPitchType: r[columns.autoType],
-  Date:          r[columns.date],
-  Details:       `<a href="Game-view.html?pitchUID=${r.PitchUID}">View</a>`
-}));
-
-renderLeaderboard(
-  'ev-speed',
-  evDisplay,
-  [
-    'Team','Batter','Pitcher','Exit Vel','Launch Ang',
-    'Distance','PlayResult','AutoPitchType','Date','Details'
-  ]
-);
-
-
-
-      [
-  'ev-team-filter',
-  'ev-player-filter',
-  'ev-playresult-filter',   // ← new
-  'ev-autotype-filter',     // ← new
-  /* …the rest of your filter‐IDs… */
-].forEach(id =>
-  document.getElementById(id).addEventListener('input', computeAndRender)
-);
-      // 3. Chase Rate
-      const chaseMap = {};
-      filtered.forEach(r => {
-        const h = parseFloat(r[columns.plateHeight]), s = parseFloat(r[columns.plateSide]);
-        const outZone = (h < 1.5 || h > 3.5 || s < -0.83 || s > 0.83);
-        if (!outZone) return;
-        const batter = r[columns.player];
-        if (!chaseMap[batter]) chaseMap[batter] = { outside:0, chase:0, team: getFullTeamName(r[columns.playerTeam],r) };
-        chaseMap[batter].outside++;
-        const call = r[columns.pitchCall];
-        if (call !== 'StrikeCalled' && call !== 'BallCalled') chaseMap[batter].chase++;
-      });
-      let chaseRows = Object.entries(chaseMap).map(([player,stats])=>({
-        Player: player,
-        ChaseRate: stats.outside ? (stats.chase/stats.outside).toFixed(2) : '0.00',
-        TotalOutside: stats.outside,
-        Team: stats.team
-      }));
-      const chaseTeam = document.getElementById('chase-team-filter').value;
-      const minOut = +document.getElementById('chase-min-filter').value;
-      if (chaseTeam) chaseRows = chaseRows.filter(r => r.Team === chaseTeam);
-      chaseRows = chaseRows.filter(r => r.TotalOutside >= minOut);
-      chaseRows.sort((a,b) => parseFloat(a.ChaseRate) - parseFloat(b.ChaseRate));
-      renderLeaderboard('chase-rate', chaseRows.slice(0,10), ['Player','ChaseRate','TotalOutside']);
-// 4. Fastest Release Speed
-let relRows = filtered.slice();
-
-// team filter
-const relTeam = document.getElementById('rel-team-filter').value;
-if (relTeam) {
-  relRows = relRows.filter(r =>
-    getFullTeamName(r[columns.pitcherTeam], r) === relTeam
-  );
-}
-
-// only keep rows where RelSpeed parses to a number
-relRows = relRows.filter(r => {
-  const v = parseFloat(r[columns.relSpeed]);
-  return !isNaN(v);
-});
-
-// now sort descending
-relRows.sort((a,b) =>
-  parseFloat(b[columns.relSpeed]) - parseFloat(a[columns.relSpeed])
-);
-
-// map out the top 10
-const relDisplay = relRows.slice(0,10).map(r => ({
-  Pitcher:       r[columns.pitcher],
-  'Release Speed': r[columns.relSpeed],
-  PitchCall:     r[columns.pitchCall]
-}));
-
-renderLeaderboard('release-speed',
-  relDisplay,
-  ['Pitcher','Release Speed','PitchCall']
-);
-      
-// 7. Catcher Stats
-const catcherMap = {};
-filtered.forEach(r => {
-  // identify the catcher
-  const c = r[columns.catcher] || r.Catcher || r.CatcherId;
-  if (!c) return;
-
-  // initialize if needed
-  if (!catcherMap[c]) {
-    const teamName = r[columns.catcherTeam] || r.CatcherTeam || '';
-    catcherMap[c] = {
-      popSum: 0, popCount: 0,
-      exchSum: 0, exchCount: 0,
-      throwSum: 0, throwCount: 0,
-      team: getFullTeamName(teamName, r)
-    };
-  }
-  const stats = catcherMap[c];
-
-  // Pop Time
-  const pop = parseFloat(r[columns.popTime] || r.PopTime || '');
-  if (!isNaN(pop) && pop > 0) {
-    stats.popSum += pop;
-    stats.popCount++;
-  }
-
-  // Exchange Time
-  const ex = parseFloat(r[columns.exchangeTime] || r.ExchangeTime || '');
-  if (!isNaN(ex) && ex > 0) {
-    stats.exchSum += ex;
-    stats.exchCount++;
-  }
-
-  // Throw Speed
-  const th = parseFloat(r[columns.throwSpeed] || r.ThrowSpeed || '');
-  if (!isNaN(th) && th > 0) {
-    stats.throwSum += th;
-    stats.throwCount++;
-  }
-});
-
-let catcherRows = Object.entries(catcherMap).map(([name, s]) => ({
-  Catcher:      name,
-  Team:         s.team,
-  PopTime:      s.popCount   ? (s.popSum   / s.popCount).toFixed(2) : '',
-  ExchangeTime: s.exchCount  ? (s.exchSum  / s.exchCount).toFixed(2) : '',
-  ThrowSpeed:   s.throwCount ? (s.throwSum / s.throwCount).toFixed(2) : '',
-  Attempts:     s.popCount
-}));
-
-// apply filters
-const cpf = document.getElementById('catcher-player-filter').value;
-if (cpf) catcherRows = catcherRows.filter(r => r.Catcher === cpf);
-const ctf = document.getElementById('catcher-team-filter').value;
-if (ctf) catcherRows = catcherRows.filter(r => catcherMap[r.Catcher].team === ctf);
-
-// league average row
-const total = catcherRows.reduce((acc, r) => {
-  acc.popSum  += parseFloat(r.PopTime)      || 0;
-  acc.exchSum += parseFloat(r.ExchangeTime) || 0;
-  acc.throwSum+= parseFloat(r.ThrowSpeed)   || 0;
-  acc.count  ++;
-  acc.attempts+= r.Attempts;
-  return acc;
-}, { popSum:0, exchSum:0, throwSum:0, count:0, attempts:0 });
-
-if (total.count > 0) {
-  
-}
-
-// sort so league average goes last, then by PopTime asc
-catcherRows.sort((a, b) =>
-  (parseFloat(a.PopTime) || 0) - (parseFloat(b.PopTime) || 0)
-);
-// render
-renderLeaderboard('catcher-stats', catcherRows.slice(0,10), [
-  'Catcher','Team','PopTime','ExchangeTime','ThrowSpeed','Attempts'
-]);
-
-// make headers sortable
-document.querySelectorAll('#catcher-stats th[data-key]').forEach(th => {
-  th.addEventListener('click', () => {
-    const key = th.dataset.key;
-    const tbody = document.querySelector('#catcher-stats tbody');
-    const rows  = Array.from(tbody.rows);
-    const asc   = !th.classList.contains('asc');
-
-    rows.sort((a,b) => {
-      const headers = ['Catcher','Team','PopTime','ExchangeTime','ThrowSpeed','Attempts'];
-      const idx = headers.indexOf(key);
-      let va = key==='Catcher' || key==='Team'
-               ? a.cells[idx].innerText
-               : parseFloat(a.cells[idx].innerText);
-      let vb = key==='Catcher' || key==='Team'
-               ? b.cells[idx].innerText
-               : parseFloat(b.cells[idx].innerText);
-      if (key==='Catcher' || key==='Team') {
-        return asc ? va.localeCompare(vb) : vb.localeCompare(va);
-      }
-      return asc ? va - vb : vb - va;
-    });
-
-    tbody.innerHTML = '';
-    rows.forEach(r => tbody.appendChild(r));
-
-    document.querySelectorAll('#catcher-stats th').forEach(h => h.classList.remove('asc','desc'));
-    th.classList.add(asc ? 'asc' : 'desc');
-  });
-});
-
-
-
-      // 5. Umpire Accuracy
-      const umpMap = {};
-filtered.forEach(r => {
-  const call = r[columns.pitchCall];
-  if (call !== 'StrikeCalled' && call !== 'BallCalled') return;
-  const u = r[columns.ump];
-  if (!umpMap[u]) umpMap[u] = { total:0, correct:0 };
-  umpMap[u].total++;
-  const h = parseFloat(r[columns.plateHeight]), s = parseFloat(r[columns.plateSide]);
-  const inZone = h>=1.5 && h<=3.5 && s>=-0.83 && s<=0.83;
-  if ((inZone && call==='StrikeCalled') || (!inZone && call==='BallCalled')) {
-    umpMap[u].correct++;
-  }
-});
-
-// build full array
-fullUmpireRows = Object.entries(umpMap).map(([u,stats]) => ({
-  Umpire: u,
-  Accuracy: stats.total ? +(stats.correct/stats.total).toFixed(2) : 0,
-  TotalCalls: stats.total
-}));
-
-// initial sort descending
-fullUmpireRows.sort((a,b) => b.Accuracy - a.Accuracy);
-
-// render the top 10
-renderLeaderboard(
-  'umpire-accuracy',
-  fullUmpireRows.slice(0,100),
-  ['Umpire','Accuracy','TotalCalls']
-);
-// right after computeAndRender, wire up the sorter:
-const thAcc = document.querySelector('#umpire-accuracy th[data-key="Accuracy"]');
-if (thAcc) {
-  thAcc.style.cursor = 'pointer';
-  thAcc.onclick = () => {
-    // toggle ascending / descending
-    const asc = !thAcc.classList.contains('asc');
-    fullUmpireRows.sort((a, b) => asc ? a.Accuracy - b.Accuracy : b.Accuracy - a.Accuracy);
-    // re-render top 10
-    renderLeaderboard(
-      'umpire-accuracy',
-      fullUmpireRows.slice(0,10),
-      ['Umpire','Accuracy','TotalCalls']
-    );
-    // update arrow classes
-    document.querySelectorAll('#umpire-accuracy th').forEach(h=>h.classList.remove('asc','desc'));
-    thAcc.classList.add(asc ? 'asc' : 'desc');
+  const teamParkMap = {
+    'LAN'     : 'Penn Medicine Park',
+    'SMD'     : 'Regency Furniture Stadium',
+    'YOR'     : 'Wellspan Park',
+    'HAG_FLY' : 'Meritus Park',
+    'LI'      : 'Fairfield Properties BallPark',
+    'GAS'     : 'CaroMont Health Park',
+    'STA_YAN' : 'SIUH Community Park',
+    'HP'      : 'Truist Point',
+    'LEX_LEG' : 'Legends Field',
+    'WES_POW' : 'GoMart BallPark'
   };
-}
 
-      // 6. Average Exit Velocity by Batter
-      const avgMap = {};
-      filtered
-        .filter(r => r[columns.pitchCall] === 'InPlay' && !isNaN(parseFloat(r[columns.exitSpeed])))
-        .forEach(r => {
-          const bat = r[columns.player];
-          const tm  = getFullTeamName(r[columns.playerTeam],r);
-          if (!avgMap[bat]) avgMap[bat] = { sum:0, count:0, team: tm };
-          avgMap[bat].sum   += parseFloat(r[columns.exitSpeed]);
-          avgMap[bat].count += 1;
-        });
-        let minCount = 10
-      let avgRows = Object.entries(avgMap)
-  .filter(([b, st]) => st.count >= minCount)
-  .map(([b, st]) => ({
-    Batter: b,
-    Team:   st.team,
-    AvgExitVelocity: (st.sum / st.count).toFixed(2),
-  }));
+  const parks = {
+    default: { leftFoul:325, leftCenter:(325+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 },
+    "Meritus Park":              { leftFoul:346, leftCenter:(346+387)/2, center:400, rightCenter:(400+360)/2, rightFoul:325 },
+    "Wellspan Park":             { leftFoul:300, leftCenter:(300+405)/2, center:405, rightCenter:(405+326)/2, rightFoul:326 },
+    "CaroMont Health Park":      { leftFoul:315, leftCenter:361,            center:400, rightCenter:367,            rightFoul:325 },
+    "Penn Medicine Park":        { leftFoul:320, leftCenter:409,            center:400, rightCenter:363,            rightFoul:300 },
+    "Fairfield Properties BallPark": { leftFoul:325, leftCenter:(325+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 },
+    "SIUH Community Park":       { leftFoul:320, leftCenter:(320+390)/2, center:390, rightCenter:(390+318)/2, rightFoul:318 },
+    "GoMart BallPark":           { leftFoul:330, leftCenter:(330+400)/2, center:400, rightCenter:(400+320)/2, rightFoul:320 },
+    "Truist Point":              { leftFoul:336, leftCenter:363,            center:400, rightCenter:366,            rightFoul:339 },
+    "Legends Field":             { leftFoul:320, leftCenter:(320+401)/2, center:401, rightCenter:(401+318)/2, rightFoul:318 },
+    "Regency Furniture Stadium": { leftFoul:310, leftCenter:(310+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 }
+  };
 
-// then your existing team-filter + sort + render
-const avgTeam = document.getElementById('avg-ev-team-filter').value;
-if (avgTeam) {
-  avgRows = avgRows.filter(r => r.Team === avgTeam);
-}
+  // —— State —— 
+  let allPitches = [], fPositions = [], gamePitches = [];
+  let gameUID = null,
+      startPID = new URLSearchParams(location.search).get('pitchUID'),
+      urlGame  = new URLSearchParams(location.search).get('gameUID'),
+      idxCurrent = 0,
+      currentPark = parks.default;
 
-avgRows.sort((a,b) =>
-  parseFloat(b.AvgExitVelocity) - parseFloat(a.AvgExitVelocity)
-);
+  const $ = id => document.getElementById(id);
+  const toNum = s => parseFloat(s)||0;
 
-renderLeaderboard(
-  'avg-ev',
-  avgRows.slice(0,10),
-  ['Batter','Team','AvgExitVelocity']
-);
+  // —— Load CSVs —— 
+  Papa.parse(DATA_CSV, {
+    header:true, download:true,
+    complete: res => {
+      allPitches = res.data;
+      Papa.parse(FIELDER_CSV, {
+        header:true, download:true,
+        complete: res2 => {
+          fPositions = res2.data;
+          init();
+        }
+      });
+    }
+  });
+  
+function drawPlateView(canvas, p) {
+  const ctx = canvas.getContext('2d');
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
 
+  // Real dimensions in feet
+  const zone = {
+    left:   -17/24,   // −0.708 ft
+    right:   17/24,   // +0.708 ft
+    bottom:  1.5,     // 1.5 ft
+    top:     3.5      // 3.5 ft
+  };
+  const zoneW = zone.right - zone.left;   // ≈1.416 ft
+  const zoneH = zone.top   - zone.bottom; // 2 ft
 
+  // Compute base scale to fit zone
+  const margin = 20;
+  const availW = canvas.width  - 2*margin;
+  const availH = canvas.height - 2*margin;
+  const baseScale = Math.min(availW/zoneW, availH/zoneH);
 
+  // Shrink factor (70%)
+  const shrink = 0.7;
+  const scale  = baseScale * shrink;
 
-      drawBatterRunExp(filtered);
-      ['bre-team-filter','bre-batter-filter'].forEach(id => {
-  document.getElementById(id).addEventListener('input', computeAndRender);
-});
-drawTruePitchRunExp(filtered);
-['pre-team-filter','pre-pitcher-filter'].forEach(id => {
-  document.getElementById(id).addEventListener('input', computeAndRender);
-});
+  // Pixel size of zone
+  const pixW = zoneW * scale;
+  const pixH = zoneH * scale;
 
-// 10) Spin Efficiency
-drawSpinEfficiency(filtered);
+  // Center zone
+  const originX = (canvas.width  - pixW) / 2;
+  const originY = (canvas.height + pixH) / 2; // y of zone bottom
 
-// 11) Pitcher HardHit%
-drawPitcherHardHit(filtered);
+  // Mapping functions
+  const mapX = x => originX + (x - zone.left) * scale;
+  const mapY = y => originY - (y - zone.bottom) * scale;
 
-// 12) Batter HardHit%
-['hh-b-team-filter','hh-b-batter-filter','hh-b-threshold']
-  .forEach(id =>
-    document.getElementById(id)
-      .addEventListener('input', computeAndRender)
+  // Clear
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw strike zone
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth   = 2;
+  ctx.strokeRect(
+    mapX(zone.left),
+    mapY(zone.top),
+    pixW,
+    pixH
   );
 
-  drawBatterHardHit(filtered)
+  // Plot crossing point
+  const px = parseFloat(p.PlateLocSide);
+  const py = parseFloat(p.PlateLocHeight);
+  if (!isNaN(px) && !isNaN(py)) {
+    ctx.fillStyle = 'red';
+    ctx.beginPath();
+    ctx.arc(mapX(px), mapY(py), 5, 0, 2*Math.PI);
+    ctx.fill();
+  }
 
-drawBarrelPct(filtered);
-  drawSweetSpotPct(filtered);
-['barrel-team-filter','barrel-player-filter','ss-team-filter','ss-player-filter']
-  .forEach(id => document.getElementById(id)
-    .addEventListener('input', computeAndRender));
 
+
+}
+
+
+  function init(){
+    // find gameUID
+    if (startPID){
+      const p = allPitches.find(r=>r.PitchUID===startPID);
+      if (!p){ $('title').innerText='⚠ pitchUID not found'; return; }
+      gameUID = p.GameUID;
+    }
+    else if (urlGame){
+      gameUID = urlGame;
+    } else {
+      $('title').innerText = '⚠ provide ?gameUID or ?pitchUID'; return;
     }
 
-    function drawBarrelPct(rows) {
-  const teamF = document.getElementById('barrel-team-filter').value;
-  const playerF = document.getElementById('barrel-player-filter').value;
+    // filter + sort
+    gamePitches = allPitches
+      .filter(r=>r.GameUID===gameUID)
+      .sort((a,b)=>{
+        let d = +a.Inning - +b.Inning; if(d) return d;
+        if(a['Top/Bottom']!==b['Top/Bottom'])
+          return a['Top/Bottom']==='Top'? -1:1;
+        return +a.PitchNo - +b.PitchNo;
+      });
 
-  // build raw counts
-  const map = {};
-  rows.forEach(r => {
-    if (r.PitchCall!=='InPlay') return;
-    const ev = parseFloat(r.ExitSpeed), la = parseFloat(r.Angle);
-    if (isNaN(ev)||isNaN(la)) return;
-    const team = getFullTeamName(r[columns.playerTeam], r);
-    const bat = r[columns.player];
-    map[bat] = map[bat] || { barrel:0, pa:0, team };
-    map[bat].pa++;
-    if (ev>=98 && la>=26 && la<=32) map[bat].barrel++;
-  });
+    if (!gamePitches.length){
+      $('title').innerText = `⚠ no pitches for ${gameUID}`; return;
+    }
 
-  // flatten & filter
-  let rowsOut = Object.entries(map).map(([bat,s])=>({
-    Player: bat,
-    'Barrel %': +(s.barrel/s.pa*100).toFixed(1),
-    'Plate Apps': s.pa,
-    Team: s.team
-  }));
-  if (teamF) rowsOut = rowsOut.filter(r=>r.Team===teamF);
-  if (playerF) rowsOut = rowsOut.filter(r=>r.Player===playerF);
-  rowsOut = rowsOut.filter(r=>r['Plate Apps']>=10)
-                   .sort((a,b)=>b['Barrel %']-a['Barrel %'])
-                   .slice(0,10);
+    // start index
+    if (startPID){
+      const i = gamePitches.findIndex(p=>p.PitchUID===startPID);
+      if (i>=0) idxCurrent = i;
+    }
 
-  renderLeaderboard('barrel-pct', rowsOut, ['Player','Barrel %','Plate Apps']);
-}
+    // pick park
+    const homeAbbr = gamePitches[0].HomeTeam;
+    const parkName = teamParkMap[homeAbbr]||'default';
+    currentPark = parks[parkName]||parks.default;
 
-function drawSweetSpotPct(rows) {
-  const teamF = document.getElementById('ss-team-filter').value;
-  const playerF = document.getElementById('ss-player-filter').value;
+    // render
+    renderBoxScore();
+    renderPitch();
 
-  const map = {};
-  rows.forEach(r =>{
-    if (r.PitchCall!=='InPlay') return;
-    const ev = parseFloat(r.ExitSpeed);
-    if (isNaN(ev)) return;
-    const team = getFullTeamName(r[columns.playerTeam], r);
-    const bat = r[columns.player];
-    map[bat] = map[bat] || { ss:0, pa:0, team };
-    map[bat].pa++;
-    if (ev>=90 && ev<98) map[bat].ss++;
-  });
+    $('prevPitch').onclick = ()=>{ if(idxCurrent>0){ idxCurrent--; renderPitch(); }};
+    $('nextPitch').onclick = ()=>{ if(idxCurrent<gamePitches.length-1){ idxCurrent++; renderPitch(); }};
+  }
 
-  let rowsOut = Object.entries(map).map(([bat,s])=>({
-    Player: bat,
-    'SweetSpot %': +(s.ss/s.pa*100).toFixed(1),
-    'Plate Apps': s.pa,
-    Team: s.team
-  }));
-  if (teamF) rowsOut = rowsOut.filter(r=>r.Team===teamF);
-  if (playerF) rowsOut = rowsOut.filter(r=>r.Player===playerF);
-  rowsOut = rowsOut.filter(r=>r['Plate Apps']>=10)
-                   .sort((a,b)=>b['SweetSpot %']-a['SweetSpot %'])
-                   .slice(0,10);
+  // —— Box‐score up to this pitch —— 
+  function renderBoxScore(){
+    const bs = $('boxScore'); bs.innerHTML='';
+    // accumulate runs per half-inning up to current pitch
+    const runs={away:{}, home:{}};
+    const cp = gamePitches[idxCurrent];
+    gamePitches.slice(0, idxCurrent+1).forEach(p=>{
+      const inn = +p.Inning;
+      runs.away[inn] = runs.away[inn]||0;
+      runs.home[inn] = runs.home[inn]||0;
+      const r = toNum(p.RunsScored);
+      if (p['Top/Bottom']==='Top')    runs.away[inn]+=r;
+      else                            runs.home[inn]+=r;
+    });
 
-  renderLeaderboard('sweetspot-pct', rowsOut, ['Player','SweetSpot %','Plate Apps']);
-}
+    // determine last inning to show
+    const lastInn = +cp.Inning;
 
+    // build table
+    const tbl = document.createElement('table');
+    let hdr = `<tr><th>Team</th>`;
+    for(let i=1;i<=lastInn;i++) hdr += `<th>${i}</th>`;
+    hdr += `<th>Total</th></tr>`;
+    tbl.innerHTML = hdr;
 
+    const away = gamePitches[0].AwayNameFull,
+          home = gamePitches[0].HomeNameFull;
 
-
-    Papa.parse('./data.csv', {
-      download:true,
-      header:true,
-      skipEmptyLines:true,
-      complete: results => {
-        data = results.data;
-            fullData = results.data;
-
-        data.forEach(r => {
-          teams.add(getFullTeamName(r[columns.playerTeam],r));
-          teams.add(getFullTeamName(r[columns.pitcherTeam],r));
-          playersSet.add(r[columns.player]);
-        });
-
-        initSearchHandler();
-                    populateSuggestions();
-        initFilters();
-        [
-          'hr-team-filter','hr-player-filter',
-          'ev-team-filter','ev-player-filter',
-          'chase-team-filter','rel-team-filter',
-          'avg-ev-team-filter',
-          'chase-min-filter','time-filter','catcher-player-filter','catcher-team-filter'
-        ].forEach(id =>
-          document.getElementById(id).addEventListener('input', computeAndRender)
-        );
-
-        // Populate Exit Velocity “Play Result” dropdown
-const playResults = [...new Set(data.map(r => r.PlayResult)
-                         .filter(v => v && v !== 'Undefined'))]
-                     .sort();
-playResults.forEach(pr => {
-  document
-    .getElementById('ev-playresult-filter')
-    .append(new Option(pr, pr));
-});
-
-// Populate Exit Velocity “AutoPitchType” dropdown
-const autoTypes = [...new Set(data.map(r => r.AutoPitchType)
-                      .filter(v => v))]   // drop null/undefined
-                  .sort();
-autoTypes.forEach(pt => {
-  document
-    .getElementById('ev-autotype-filter')
-    .append(new Option(pt, pt));
-});
-
-        computeAndRender();
-        ['bre-team-filter','bre-batter-filter'].forEach(id => {
-  document.getElementById(id).addEventListener('input', computeAndRender);
-});
+    function makeRow(name, side){
+      let tot=0, cells='';
+      for(let i=1;i<=lastInn;i++){
+        const v = runs[side][i]||0;
+        tot += v;
+        cells += `<td>${v}</td>`;
       }
-    });
-
-function drawBatterRunExp(rows) {
-  // 1) Aggregate Batter → Pitch Type
-  const brMap = {};
-
-  rows.forEach(r => {
-    const pt  = r[columns.autoType];
-    const bat = r[columns.player];
-    if (!pt) return;  // skip blank pitch types
-
-    const B    = +r.Balls,
-          S    = +r.Strikes,
-          call = r.PitchCall,
-          hit  = r.TaggedHitType,
-          runs = parseInt(r.RunsScored, 10) || 0,
-          pre  = RE_COUNT[`${B}-${S}`] || 0;
-
-    // determine post‐pitch RE
-    let post;
-    if (call === 'BallCalled') {
-      const key = `${Math.min(B+1,3)}-${S}`;
-      post = RE_COUNT[key] || 0;
-    } else if (call === 'StrikeCalled' || call === 'StrikeSwinging') {
-      const key = `${B}-${Math.min(S+1,2)}`;
-      post = RE_COUNT[key] || 0;
-    } else if (hit === 'HomeRun') {
-      post = 0;
-    } else if (RE_AFTER_HIT[hit] != null) {
-      post = RE_AFTER_HIT[hit];
-    } else {
-      post = RE_AFTER_HIT.Out;
+      return `<tr><td><b>${name}</b></td>${cells}<td><b>${tot}</b></td></tr>`;
     }
 
-    const rv = (pre - post) + runs;
-    const team = getFullTeamName(r[columns.playerTeam], r);
+    tbl.innerHTML += makeRow(away,'away') + makeRow(home,'home');
+    bs.appendChild(tbl);
+  }
 
-    // accumulate
-    brMap[bat] = brMap[bat] || {};
-    brMap[bat][pt] = brMap[bat][pt] || { sum:0, c:0, team };
-    brMap[bat][pt].sum += rv;
-    brMap[bat][pt].c   += 1;
-  });
+  
+function renderPitch() {
+  const p = gamePitches[idxCurrent];
 
-  // 2) Flatten to array
-  let brRows = [];
-  Object.entries(brMap).forEach(([bat, pts]) => {
-    Object.entries(pts).forEach(([pt, v]) => {
-      brRows.push({
-        Batter:        bat,
-        'Pitch Type':  pt,
-        'Avg Run Value': (v.sum / v.c).toFixed(3),
-        Count:         v.c,
-        Team:          v.team
-      });
-    });
-  });
+  const paPitchNum = p.PitchofPA || p.PitchNo;          // fallback to game pitch if missing
+  const pitcherSide = (p.PitcherThrows === 'Left' ? 'LHP' : 'RHP');
+  const batterSide  = (p.BatterSide   === 'Left' ? 'LHB' : 'RHB');
 
-  // 3) Filter out blanks and small samples
-  brRows = brRows.filter(r => r['Pitch Type'] && r.Count >= 15);
+  // Update header and nav buttons
+  $('title').innerText =
+    `PA Pitch ${paPitchNum} (${p.Inning} ${p['Top/Bottom']})  —  ` +
+    `${p.Pitcher} (${pitcherSide})  vs  ${p.Batter} (${batterSide})`;
 
-  // 4) Apply UI filters
-  const teamF = document.getElementById('bre-team-filter').value;
-  const batF  = document.getElementById('bre-batter-filter').value;
-  if (teamF) brRows = brRows.filter(r => r.Team === teamF);
-  if (batF)  brRows = brRows.filter(r => r.Batter === batF);
+  $('prevPitch').disabled = idxCurrent === 0;
+  $('nextPitch').disabled = idxCurrent === gamePitches.length - 1;
 
-  // 5) Sort descending (highest AvgRunValue first)
-  brRows.sort((a, b) => parseFloat(b['Avg Run Value']) - parseFloat(a['Avg Run Value']));
+  // Clear previous content
+  const pd = $('pitchDetail');
+  pd.innerHTML = '';
 
-  // 6) Render top 20
-  renderLeaderboard('batter-run-exp',
-    brRows.slice(0,20),
-    ['Batter','Pitch Type','Avg Run Value','Count']
+  // Helper to create a horizontally scrollable single-row table
+  function makeTable(fields, row) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'scrollTable';
+    const tbl = document.createElement('table');
+
+    // Header row
+    const hdr = fields.map(f => `<th>${f}</th>`).join('');
+    // Data row
+    const dataRow = fields.map(f => `<td>${row[f] != null ? row[f] : '–'}</td>`).join('');
+
+    tbl.innerHTML = `<thead><tr>${hdr}</tr></thead><tbody><tr>${dataRow}</tr></tbody>`;
+    wrapper.appendChild(tbl);
+    pd.appendChild(wrapper);
+  }
+
+  // 1) Game table
+  makeTable(
+    ['Outs', 'Balls', 'Strikes'],
+    p
   );
 
-  // 7) Make columns sortable
-  const tbl = document.getElementById('batter-run-exp');
-  tbl.querySelectorAll('th[data-key]').forEach(th => {
-    th.style.cursor = 'pointer';
-    th.onclick = () => {
-      const key = th.dataset.key.replace(/\s+/g, '');
-      const asc = !th.classList.contains('asc');
-      brRows.sort((a,b) => {
-        const va = isNaN(a[key]) ? a[key] : parseFloat(a[key]);
-        const vb = isNaN(b[key]) ? b[key] : parseFloat(b[key]);
-        return asc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
-      });
-      renderLeaderboard('batter-run-exp',
-        brRows.slice(0,20),
-        ['Batter','Pitch Type','Avg Run Value','Count']
-      );
-      tbl.querySelectorAll('th').forEach(h=>h.classList.remove('asc','desc'));
-      th.classList.add(asc?'asc':'desc');
-    };
-  });
+  // 2) Pitch table
+  makeTable(
+    [
+      'AutoPitchType', 'PitchCall', 'RelSpeed', 'VertRelAngle', 'HorzRelAngle',
+      'SpinRate', 'SpinAxis', 'Tilt', 'RelHeight', 'RelSide', 'Extension', 'VertBreak',
+      'InducedVertBreak', 'HorzBreak', 'PlateLocHeight', 'PlateLocSide', 'ZoneSpeed',
+      'VertApprAngle', 'HorzApprAngle', 'ZoneTime', 'SpeedDrop'
+    ],
+    p
+  );
+
+  // 3) Hit table (only if there's exit velocity)
+  if (p.ExitSpeed) {
+    makeTable(
+      ['ExitSpeed', 'Angle', 'Direction', 'HitSpinRate', 'Distance', 'Bearing', 'MaxHeight', 'HangTime'],
+      p
+    );
+  }
+
+  // 4) Result table
+  makeTable(
+    ['RunsScored', 'OutsOnPlay', 'PitchCall', 'PlayResult'],
+    p
+  );
+
+  // ----- Plate View Canvas -----
+  const plateBox = document.createElement('div');
+  plateBox.className = 'canvas-container';
+  const plateCan = document.createElement('canvas');
+  plateBox.appendChild(plateCan);
+  pd.appendChild(plateBox);
+  drawPlateView(plateCan, p);
+
+  // ----- Spray + Fielders Canvas -----
+  const sprayBox = document.createElement('div');
+  sprayBox.className = 'canvas-container';
+  const sprayCan = document.createElement('canvas');
+  sprayBox.appendChild(sprayCan);
+  pd.appendChild(sprayBox);
+  const fr = fPositions.find(r => r.PitchUID === p.PitchUID);
+  drawSprayCanvas(sprayCan, [p], fr);
 }
 
-    
 
+  // —— Drawing full field + spray + fielders —— 
+  function drawSprayCanvas(canvas, rows, fr){
+    const ctx = canvas.getContext('2d');
+    canvas.width  = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
 
-    function populateSuggestions() {
-      const dl = document.getElementById('suggestions');
-      const batters = new Set(data.map(r => r.Batter));
-      const ump = new Set(data.map(r => r.Umpire));
-      const pitchers = new Set(data.map(r => r.Pitcher));
-      const teams = new Set(data.map(r => r.HomeNameFull).concat(data.map(r => r.AwayNameFull)));
-      [...batters, ...teams, ...pitchers, ...ump].sort().forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        dl.appendChild(opt);
-      });
-    }
+    const park   = currentPark;
+    const origin = { x:canvas.width/2, y:canvas.height-20 };
+    const scale  = (canvas.height-40)/park.center;
 
-    
+    // foul lines
+    const ang = Math.PI/4;
+    ctx.strokeStyle='#888'; ctx.lineWidth=1.5; ctx.beginPath();
+    ctx.moveTo(origin.x,origin.y);
+    ctx.lineTo(origin.x+Math.sin(-ang)*park.leftFoul*scale,
+               origin.y-Math.cos(-ang)*park.leftFoul*scale);
+    ctx.moveTo(origin.x,origin.y);
+    ctx.lineTo(origin.x+Math.sin( ang)*park.rightFoul*scale,
+               origin.y-Math.cos( ang)*park.rightFoul*scale);
+    ctx.stroke();
 
-function drawTruePitchRunExp(rows) {
-  // 1) Aggregate pitcher→pitchType
-  const pr = {};
-  rows.forEach(r => {
-    const pt = r[columns.autoType];
-    if (!pt) return;  // skip blank pitch types
-
-    const pit = r[columns.pitcher],
-          B   = +r.Balls,
-          S   = +r.Strikes,
-          call= r[columns.pitchCall],
-          hit = r.TaggedHitType,
-          runs = parseInt(r.RunsScored, 10) || 0,
-          pre  = RE_COUNT[`${B}-${S}`] || 0;
-
-    // determine post‐pitch RE
-    let post;
-    if (call === 'BallCalled') {
-      const key = `${Math.min(B+1,3)}-${S}`;
-      post = RE_COUNT[key] || 0;
-    } else if (call === 'StrikeCalled' || call === 'StrikeSwinging') {
-      const key = `${B}-${Math.min(S+1,2)}`;
-      post = RE_COUNT[key] || 0;
-    } else if (hit === 'HomeRun') {
-      post = 0;
-    } else if (RE_AFTER_HIT[hit] != null) {
-      post = RE_AFTER_HIT[hit];
-    } else {
-      // any other in‐play outcome (groundout, flyout, etc.)
-      post = RE_AFTER_HIT.Out;
-    }
-
-    // run value = RE_before – RE_after + any runs scored
-    const rv = (pre - post) + runs;
-    const team = getFullTeamName(r[columns.pitcherTeam], r);
-
-    // accumulate
-    pr[pit] = pr[pit] || {};
-    pr[pit][pt] = pr[pit][pt] || { sum: 0, c: 0, team };
-    pr[pit][pt].sum += rv;
-    pr[pit][pt].c   += 1;
-  });
-
-  // 2) Flatten to array
-  let output = [];
-  Object.entries(pr).forEach(([pit, pts]) => {
-    Object.entries(pts).forEach(([pt, v]) => {
-      output.push({
-        Pitcher:      pit,
-        'Pitch Type': pt,
-        AvgRunValue:  (v.sum / v.c).toFixed(3),
-        Count:        v.c,
-        Team:         v.team
-      });
+    // outfield wall (5‐point)
+    const angles = [-45,-22.5,0,22.5,45];
+    const radii  = [park.leftFoul,park.leftCenter,park.center,park.rightCenter,park.rightFoul];
+    ctx.strokeStyle='#555'; ctx.lineWidth=3; ctx.beginPath();
+    angles.forEach((d,i)=>{
+      const rad = d*Math.PI/180;
+      const dx  = Math.sin(rad)*radii[i]*scale;
+      const dy  = Math.cos(rad)*radii[i]*scale;
+      const x   = origin.x+dx, y = origin.y-dy;
+      i===0? ctx.moveTo(x,y):ctx.lineTo(x,y);
     });
-  });
+    ctx.stroke();
 
-  // 3) Filter out small samples & blanks
-  output = output.filter(r => r['Pitch Type'] && r.Count >= 15);
+    // fence labels
+    ctx.fillStyle='#000'; ctx.font='12px sans-serif';
+    angles.forEach((d,i)=>{
+      const rad = d*Math.PI/180;
+      const dx  = Math.sin(rad)*radii[i]*scale;
+      const dy  = Math.cos(rad)*radii[i]*scale;
+      const px  = origin.x+dx, py = origin.y-dy;
+      ctx.fillText(Math.round(radii[i])+"'", px + (d<0?-25:5), py+15);
+    });
 
-  // 4) Apply UI filters
-  const teamF = document.getElementById('pre-team-filter').value;
-  const pitF  = document.getElementById('pre-pitcher-filter').value;
-  if (teamF) output = output.filter(r => r.Team === teamF);
-  if (pitF)  output = output.filter(r => r.Pitcher === pitF);
+    // infield diamond
+    const bases = [
+      {x:0,z:0},
+      {x:90*Math.cos(Math.PI/4), z:90*Math.sin(Math.PI/4)},
+      {x:90*Math.sqrt(2),       z:0},
+      {x:90*Math.cos(Math.PI/4), z:-90*Math.sin(Math.PI/4)}
+    ];
+    ctx.strokeStyle='#444'; ctx.lineWidth=2; ctx.beginPath();
+    bases.forEach((pt,i)=>{
+      const x = origin.x + pt.z*scale;
+      const y = origin.y - pt.x*scale;
+      i===0? ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.closePath(); ctx.stroke();
 
-  // 5) Sort by effectiveness (lowest AvgRunValue first)
-  output.sort((a, b) => parseFloat(a.AvgRunValue) - parseFloat(b.AvgRunValue));
+    // base squares
+    ctx.fillStyle='#fff';
+    bases.forEach(pt=>{
+      const x = origin.x + pt.z*scale;
+      const y = origin.y - pt.x*scale;
+      ctx.fillRect(x-6,y-6,12,12);
+    });
 
-  // 6) Render top 20
-  renderLeaderboard('pitch-run-exp',
-    output.slice(0,20),
-    ['Pitcher','Pitch Type','AvgRunValue','Count']
-  );
+    // infield arc
+    const extraC = 55, extraM = 28.5;
+    ctx.strokeStyle='#aaa'; ctx.lineWidth=2; ctx.beginPath();
+    for(let d=-45; d<=45; d++){
+      const rad = d*Math.PI/180;
+      const r0  = 90+extraC, r1=90*Math.sqrt(2)+extraM;
+      const t   = 1-Math.abs(d)/45;
+      const r   = r0 + t*(r1-r0);
+      const x   = origin.x + Math.sin(rad)*r*scale;
+      const y   = origin.y - Math.cos(rad)*r*scale;
+      d===-45? ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
 
-  // 7) Make columns sortable
-  const tbl = document.getElementById('pitch-run-exp');
-  tbl.querySelectorAll('th[data-key]').forEach(th => {
-    th.style.cursor = 'pointer';
-    th.onclick = () => {
-      const key = th.dataset.key.replace(/\s+/g, '');
-      const asc = !th.classList.contains('asc');
-      output.sort((a,b) => {
-        const va = isNaN(a[key]) ? a[key] : parseFloat(a[key]);
-        const vb = isNaN(b[key]) ? b[key] : parseFloat(b[key]);
-        return asc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
-      });
-      renderLeaderboard('pitch-run-exp',
-        output.slice(0,20),
-        ['Pitcher','Pitch Type','AvgRunValue','Count']
-      );
-      tbl.querySelectorAll('th').forEach(h=>h.classList.remove('asc','desc'));
-      th.classList.add(asc?'asc':'desc');
-    };
-  });
-}
-  // filters
-  const teamF = document.getElementById('pre-team-filter').value;
-  const pitF  = document.getElementById('pre-pitcher-filter').value;
-  if (teamF) prRows = prRows.filter(r => r.Team === teamF);
-  if (pitF)  prRows = prRows.filter(r => r.Pitcher === pitF);
+    // spray
+    rows.filter(r=>r.PitchCall==='InPlay').forEach(r=>{
+      const dir = parseFloat(r.Direction), dist=parseFloat(r.Distance),
+            ev  = parseFloat(r.ExitSpeed);
+      if(isNaN(dir)||isNaN(dist)) return;
+      const rad = dir*Math.PI/180,
+            dpx = Math.min(dist,park.center)*scale,
+            x   = origin.x + Math.sin(rad)*dpx,
+            y   = origin.y - Math.cos(rad)*dpx,
+            size= isNaN(ev)?6:Math.min(ev/2,15);
+      ctx.fillStyle='rgba(220,50,50,0.7)';
+      ctx.beginPath(); ctx.arc(x,y,size,0,2*Math.PI); ctx.fill();
+    });
 
-  // sort ascending for “most effective” (lowest RV first)
-  prRows.sort((a,b) => parseFloat(a.AvgRunValue) - parseFloat(b.AvgRunValue));
-
-  // render top 20
-  renderLeaderboard('pitch-run-exp',
-    prRows.slice(0,20),
-    ['Pitcher','Pitch Type','AvgRunValue','Count']
-  );
-
-  // make columns sortable by clicking headers
-  const tbl = document.getElementById('pitch-run-exp');
-  tbl.querySelectorAll('th[data-key]').forEach(th => {
-    th.style.cursor = 'pointer';
-    th.onclick = () => {
-      const key = th.dataset.key.replace(/\s+/g,'');
-      const asc = !th.classList.contains('asc');
-      prRows.sort((a,b) => {
-        const va = key==='Pitcher'||key==='PitchType'
-                   ? a[key] : parseFloat(a[key]);
-        const vb = key==='Pitcher'||key==='PitchType'
-                   ? b[key] : parseFloat(b[key]);
-        return asc ? (va>vb?1:-1) : (va<vb?1:-1);
-      });
-      renderLeaderboard('pitch-run-exp', prRows.slice(0,20),
-                        ['Pitcher','Pitch Type','AvgRunValue','Count']);
-      tbl.querySelectorAll('th').forEach(h=>h.classList.remove('asc','desc'));
-      th.classList.add(asc?'asc':'desc');
-    };
-  });
-
-
-
-    // Attach form submit after data is ready
-    function initSearchHandler() {
-      document.getElementById('search-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const q = document.getElementById('search').value.trim();
-
-        const isUmp = data.some(r => r.Umpire === q);
-        if (isUmp) {
-          window.location.href = `ump-profiles.html?player=${encodeURIComponent(q)}`;
-          return;
+    // fielders in blue
+    if (fr) {
+      ['1B','2B','3B','SS','LF','CF','RF'].forEach(lbl=>{
+        const px = parseFloat(fr[lbl+'_PositionAtReleaseX']),
+              pz = parseFloat(fr[lbl+'_PositionAtReleaseZ']),
+              name = fr[lbl+'_Name']||lbl;
+        if(!isNaN(px)&&!isNaN(pz)){
+          const x = origin.x + pz*scale,
+                y = origin.y - px*scale;
+          ctx.fillStyle='rgba(50,100,220,0.8)';
+          ctx.beginPath(); ctx.arc(x,y,6,0,2*Math.PI); ctx.fill();
+          ctx.fillStyle='#000'; ctx.font='12px sans-serif';
+          ctx.textAlign='left'; ctx.textBaseline='middle';
+          ctx.fillText(name, x+8, y);
         }
-
-        const isPitcher = data.some(r => r.Pitcher === q);
-        if (isPitcher) {
-          window.location.href = `pitcher-profiles.html?player=${encodeURIComponent(q)}`;
-          return;
-        }
-
-        // Check if query matches a batter
-        const isBatter = data.some(r => r.Batter === q);
-        if (isBatter) {
-          window.location.href = `batter-profiles.html?player=${encodeURIComponent(q)}`;
-          return;
-        }
-
-        // Otherwise check if it matches a team
-        const isTeam = data.some(r => r.HomeNameFull === q || r.AwayNameFull === q);
-        if (isTeam) {
-          window.location.href = `team-profiles.html?team=${encodeURIComponent(q)}`;
-          return;
-        }
-
-        // Fallback: no match
-        alert('No matching player or team found.');
       });
     }
-
-document.querySelectorAll('.back-to-top').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.getElementById('top').scrollIntoView({ behavior: 'smooth' });
-  });
-});
-
-
-
+  }
   </script>
 </body>
 </html>

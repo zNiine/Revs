@@ -97,5 +97,28 @@
     function renderUmpRank(rows){const map={};allData.forEach(r=>{if(r.PitchCall!=='StrikeCalled'&&r.PitchCall!=='BallCalled')return;map[r.Umpire]=map[r.Umpire]||{total:0,correct:0};map[r.Umpire].total++;const strike=r.PitchCall==='StrikeCalled';if((inZone(r)&&strike)||(!inZone(r)&&!strike))map[r.Umpire].correct++;});const arr=Object.entries(map).map(([u,s])=>({name:u,accuracy:s.correct/s.total})).sort((a,b)=>b.accuracy-a.accuracy);const idx=arr.findIndex(x=>x.name===umpName)+1;const pct=((arr.length-idx)/(arr.length-1)*100).toFixed(0);document.getElementById('umpRankInfo').innerHTML=`<p><strong>Rank:</strong> ${idx} of ${arr.length}</p><p><strong>Percentile:</strong> Top ${pct}%</p>`;}    
     document.addEventListener('DOMContentLoaded',()=>{Papa.parse('./data.csv',{download:true,header:true,skipEmptyLines:true,complete:res=>{allData=res.data.map(r=>({...r,Date:r.Date.split('T')[0]}));const dates=Array.from(new Set(allData.filter(r=>r.Umpire===getParam('player')).map(r=>r.Date))).sort();const df=document.getElementById('dateFilter');dates.forEach(d=>df.append(new Option(d)));const dl=document.getElementById('suggestions');new Set(allData.map(r=>r.Umpire)).forEach(n=>dl.append(new Option(n)));applyFilters();}});document.getElementById('search-form').addEventListener('submit',e=>{e.preventDefault();const q=document.getElementById('search').value.trim();if(allData.some(r=>r.Umpire===q))window.location.href=`ump-profiles.html?player=${encodeURIComponent(q)}`;else alert('No matching umpire found.');});});
   </script>
+  <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
+    authDomain: "revs-2c987.firebaseapp.com",
+    projectId: "revs-2c987",
+    storageBucket: "revs-2c987.firebasestorage.app",
+    messagingSenderId: "181256684157",
+    appId: "1:181256684157:web:a9e1c5dfd767658e2ba714",
+    measurementId: "G-2050889X0C"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
 </body>
 </html>

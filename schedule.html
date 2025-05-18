@@ -85,5 +85,28 @@
     function applySortHandlers(data){document.querySelectorAll('#summary-table th').forEach(th=>{th.addEventListener('click',()=>{const key=th.dataset.key,desc=!th.classList.contains('sorted-desc');document.querySelectorAll('#summary-table th').forEach(h=>h.classList.remove('sorted-asc','sorted-desc'));th.classList.toggle('sorted-desc',desc);th.classList.toggle('sorted-asc',!desc);renderTable(sortBy(data.slice(),key,desc));});});}
     Papa.parse('schedule.csv',{download:true,header:true,complete(results){const raw=results.data.sort((a,b)=>parseDate(a.Date)-parseDate(b.Date));const games=raw.filter(r=>/^[0-9]+\s*-\s*[0-9]+$/.test(r.Result));const teams={};games.forEach(r=>{const [aRuns,hRuns]=r.Result.split('-').map(s=>+s.trim());const away=r.Away,home=r.Home;[away,home].forEach(t=>{if(!teams[t])teams[t]={team:t,W:0,L:0,RS:0,RA:0,homeW:0,homeL:0,awayW:0,awayL:0,results:[],oneRunW:0,oneRunL:0};});if(aRuns>hRuns){teams[away].W++;teams[away].results.push('W');teams[home].L++;teams[home].results.push('L');}else{teams[home].W++;teams[home].results.push('W');teams[away].L++;teams[away].results.push('L');}teams[away].RS+=aRuns;teams[away].RA+=hRuns;teams[home].RS+=hRuns;teams[home].RA+=aRuns;teams[away][aRuns>hRuns?'awayW':'awayL']++;teams[home][hRuns>aRuns?'homeW':'homeL']++;if(Math.abs(aRuns-hRuns)===1){if(aRuns>hRuns){teams[away].oneRunW++;teams[home].oneRunL++;}else{teams[home].oneRunW++;teams[away].oneRunL++;}}});Object.values(teams).forEach(t=>{const rev=t.results.slice().reverse(),st=rev[0],cnt=rev.reduce((c,r)=>r===st?c+1:c,0);t.strk=st+cnt;const last10=t.results.slice(-10);t.L10W=last10.filter(r=>r==='W').length;t.L10L=last10.filter(r=>r==='L').length;t.diff=t.RS-t.RA;});Object.values(teams).forEach(t=>{t.elo=1500;t.opponentsPlayed=[];t.opponentsRemaining=[];});games.forEach(r=>{const [aRuns,hRuns]=r.Result.split('-').map(s=>+s.trim()),away=r.Away,home=r.Home,sA=aRuns>hRuns?1:0,rA=teams[away].elo,rH=teams[home].elo,eA=1/(1+10**((rH-rA)/400)),eH=1-eA,K=20;teams[away].elo+=K*(sA-eA);teams[home].elo+=K*((1-sA)-eH);teams[away].opponentsPlayed.push(home);teams[home].opponentsPlayed.push(away);});raw.filter(r=>!/^[0-9]+\s*-\s*[0-9]+$/.test(r.Result)).forEach(r=>{const away=r.Away,home=r.Home;teams[away]?.opponentsRemaining.push(home);teams[home]?.opponentsRemaining.push(away);});const summary=Object.values(teams).map(o=>{const G=o.W+o.L,expW=G*(o.RS**2/(o.RS**2+o.RA**2));return{...o,pct:o.W/G||0,played:o.opponentsPlayed.reduce((s,opp)=>s+Math.round(teams[opp].elo),0),remaining:o.opponentsRemaining.reduce((s,opp)=>s+Math.round(teams[opp].elo),0),expW,expL:G-expW};});['elo','played','remaining'].forEach(key=>sortBy(summary,key,true).forEach((o,i)=>o[key+'Rank']=i+1));const sorted=sortBy(summary.slice(),'elo',true);renderTable(sorted);applySortHandlers(summary);} });
   </script>
+  <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
+    authDomain: "revs-2c987.firebaseapp.com",
+    projectId: "revs-2c987",
+    storageBucket: "revs-2c987.firebasestorage.app",
+    messagingSenderId: "181256684157",
+    appId: "1:181256684157:web:a9e1c5dfd767658e2ba714",
+    measurementId: "G-2050889X0C"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
 </body>
 </html>
