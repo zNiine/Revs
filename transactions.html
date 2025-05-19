@@ -15,9 +15,30 @@
     th, td { border:1px solid #ddd; padding:.5rem; text-align:left }
     th { background:#333; color:#fff; position:sticky; top:0 }
     tr:nth-child(even) { background:#f9f9f9 }
+       nav#menu { background: #fff; padding: .5rem 2rem; border-bottom: 1px solid #ddd }
+    nav#menu ul { list-style: none; display: flex; gap: 2rem }
+    nav#menu a { text-decoration: none; color: #333; font-weight: 500 }
+    nav#menu a.active { color: #007bff; text-decoration: underline }
   </style>
 </head>
 <body>
+  <!-- NAVIGATION -->
+  <nav id="menu">
+    <ul>
+      <li><a href="index.html">Home</a></li>
+                    <li><a href="schedule.html" >Standings</a></li>
+
+                        <li><a href="games.html">Games</a></li>
+
+      <li><a href="leaderboards.html">Leaderboards</a></li>
+      <li><a href="park-factors.html">Park Factors</a></li>
+      <li><a href="fielding.html">Fielding</a></li>
+      <li><a href="stolen-bases.html" >Base Running</a></li>
+                  <li><a href="dong.html">Would it Dong?</a></li>
+
+    </ul>
+  </nav>
+
   <h1>Recent Transactions (MiLB, LMB, AA)</h1>
   <div id="controls">
     <button id="scrape-btn">Refresh Data</button>
