@@ -661,7 +661,7 @@ Object.values(tree).forEach(distMap => {
         });
     }
 
-   function drawMovementProfile(rows, containerId) {
+  function drawMovementProfile(rows, containerId) {
   // 1) Prepare the data traces grouped by pitch type
   const traceByType = {};
   rows.forEach(r => {
@@ -669,84 +669,52 @@ Object.values(tree).forEach(distMap => {
     const hb   = parseFloat(r.HorzBreak);
     const vb   = parseFloat(r.InducedVertBreak);
     if (isNaN(hb) || isNaN(vb)) return;
-    const angle = Math.atan2(vb, hb) * 180/Math.PI;  // degrees around circle
-    const mag   = Math.hypot(hb, vb);               // radial distance
-    if (!traceByType[type]) traceByType[type] = { r: [], theta: [], name: type };
-    traceByType[type].r.push(mag);
-    traceByType[type].theta.push(angle);
+    if (!traceByType[type]) traceByType[type] = { x: [], y: [], name: type };
+    traceByType[type].x.push(hb);
+    traceByType[type].y.push(vb);
   });
 
+  // 2) Build traces
   const traces = Object.values(traceByType).map(d => ({
-    type: 'scatterpolar',
-    r: d.r,
-    theta: d.theta,
+    type: 'scatter',
+    x: d.x,
+    y: d.y,
     mode: 'markers',
     name: d.name,
-    marker: { color: PTYPE_COLORS[d.name] || '#999', size: 10 }
+    marker: {
+      color: PTYPE_COLORS[d.name] || '#999',
+      size: 8
+    }
   }));
 
+  // 3) Plot
   Plotly.newPlot(containerId, traces, {
-    polar: {
-      radialaxis: {
-        title: 'Movement (in)',
-        tickfont: { size: 10 },
-        ticksuffix: '"',
-        angle: 0,
-        showline: true,
-        gridcolor: '#ddd'
-      },
-      angularaxis: {
-        showticklabels: false,
-        showgrid: false,
-        showline: false,
-        title: 'Movement (in)',
-        tickfont: { size: 10 },
-      }
+    xaxis: {
+      title: 'Horizontal Break (in)',
+      ticksuffix: '"',
+      zeroline: false,
+      gridcolor: '#eee'
+    },
+    yaxis: {
+      title: 'Induced Vertical Break (in)',
+      ticksuffix: '"',
+      zeroline: false,
+      gridcolor: '#eee'
+    },
+    margin: { t: 20, l: 50, r: 100, b: 50 },
+    legend: {
+      orientation: 'h',
+      x: 0.5, xanchor: 'center',
+      y: 1.05
     },
     paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor:  'rgba(0,0,0,0)',
+    plot_bgcolor:  'rgba(0,0,0,0)'
+  }, {
+    displayModeBar: false,
+    staticPlot:     true
+  });
+}
 
-    showlegend: false,
-    legend: {
-      bgcolor:     'rgba(0,0,0,0)',
-      bordercolor: 'rgba(0,0,0,0)',
-      font:        { size: 10 }
-    },
-
-    margin: { t: 40, l: 5, r: 0, b: 40 },
-
-  annotations: [
-    {
-      x: .76, y: 0.62,         // move a little closer in
-      xref: 'paper', yref: 'paper',
-      text: 'More<br>Rise<br>▲',
-      showarrow: false,
-      align: 'center',
-      font:  { size: 10 }
-    },
-    {
-      x: 0.76, y: 0.38,
-      xref: 'paper', yref: 'paper',
-      text: '▼<br>More<br>Drop',
-      showarrow: false,
-      align: 'center',
-      font:  { size: 10 }
-    },
-    {
-      x: 0.5, y: .0,          // pull down a touch
-      xref: 'paper', yref: 'paper',
-      text: '<b>1B ← moves toward → 3B</b>',
-      showarrow: false,
-      align: 'center',
-      font: { size: 12 }
-    }
-  ]
-}, {
-  displayModeBar: false,
-  staticPlot:     true
-});
-
-   }
 
 function drawSpinAxisRose(rows, containerId) {
   const binSize = 15;

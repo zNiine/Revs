@@ -220,8 +220,7 @@ function drawPA(pa, canvas, tableDiv) {
   const mapY = y => oy - (y - zone.bottom) * scale;
 
   // mapX mirrored: dot at x appears at same distance from RIGHT edge
-  const mapX = x => ox + (zone.right - x) * scale;
-
+const mapX = x => ox + (x - zone.left) * scale;
   // clear & draw the original strike‐zone rectangle
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = 'black';

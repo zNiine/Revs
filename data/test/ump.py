@@ -81,9 +81,12 @@ umpire_mapping = {
     "59b7ff80-018f-47cb-9fc1-1ad8e4eb1feb" : "Andy McPherson",
     "b9a6d9bd-e582-40a3-b8d8-e8525c7bd68d" : "Brett Stowe",
     "fa105889-b374-4258-a08a-3ee3d529db38" : "Jerry Martinez",
-    "79bcc505-1314-4766-ae17-2ac0f3963095" : "Antonio Pinzon"
-
-
+    "79bcc505-1314-4766-ae17-2ac0f3963095" : "Antonio Pinzon",
+    "c05e60ff-fbfa-4101-aead-60f4cf644727": "Daniel Wetzel",
+    "2c998100-1322-4202-a68a-4dffd2ed6f7d" : "Kelly Dine",
+    "6b5abc91-9693-4ac9-a4b3-da343f1e28d8": "Trey Hudson",
+    "3e9271f0-b4fd-4ac9-b2cc-dda1a68292a0": "Steve Bartelstein",
+    "93339e6b-370f-47ca-b177-4472ca5e25ca": "Gavin Holdgreve"
 
     # add your other GameID→Umpire entries here…
 }
