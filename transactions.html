@@ -22,7 +22,6 @@
   <div id="controls">
     <button id="scrape-btn">Refresh Data</button>
     <div id="google_translate_element"></div>
-
   </div>
   <div id="loading">Loading transactions…</div>
   <div id="error" hidden></div>
@@ -66,40 +65,82 @@
         if (!res.ok) throw new Error(`Worker returned HTTP ${res.status}`);
         const data = await res.json();
 
-        // flatten:
-        // - for MiLB: only keep “released…” entries, strip prefix
-        // - for LMB & AA: include everything as-is
         const rows = [];
-        for (const date of Object.keys(data)) {
-          for (const src of ['milb','lmb','aa']) {
-            const arr = data[date][src] || [];
-            if (src === 'milb') {
-              for (const tx of arr) {
-                const desc = (tx.transaction||tx.description||'').trim();
-                const idx  = desc.toLowerCase().indexOf('released');
-                if (idx === -1) continue;
-                const trans = desc.substring(idx);
+        const values = Object.values(data);
+        const isNested = values.length > 0
+                      && typeof values[0] === 'object'
+                      && ('milb' in values[0] || 'lmb' in values[0] || 'aaAll' in values[0]);
+
+        if (isNested) {
+          // Track which AA dates we've already added
+          const aaDatesSeen = new Set();
+
+          for (const [dateKey, srcs] of Object.entries(data)) {
+            // MiLB: only “Released”
+            (Array.isArray(srcs.milb) ? srcs.milb : []).forEach(tx => {
+              const desc = (tx.transaction || tx.description || '').toLowerCase();
+              if (desc.includes('released')) {
                 rows.push({
-                  date,
-                  source: 'MiLB',
-                  team:   tx.team,
-                  transaction: trans
+                  date:        dateKey,
+                  source:      'MILB',
+                  team:        tx.team,
+                  transaction: tx.transaction || tx.description || ''
                 });
               }
-            } else {
-              for (const tx of arr) {
-                rows.push({
-                  date,
-                  source: src.toUpperCase(),
-                  team:   tx.team,
-                  transaction: tx.transaction
+            });
+
+            // LMB: include everything
+            (Array.isArray(srcs.lmb) ? srcs.lmb : []).forEach(tx => {
+              rows.push({
+                date:        dateKey,
+                source:      'LMB',
+                team:        tx.team,
+                transaction: tx.transaction || tx.description || ''
+              });
+            });
+
+            // AA: only once per its own dateKey
+            if (Array.isArray(srcs.aaAll) && !aaDatesSeen.has(dateKey)) {
+              srcs.aaAll
+                .filter(tx => {
+                  // convert "May 17, 2025" → "2025-05-17"
+                  const txDate = new Date(tx.date).toISOString().slice(0,10);
+                  return txDate === dateKey;
+                })
+                .forEach(tx => {
+                  rows.push({
+                    date:        dateKey,
+                    source:      'AA',
+                    team:        tx.team,
+                    transaction: tx.transaction
+                  });
                 });
-              }
+              aaDatesSeen.add(dateKey);
             }
           }
+
+        } else {
+          // flattened fallback: { 'aa:2025-05-17': [...], ... }
+          Object.entries(data).forEach(([key, txArray]) => {
+            if (!Array.isArray(txArray)) return;
+            const [src, date] = key.split(':');
+            txArray.forEach(tx => {
+              // filter only MiLB “Released”
+              if (src === 'milb') {
+                const desc = (tx.transaction || tx.description || '').toLowerCase();
+                if (!desc.includes('released')) return;
+              }
+              rows.push({
+                date,
+                source:      src.toUpperCase(),
+                team:        tx.team,
+                transaction: tx.transaction || tx.description || ''
+              });
+            });
+          });
         }
 
-        // dedupe on date|source|team|transaction
+        // remove duplicates
         const seen = new Set();
         const unique = rows.filter(r => {
           const key = [r.date, r.source, r.team, r.transaction].join('|');
@@ -108,7 +149,7 @@
           return true;
         });
 
-        // sort newest-first
+        // sort newest first
         unique.sort((a,b) => b.date.localeCompare(a.date));
 
         if (unique.length === 0) {
@@ -118,11 +159,13 @@
           loadingEl.hidden = true;
           tableEl.hidden   = false;
         }
+
       } catch (err) {
         console.error(err);
         errorEl.textContent = 'Error: ' + err.message;
         errorEl.hidden = false;
         loadingEl.hidden = true;
+
       } finally {
         btn.disabled = false;
       }
@@ -131,7 +174,7 @@
     function renderTable(data) {
       const tbody = document.querySelector('#tx-table tbody');
       tbody.innerHTML = '';
-      for (const { date, source, team, transaction } of data) {
+      data.forEach(({ date, source, team, transaction }) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${date}</td>
@@ -140,23 +183,22 @@
           <td>${transaction}</td>
         `;
         tbody.appendChild(tr);
-      }
+      });
     }
   </script>
 
   <script type="text/javascript">
-  function googleTranslateElementInit() {
-    new google.translate.TranslateElement({
-      pageLanguage: 'es',            // source page is Spanish
-      includedLanguages: 'en',       // offer only English
-      layout: google.translate.TranslateElement.InlineLayout.SIMPLE
-    }, 'google_translate_element');
-  }
-</script>
-<script 
-  type="text/javascript" 
-  src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
-</script>
-
+    function googleTranslateElementInit() {
+      new google.translate.TranslateElement({
+        pageLanguage: 'es',
+        includedLanguages: 'en',
+        layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+      }, 'google_translate_element');
+    }
+  </script>
+  <script 
+    type="text/javascript" 
+    src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
+  </script>
 </body>
 </html>
