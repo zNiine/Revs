@@ -734,6 +734,7 @@ aside#sidebar h3 {
 let fullUmpireRows = [];
 
     let data = [];
+    let fullData = [];
     const teams = new Set(), playersSet = new Set();
 
     function getFullTeamName(abbr, row) {
@@ -984,56 +985,44 @@ if (days > 0) {
 const filtered = data.filter(r =>
   !cutoff || new Date(r[columns.date]).getTime() >= cutoff
 );
+const uniq = Array.from(new Set(data.map(r => r[columns.playResult])));
+console.log(uniq);
+// 1) Filter & map to numeric + display fields
+const hrWithNum = filtered
+  .filter(r => /home\s*run/i.test(r[columns.playResult]))
+  .map(r => ({
+    __dist: parseFloat(r[columns.distance].replace(/,/g,'')) || 0,
+    Team:          getFullTeamName(r[columns.playerTeam], r),
+    Batter:        r[columns.player],
+    Pitcher:       r[columns.pitcher],
+    'Exit Vel':    r[columns.exitSpeed],
+    'Launch Ang':  r[columns.angle],
+    Distance:      r[columns.distance],
+    AutoPitchType: r[columns.autoType],
+    Date:          r[columns.date],
+    Details:       `<a href="Game-view.html?pitchUID=${r.PitchUID}">View</a>`,
+    Watch:         `<button style="padding:.2rem .5rem;cursor:pointer;" onclick="watchVideo('${r.GameUID}','${r.PlayID}')">▶️ Watch</button>
+                    <button class="details-button" onclick="watchImage('${r.GameUID}','${r.PlayID}')">Composite</button>`
+  }));
 
+// 2) (optional) apply your UI filters here…
 
-  // 1) Filter to HomeRuns
-let hrRows = filtered.filter(r => r[columns.playResult] === 'HomeRun');
-const hrTeam   = document.getElementById('hr-team-filter').value;
-const hrPlayer = document.getElementById('hr-player-filter').value;
-if (hrTeam)   hrRows = hrRows.filter(r => getFullTeamName(r[columns.playerTeam], r) === hrTeam);
-if (hrPlayer) hrRows = hrRows.filter(r => r[columns.player] === hrPlayer);
-hrRows.sort((a,b) => parseFloat(b[columns.distance]) - parseFloat(a[columns.distance]));
+// 3) Sort & slice
+hrWithNum.sort((a,b) => b.__dist - a.__dist);
+const topTen = hrWithNum.slice(0,10);
 
-// 2) Map into display objects (including Details + Watch)
-const hrDisplay = hrRows.slice(0,10).map(r => ({
-  Team:          getFullTeamName(r[columns.playerTeam], r),
-  Batter:        r[columns.player],
-  Pitcher:       r[columns.pitcher],
-  'Exit Vel':    r[columns.exitSpeed],
-  'Launch Ang':  r[columns.angle],
-  Distance:      r[columns.distance],
-  AutoPitchType: r[columns.autoType],
-  Date:          r[columns.date],
-  Details:       `<a href="Game-view.html?pitchUID=${r.PitchUID}">View</a>`,
-  Watch:         `<button
-          style="padding:.2rem .5rem;cursor:pointer;"
-          onclick="watchVideo('${r.GameUID}', '${r.PlayID}')">
-          ▶️ Watch
-        </button>
-        
-         <button class="details-button"
-          onclick="watchImage('${r.GameUID}', '${r.PlayID}')">
-    Composite
-  </button>`
-}));
+// 4) Strip helper & log
+const hrDisplay = topTen.map(({ __dist, ...rest }) => rest);
+console.log('HR display array:');
+console.table(hrDisplay);
 
-// 3) Render with a dedicated Watch column
+// 5) Render
 renderLeaderboard(
   'hr-distance',
   hrDisplay,
-  [
-    'Team',
-    'Batter',
-    'Pitcher',
-    'Exit Vel',
-    'Launch Ang',
-    'Distance',
-    'AutoPitchType',
-    'Date',
-    'Details',
-    'Watch'            // <-- New column here
-  ]
+  ['Team','Batter','Pitcher','Exit Vel','Launch Ang','Distance','AutoPitchType','Date','Details','Watch']
 );
+
 
 
       // 2. Fastest Exit Velocity
@@ -1150,47 +1139,58 @@ renderLeaderboard('release-speed',
   ['Pitcher','Release Speed','PitchCall']
 );
       
-// 7. Catcher Stats
+// 7. Catcher Stats (only throws to 2nd base by Z)
+const MIN_2B_Z = -10;
+const MAX_2B_Z =  10;
+
 const catcherMap = {};
 filtered.forEach(r => {
   // identify the catcher
   const c = r[columns.catcher] || r.Catcher || r.CatcherId;
   if (!c) return;
 
+  // determine if this throw was to 2nd base by Z-axis
+  const bz = parseFloat(r.BasePositionZ || '');
+  if (isNaN(bz) || bz < MIN_2B_Z || bz > MAX_2B_Z) {
+    // not a throw to 2B → skip entirely
+    return;
+  }
+
   // initialize if needed
   if (!catcherMap[c]) {
     const teamName = r[columns.catcherTeam] || r.CatcherTeam || '';
     catcherMap[c] = {
-      popSum: 0, popCount: 0,
-      exchSum: 0, exchCount: 0,
-      throwSum: 0, throwCount: 0,
+      popSum:     0, popCount: 0,
+      exchSum:    0, exchCount: 0,
+      throwSum:   0, throwCount: 0,
       team: getFullTeamName(teamName, r)
     };
   }
   const stats = catcherMap[c];
 
-  // Pop Time
+  // Pop Time (exclude any throws slower than 2.49 s)
   const pop = parseFloat(r[columns.popTime] || r.PopTime || '');
-  if (!isNaN(pop) && pop > 0) {
-    stats.popSum += pop;
-    stats.popCount++;
+  if (!isNaN(pop) && pop > 0 && pop <= 2.49) {
+    stats.popSum   += pop;
+    stats.popCount += 1;
   }
 
   // Exchange Time
   const ex = parseFloat(r[columns.exchangeTime] || r.ExchangeTime || '');
   if (!isNaN(ex) && ex > 0) {
-    stats.exchSum += ex;
-    stats.exchCount++;
+    stats.exchSum   += ex;
+    stats.exchCount += 1;
   }
 
   // Throw Speed
   const th = parseFloat(r[columns.throwSpeed] || r.ThrowSpeed || '');
   if (!isNaN(th) && th > 0) {
-    stats.throwSum += th;
-    stats.throwCount++;
+    stats.throwSum   += th;
+    stats.throwCount += 1;
   }
 });
 
+// build your rows
 let catcherRows = Object.entries(catcherMap).map(([name, s]) => ({
   Catcher:      name,
   Team:         s.team,
@@ -1200,52 +1200,40 @@ let catcherRows = Object.entries(catcherMap).map(([name, s]) => ({
   Attempts:     s.popCount
 }));
 
-// apply filters
+// apply player/team filters if any
 const cpf = document.getElementById('catcher-player-filter').value;
 if (cpf) catcherRows = catcherRows.filter(r => r.Catcher === cpf);
 const ctf = document.getElementById('catcher-team-filter').value;
 if (ctf) catcherRows = catcherRows.filter(r => catcherMap[r.Catcher].team === ctf);
 
-// league average row
-const total = catcherRows.reduce((acc, r) => {
-  acc.popSum  += parseFloat(r.PopTime)      || 0;
-  acc.exchSum += parseFloat(r.ExchangeTime) || 0;
-  acc.throwSum+= parseFloat(r.ThrowSpeed)   || 0;
-  acc.count  ++;
-  acc.attempts+= r.Attempts;
-  return acc;
-}, { popSum:0, exchSum:0, throwSum:0, count:0, attempts:0 });
-
-if (total.count > 0) {
-  
-}
-
-// sort so league average goes last, then by PopTime asc
+// sort by PopTime asc
 catcherRows.sort((a, b) =>
   (parseFloat(a.PopTime) || 0) - (parseFloat(b.PopTime) || 0)
 );
-// render
+
+// render top 10
 renderLeaderboard('catcher-stats', catcherRows.slice(0,10), [
   'Catcher','Team','PopTime','ExchangeTime','ThrowSpeed','Attempts'
 ]);
 
-// make headers sortable
+// make headers sortable (unchanged)
 document.querySelectorAll('#catcher-stats th[data-key]').forEach(th => {
   th.addEventListener('click', () => {
-    const key = th.dataset.key;
+    const key   = th.dataset.key;
     const tbody = document.querySelector('#catcher-stats tbody');
     const rows  = Array.from(tbody.rows);
     const asc   = !th.classList.contains('asc');
 
     rows.sort((a,b) => {
       const headers = ['Catcher','Team','PopTime','ExchangeTime','ThrowSpeed','Attempts'];
-      const idx = headers.indexOf(key);
+      const idx     = headers.indexOf(key);
       let va = key==='Catcher' || key==='Team'
                ? a.cells[idx].innerText
                : parseFloat(a.cells[idx].innerText);
       let vb = key==='Catcher' || key==='Team'
                ? b.cells[idx].innerText
                : parseFloat(b.cells[idx].innerText);
+
       if (key==='Catcher' || key==='Team') {
         return asc ? va.localeCompare(vb) : vb.localeCompare(va);
       }
@@ -1259,6 +1247,7 @@ document.querySelectorAll('#catcher-stats th[data-key]').forEach(th => {
     th.classList.add(asc ? 'asc' : 'desc');
   });
 });
+
 
 
  const teamMap = {};
@@ -1508,7 +1497,6 @@ function drawSweetSpotPct(rows) {
 
   renderLeaderboard('sweetspot-pct', rowsOut, ['Player','SweetSpot %','Plate Apps']);
 }
-
 
 
 
