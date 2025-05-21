@@ -86,7 +86,12 @@ umpire_mapping = {
     "2c998100-1322-4202-a68a-4dffd2ed6f7d" : "Kelly Dine",
     "6b5abc91-9693-4ac9-a4b3-da343f1e28d8": "Trey Hudson",
     "3e9271f0-b4fd-4ac9-b2cc-dda1a68292a0": "Steve Bartelstein",
-    "93339e6b-370f-47ca-b177-4472ca5e25ca": "Gavin Holdgreve"
+    "93339e6b-370f-47ca-b177-4472ca5e25ca": "Gavin Holdgreve",
+    "6d9d2566-fb05-43f9-9a2e-e3e12f2e76a1": "Timothy Gansrow",
+    "5f0a4741-6e30-403e-bc1b-083b7fa7a470": "Bill Reuter",
+    "d2379525-f633-40a2-9082-beee9e1b8ccf": "Andy McPherson",
+    "c90c751f-78a6-440b-8be7-3baa006d4074": "Matt Criss",
+    "aa191e4f-d210-4a17-aac1-52af3336b1bb": "Bill Worthington"
 
     # add your other GameID→Umpire entries here…
 }

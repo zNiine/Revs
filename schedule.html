@@ -65,6 +65,8 @@
             <th data-key="elo">Power Rankings</th>
             <th data-key="played">Toughest Schedule Played</th>
             <th data-key="remaining">Toughest Schedule Remaining</th>
+                        <th data-key="tough1st">Toughest Remaining 1st Half Schedule</th>
+
             <th data-key="expW">Expected W-L</th>
           </tr>
         </thead>
@@ -84,9 +86,171 @@
     /* parsing and table-rendering logic unchanged */
     function parseDate(str){return new Date(str);}    
     function sortBy(arr,key,desc=false){return arr.sort((a,b)=>(a[key]<b[key]?(desc?1:-1):(a[key]>b[key]?(desc?-1:1):0)));}
-    function renderTable(data){const tbody=document.querySelector('#summary-table tbody');tbody.innerHTML='';data.forEach(o=>{tbody.innerHTML+=`<tr><td>${o.team}</td><td>${o.W}</td><td>${o.L}</td><td>${o.pct.toFixed(3)}</td><td>${o.homeW}-${o.homeL}</td><td>${o.awayW}-${o.awayL}</td><td>${o.RS}</td><td>${o.RA}</td><td>${o.diff}</td><td>${o.L10W}-${o.L10L}</td><td>${o.oneRunW}-${o.oneRunL}</td><td>${Math.round(o.elo)} (${o.eloRank})</td><td>${o.played} (${o.playedRank})</td><td>${o.remaining} (${o.remainingRank})</td><td>${Math.round(o.expW)}-${Math.round(o.expL)}</td></tr>`});}
-    function applySortHandlers(data){document.querySelectorAll('#summary-table th').forEach(th=>{th.addEventListener('click',()=>{const key=th.dataset.key,desc=!th.classList.contains('sorted-desc');document.querySelectorAll('#summary-table th').forEach(h=>h.classList.remove('sorted-asc','sorted-desc'));th.classList.toggle('sorted-desc',desc);th.classList.toggle('sorted-asc',!desc);renderTable(sortBy(data.slice(),key,desc));});});}
-    Papa.parse('schedule.csv',{download:true,header:true,complete(results){const raw=results.data.sort((a,b)=>parseDate(a.Date)-parseDate(b.Date));const games=raw.filter(r=>/^[0-9]+\s*-\s*[0-9]+$/.test(r.Result));const teams={};games.forEach(r=>{const [aRuns,hRuns]=r.Result.split('-').map(s=>+s.trim());const away=r.Away,home=r.Home;[away,home].forEach(t=>{if(!teams[t])teams[t]={team:t,W:0,L:0,RS:0,RA:0,homeW:0,homeL:0,awayW:0,awayL:0,results:[],oneRunW:0,oneRunL:0};});if(aRuns>hRuns){teams[away].W++;teams[away].results.push('W');teams[home].L++;teams[home].results.push('L');}else{teams[home].W++;teams[home].results.push('W');teams[away].L++;teams[away].results.push('L');}teams[away].RS+=aRuns;teams[away].RA+=hRuns;teams[home].RS+=hRuns;teams[home].RA+=aRuns;teams[away][aRuns>hRuns?'awayW':'awayL']++;teams[home][hRuns>aRuns?'homeW':'homeL']++;if(Math.abs(aRuns-hRuns)===1){if(aRuns>hRuns){teams[away].oneRunW++;teams[home].oneRunL++;}else{teams[home].oneRunW++;teams[away].oneRunL++;}}});Object.values(teams).forEach(t=>{const rev=t.results.slice().reverse(),st=rev[0],cnt=rev.reduce((c,r)=>r===st?c+1:c,0);t.strk=st+cnt;const last10=t.results.slice(-10);t.L10W=last10.filter(r=>r==='W').length;t.L10L=last10.filter(r=>r==='L').length;t.diff=t.RS-t.RA;});Object.values(teams).forEach(t=>{t.elo=1500;t.opponentsPlayed=[];t.opponentsRemaining=[];});games.forEach(r=>{const [aRuns,hRuns]=r.Result.split('-').map(s=>+s.trim()),away=r.Away,home=r.Home,sA=aRuns>hRuns?1:0,rA=teams[away].elo,rH=teams[home].elo,eA=1/(1+10**((rH-rA)/400)),eH=1-eA,K=20;teams[away].elo+=K*(sA-eA);teams[home].elo+=K*((1-sA)-eH);teams[away].opponentsPlayed.push(home);teams[home].opponentsPlayed.push(away);});raw.filter(r=>!/^[0-9]+\s*-\s*[0-9]+$/.test(r.Result)).forEach(r=>{const away=r.Away,home=r.Home;teams[away]?.opponentsRemaining.push(home);teams[home]?.opponentsRemaining.push(away);});const summary=Object.values(teams).map(o=>{const G=o.W+o.L,expW=G*(o.RS**2/(o.RS**2+o.RA**2));return{...o,pct:o.W/G||0,played:o.opponentsPlayed.reduce((s,opp)=>s+Math.round(teams[opp].elo),0),remaining:o.opponentsRemaining.reduce((s,opp)=>s+Math.round(teams[opp].elo),0),expW,expL:G-expW};});['elo','played','remaining'].forEach(key=>sortBy(summary,key,true).forEach((o,i)=>o[key+'Rank']=i+1));const sorted=sortBy(summary.slice(),'elo',true);renderTable(sorted);applySortHandlers(summary);} });
+ function renderTable(data){
+      const tbody=document.querySelector('#summary-table tbody');
+      tbody.innerHTML='';
+      data.forEach(o=>{
+        tbody.innerHTML+=
+          `<tr>
+            <td>${o.team}</td>
+            <td>${o.W}</td>
+            <td>${o.L}</td>
+            <td>${o.pct.toFixed(3)}</td>
+            <td>${o.homeW}-${o.homeL}</td>
+            <td>${o.awayW}-${o.awayL}</td>
+            <td>${o.RS}</td>
+            <td>${o.RA}</td>
+            <td>${o.diff}</td>
+            <td>${o.L10W}-${o.L10L}</td>
+            <td>${o.oneRunW}-${o.oneRunL}</td>
+            <td>${Math.round(o.elo)} (${o.eloRank})</td>
+            <td>${o.played} (${o.playedRank})</td>
+            <td>${o.remaining} (${o.remainingRank})</td>
+            <td>${o.toughest1st} (${o.toughest1stRank})</td>
+            <td>${Math.round(o.expW)}-${Math.round(o.expL)}</td>
+          </tr>`;
+      });
+    }    function applySortHandlers(data){document.querySelectorAll('#summary-table th').forEach(th=>{th.addEventListener('click',()=>{const key=th.dataset.key,desc=!th.classList.contains('sorted-desc');document.querySelectorAll('#summary-table th').forEach(h=>h.classList.remove('sorted-asc','sorted-desc'));th.classList.toggle('sorted-desc',desc);th.classList.toggle('sorted-asc',!desc);renderTable(sortBy(data.slice(),key,desc));});});}
+    Papa.parse('schedule.csv', {
+  download: true,
+  header: true,
+  complete(results) {
+    const raw = results.data.sort((a, b) => parseDate(a.Date) - parseDate(b.Date));
+    const games = raw.filter(r => /^[0-9]+\s*-\s*[0-9]+$/.test(r.Result));
+
+    // Initialize team stats
+    const teams = {};
+    games.forEach(r => {
+      const [aRuns, hRuns] = r.Result.split('-').map(s => +s.trim());
+      const away = r.Away, home = r.Home;
+
+      // Ensure team objects exist
+      [away, home].forEach(t => {
+        if (!teams[t]) {
+          teams[t] = {
+            team: t,
+            W: 0, L: 0, RS: 0, RA: 0,
+            homeW: 0, homeL: 0, awayW: 0, awayL: 0,
+            results: [], oneRunW: 0, oneRunL: 0
+          };
+        }
+      });
+
+      // Win/loss and runs
+      if (aRuns > hRuns) {
+        teams[away].W++;
+        teams[away].results.push('W');
+        teams[home].L++;
+        teams[home].results.push('L');
+      } else {
+        teams[home].W++;
+        teams[home].results.push('W');
+        teams[away].L++;
+        teams[away].results.push('L');
+      }
+      teams[away].RS += aRuns;
+      teams[away].RA += hRuns;
+      teams[home].RS += hRuns;
+      teams[home].RA += aRuns;
+
+      // Home/away records
+      teams[away][aRuns > hRuns ? 'awayW' : 'awayL']++;
+      teams[home][hRuns > aRuns ? 'homeW' : 'homeL']++;
+
+      // One-run games
+      if (Math.abs(aRuns - hRuns) === 1) {
+        if (aRuns > hRuns) {
+          teams[away].oneRunW++;
+          teams[home].oneRunL++;
+        } else {
+          teams[home].oneRunW++;
+          teams[away].oneRunL++;
+        }
+      }
+    });
+
+    // Streaks, diff calculation
+    Object.values(teams).forEach(t => {
+      const rev = t.results.slice().reverse();
+      const st = rev[0];
+      const cnt = rev.reduce((c, r) => (r === st ? c + 1 : c), 0);
+      t.strk = st + cnt;
+      const last10 = t.results.slice(-10);
+      t.L10W = last10.filter(r => r === 'W').length;
+      t.L10L = last10.filter(r => r === 'L').length;
+      t.diff = t.RS - t.RA;
+    });
+
+    // Prepare for Power Rankings & schedules
+    Object.values(teams).forEach(t => {
+      t.elo = 1500;
+      t.opponentsPlayed = [];
+      t.opponentsRemaining = [];
+    });
+
+    // Compute elo and record opponents played
+    games.forEach(r => {
+      const [aRuns, hRuns] = r.Result.split('-').map(s => +s.trim());
+      const away = r.Away, home = r.Home;
+      const sA = aRuns > hRuns ? 1 : 0;
+      const rA = teams[away].elo, rH = teams[home].elo;
+      const eA = 1 / (1 + 10 ** ((rH - rA) / 400));
+      const eH = 1 - eA;
+      const K = 20;
+      teams[away].elo += K * (sA - eA);
+      teams[home].elo += K * ((1 - sA) - eH);
+      teams[away].opponentsPlayed.push(home);
+      teams[home].opponentsPlayed.push(away);
+    });
+
+    // Gather future opponents
+    raw
+      .filter(r => !/^[0-9]+\s*-\s*[0-9]+$/.test(r.Result))
+      .forEach(r => {
+        const away = r.Away, home = r.Home;
+        teams[away]?.opponentsRemaining.push(home);
+        teams[home]?.opponentsRemaining.push(away);
+      });
+
+    // Determine toughest remaining first-half schedule (through game 63)
+    Object.values(teams).forEach(t => {
+      const playedCount = t.W + t.L;
+      const slots = Math.max(0, 63 - playedCount);
+      t.opponentsRemainingFirstHalf = t.opponentsRemaining.slice(0, slots);
+    });
+
+    // Build summary array
+    const summary = Object.values(teams).map(o => {
+      const G = o.W + o.L;
+      const expW = G * (o.RS ** 2 / (o.RS ** 2 + o.RA ** 2));
+      const toughest1st = o.opponentsRemainingFirstHalf.reduce(
+        (sum, opp) => sum + Math.round(teams[opp].elo),
+        0
+      );
+      return {
+        ...o,
+        pct: o.W / G || 0,
+        played: o.opponentsPlayed.reduce((s, opp) => s + Math.round(teams[opp].elo), 0),
+        remaining: o.opponentsRemaining.reduce((s, opp) => s + Math.round(teams[opp].elo), 0),
+        toughest1st,
+        expW,
+        expL: G - expW
+      };
+    });
+
+    // Rank metrics
+    ['elo', 'played', 'remaining'].forEach(key =>
+      sortBy(summary, key, true).forEach((o, i) => (o[key + 'Rank'] = i + 1))
+    );
+    sortBy(summary, 'toughest1st', true).forEach((o, i) => (o.toughest1stRank = i + 1));
+
+    // Render initially sorted by elo
+    const sorted = sortBy(summary.slice(), 'elo', true);
+    renderTable(sorted);
+    applySortHandlers(summary);
+  }
+});
+
   </script>
   <script type="module">
   // Import the functions you need from the SDKs you need
