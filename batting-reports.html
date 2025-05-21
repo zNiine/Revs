@@ -1,96 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <title>Batter Scouting Reports</title>
+  <!-- Firebase Compat -->
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
-
-  <meta charset="UTF-8"/>
-  <title>Batter Scouting Reports</title>
+  <!-- PapaParse for CSV -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <!-- Plotly for approach pies -->
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
   <style>
     body { font-family: sans-serif; margin: 1rem; }
     select { font-size: 1rem; margin-bottom: 1rem; }
-
-.spray-box,
-.third-box {
-  flex: 1;
-  height: 320px;
-}
-
-.approach-box {
-  flex: 1;
-  min-height: 320px;      /* ensures at least 320px tall */
-  position: relative;     /* keep absolute children scoped here */
-  overflow: visible;      /* allow the grid to expand it */
-}
-
-
-.legend span {
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-
-
-
-    /* REPORT PAGE */
-    .report-page {
-      page-break-after: always;
-      border: 1px solid #ccc;
-      padding: 1rem;
-      margin-bottom: 2rem;
-    }
-    .report-header { font-size: 1.5rem; margin-bottom: .5rem; }
-
-    /* SMALLER TABLES */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 1rem;
-      font-size: 0.85rem;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 0.2rem 0.4rem;
-      text-align: center;
-    }
-
-    /* CHART ROW: approach (2) vs spray (1) */
     .flex-row { display: flex; gap: 1rem; }
-    .chart-box {
-      border: 1px solid #eee;
-      position: relative;
-      background: #fafafa;
-    }
+    .chart-box { border: 1px solid #eee; background: #fafafa; position: relative; }
     .approach-box { flex: 2; height: 320px; }
     .spray-box    { flex: 1; height: 320px; }
-
-    /* SINGLE LEGEND */
-    .legend {
-      position: absolute;
-      bottom: 4px; left: 4px;
-      background: rgba(255,255,255,0.8);
-      font-size: 0.9rem;
-      padding: 4px;
-      border: 1px solid #ccc;
-    }
+    .legend { position: absolute; bottom: 4px; left: 4px; background: rgba(255,255,255,0.8); font-size: 0.9rem; padding: 4px; border: 1px solid #ccc; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.85rem; }
+    th, td { border: 1px solid #ccc; padding: 0.2rem 0.4rem; text-align: center; }
+    .report-page { page-break-after: always; border: 1px solid #ccc; padding: 1rem; margin-bottom: 2rem; }
+    .report-header { font-size: 1.5rem; margin-bottom: .5rem; }
   </style>
 </head>
 <body>
-
-  <label>
-    Select Team:
-    <select id="teamSelect">
-      <option value="">-- pick a team --</option>
-    </select>
+  <label>Select Team:
+    <select id="teamSelect"><option value="">-- pick a team --</option></select>
   </label>
-
   <div id="reports"></div>
 
   <script>
   // 1) Load CSV
   Papa.parse('data.csv', {
-    header: true, download: true,
+    header: true,
+    download: true,
     complete: results => {
       window._data = results.data;
       initTeamPicker();
@@ -99,8 +44,8 @@
 
   // 2) Populate team dropdown
   function initTeamPicker() {
-    const teams = Array.from(new Set(_data.map(r => r.BatterTeam))).sort();
     const sel = document.getElementById('teamSelect');
+    const teams = Array.from(new Set(_data.map(r => r.BatterTeam))).sort();
     teams.forEach(t => {
       const o = document.createElement('option');
       o.value = t; o.textContent = t;
@@ -109,7 +54,7 @@
     sel.addEventListener('change', () => buildReports(sel.value));
   }
 
-  // 3) Build reports (2 pages per batter)
+  // 3) Build reports
   function buildReports(team) {
     const container = document.getElementById('reports');
     container.innerHTML = '';
@@ -119,584 +64,350 @@
     const batters = Array.from(new Set(teamRows.map(r => r.Batter))).sort();
 
     batters.forEach(batter => {
-      ['Left','Right'].forEach(side => {
-        const vs = teamRows.filter(r =>
-          r.Batter===batter && r.PitcherThrows===side
-        );
+      ['Left', 'Right'].forEach(side => {
+        const vs = teamRows.filter(r => r.Batter === batter && r.PitcherThrows === side);
         if (!vs.length) return;
         const page = renderBatterPage(batter, side, vs);
         container.appendChild(page);
 
-        const base = (batter+'-'+side)
-          .replace(/\s+/g,'_')
-          .replace(/[^A-Za-z0-9_-]/g,'');
-        renderApproachByCount(vs, `approach_${base}`);
+        // Render charts after in DOM
+        renderApproachByCount(vs, page.querySelector('.approach-box').id);
+        const sprayCanvas = page.querySelector('canvas.spray-canvas');
+        drawSprayCanvas(sprayCanvas, vs);
       });
     });
   }
-function renderBatterPage(name, side, rows) {
-  // 1) Generate a safe base ID
-  const base = (name + '-' + side)
-    .replace(/\s+/g, '_')
-    .replace(/[^A-Za-z0-9_-]/g, '');
-  const approachId = `approach_${base}`;
-  const sprayId = `spray_${base}`;
 
-  // 2) Compute the data for each table
-  const pitchTypeMetrics = computePitchTypeMetrics(rows);
-  const countSummary     = computeCountSummary(rows);
+  function renderBatterPage(name, side, rows) {
+    const base = (name + '-' + side)
+      .replace(/\s+/g, '_')
+      .replace(/[^A-Za-z0-9_-]/g, '');
+    const approachId = `approach_${base}`;
+    const sprayId    = `sprayCanvas_${base}`;
 
-  // 3) Build the page container
-  const page = document.createElement('div');
-  page.className = 'report-page';
-  page.innerHTML = `
-    <div class="report-header">
-      ${name} vs. ${side === 'Left' ? 'LHP' : 'RHP'}
-    </div>
-  `;
+    // Page wrapper
+    const page = document.createElement('div');
+    page.className = 'report-page';
+    page.innerHTML = `<div class="report-header">${name} vs. ${side === 'Left' ? 'LHP' : 'RHP'}</div>`;
 
-  // 4) Create a flex wrapper for the two tables
-  const tablesWrapper = document.createElement('div');
-  tablesWrapper.style.display = 'flex';
-  tablesWrapper.style.gap     = '1rem';
-  tablesWrapper.style.marginBottom = '1rem';
+    // Tables
+    const pitchTypeMetrics = computePitchTypeMetrics(rows);
+    const countSummary     = computeCountSummary(rows);
+    const tablesWrapper = document.createElement('div');
+    tablesWrapper.style.display = 'flex'; tablesWrapper.style.gap = '1rem'; tablesWrapper.style.marginBottom = '1rem';
+    const csTable = renderCountSummaryTable(countSummary); csTable.style.width = '48%';
+    const ptTable = renderPitchTypeTable(pitchTypeMetrics); ptTable.style.width = '45%';
+    tablesWrapper.append(csTable, ptTable);
+    page.appendChild(tablesWrapper);
 
-   // 6) Render Count-Summary table at 45%
-  const csTable = renderCountSummaryTable(countSummary);
-  csTable.style.width = '48%';
-  tablesWrapper.appendChild(csTable);
+    // Chart row
+    const charts = document.createElement('div'); charts.className = 'flex-row';
+    const appDiv = document.createElement('div');
+    appDiv.id = approachId; appDiv.className = 'chart-box approach-box';
+    const sprayDiv = document.createElement('div');
+    sprayDiv.className = 'chart-box spray-box';
 
+    // Canvas for spray
+    const sprayCanvas = document.createElement('canvas');
+    sprayCanvas.id = sprayId; sprayCanvas.classList.add('spray-canvas');
+    sprayDiv.appendChild(sprayCanvas);
+    charts.append(appDiv, sprayDiv);
+    page.appendChild(charts);
 
-  // 5) Render Pitch-Type table at 45%
-  const ptTable = renderPitchTypeTable(pitchTypeMetrics);
-  ptTable.style.width = '45%';
-  tablesWrapper.appendChild(ptTable);
+    return page;
+  }
 
- 
-  // 7) Append the wrapper to the page
-  page.appendChild(tablesWrapper);
+  // --- Metrics and rendering functions below ---
 
-  // 8) Now append your charts row
-  const charts = document.createElement('div');
-  charts.className = 'flex-row';
-
-  const approachDiv = document.createElement('div');
-  approachDiv.id        = approachId;
-  approachDiv.className = 'chart-box approach-box';
-
-  const sprayDiv = document.createElement('div');
-  sprayDiv.id        = sprayId;            // ← use the string, not the element!
-  sprayDiv.className = 'chart-box spray-box';
-  sprayDiv.innerHTML = '<em>spray chart here</em>';
-
-  const thirdDiv = document.createElement('div');
-  thirdDiv.id        = `other_${base}`;
-  thirdDiv.className = 'chart-box third-box';
-  thirdDiv.innerHTML = '<em>third chart here</em>';
-
-  charts.append(approachDiv, sprayDiv, thirdDiv);
-  page.appendChild(charts);
-
-  // 9) Kick off that approach-by-count plot
-  renderApproachByCount(rows, approachId);
-console.log(`Building spray diamond for ${name}-${side}: containerId=${sprayId}`);
-renderSprayDiamond(rows, sprayId);
-  return page;
-}
-
-// compute counts and percentages by zone
-function computeSprayMetrics(rows) {
-  const INFIELD_MAX = 250;  
-  const ANGLES = [
-    { name: 'LF',  min: -180, max: -27 },
-    { name: 'LCF', min:  -27, max:  -9 },
-    { name: 'CF',  min:   -9, max:   9 },
-    { name: 'RCF', min:    9, max:  27 },
-    { name: 'RF',  min:   27, max:  180 }
-  ];
-
-  const allCounts = {}, hitCounts = {};
-  ANGLES.forEach(z => ['_IN','_OF'].forEach(s => {
-    allCounts[z.name+s] = 0;
-    hitCounts[z.name+s] = 0;
-  }));
-
-  rows.forEach(r => {
-    if (r.PitchCall !== 'InPlay') return;
-    const d = parseFloat(r.Direction),
-          f = parseFloat(r.Feet);
-    const zoneDef = ANGLES.find(z => d>=z.min && d<z.max);
-    if (!zoneDef) return;
-    const zone = zoneDef.name + (f<=INFIELD_MAX ? '_IN':'_OF');
-    allCounts[zone]++;
-    if (/Single|Double|Triple|HomeRun/.test(r.PlayResult)) {
-      hitCounts[zone]++;
-    }
-  });
-
-  const totalIP = Object.values(allCounts).reduce((a,b)=>a+b,0),
-        totalH  = Object.values(hitCounts ).reduce((a,b)=>a+b,0);
-
-  return Object.keys(allCounts).map(zone => ({
-    zone,
-    inPlayCount: allCounts[zone],
-    hitCount:    hitCounts[zone],
-    inPlayPct:   totalIP ? (allCounts[zone]/totalIP*100).toFixed(1)+'%' : '0%',
-    hitPct:      totalH  ? (hitCounts[zone]   /totalH  *100).toFixed(1)+'%' : '0%'
-  }));
-}
-function renderSprayDiamond(rows, containerId) {
-  // compute the same metrics array
-  const metrics = computeSprayMetrics(rows);
-
-  // find our container
-  console.log('→ renderSprayDiamond called:', containerId);
-  const cont = document.getElementById(containerId);
-  console.log('   container element:', cont);  if (!cont) return;
-  cont.innerHTML = '';               // clear placeholder
-
-  // SVG dimensions
-  const W = 300, H = 300;
-  const CX = W/2, CY = H*0.8;         // home plate at bottom center
-  const INF_RAD = 100, OF_RAD = 200;  // infield/outfield radii
-
-  // angle bins
-  const ANGLES = [
-    { name:'LF',  start:-180, end:-27 },
-    { name:'LCF', start:-27,  end:-9 },
-    { name:'CF',  start:-9,   end:9 },
-    { name:'RCF', start:9,    end:27 },
-    { name:'RF',  start:27,   end:180 }
-  ];
-
-  // helper to convert degrees -> radians
-  const toRad = d => d * Math.PI/180;
-
-  // build SVG
-  const svgNS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(svgNS,'svg');
-  svg.setAttribute('width', W);
-  svg.setAttribute('height', H);
-  svg.style.background = '#f0f8ff';
-
-  // draw infield arc and outfield arc
-  ANGLES.forEach(zone => {
-    // for each distance ring (_IN then _OF)
-    ['_IN','_OF'].forEach(suf => {
-      const m = metrics.find(m=>m.zone===zone.name+suf);
-      const pct = parseFloat(suf==='_IN'? m.inPlayPct : m.inPlayPct) || 0;
-
-      // choose radius
-      const R = suf==='_IN' ? INF_RAD : OF_RAD;
-
-      // build path for pie‐slice
-      const a1 = toRad(zone.start), a2 = toRad(zone.end);
-      const x1 = CX + R*Math.cos(a1), y1 = CY + R*Math.sin(a1);
-      const x2 = CX + R*Math.cos(a2), y2 = CY + R*Math.sin(a2);
-
-      // large-arc flag if >180°
-      const laf = (zone.end - zone.start) > 180 ? 1 : 0;
-
-      const path = document.createElementNS(svgNS,'path');
-      path.setAttribute('d', `
-        M ${CX},${CY}
-        L ${x1},${y1}
-        A ${R},${R} 0 ${laf} 1 ${x2},${y2}
-        Z
-      `);
-      path.setAttribute('fill', 'orange');
-      path.setAttribute('fill-opacity', pct/100 * 0.6 + 0.1);
-      path.setAttribute('stroke', '#aaa');
-      svg.appendChild(path);
-
-      // label at midpoint angle and halfway radius
-      const midA = toRad((zone.start + zone.end)/2);
-      const lx = CX + (R - 30)*Math.cos(midA);
-      const ly = CY + (R - 30)*Math.sin(midA);
-
-      const text = document.createElementNS(svgNS,'text');
-      text.setAttribute('x', lx);
-      text.setAttribute('y', ly);
-      text.setAttribute('font-size','10');
-      text.setAttribute('text-anchor','middle');
-      text.setAttribute('alignment-baseline','middle');
-      text.setAttribute('fill','#000');
-      text.textContent = `${m.hitPct}`;
-      svg.appendChild(text);
+  function computeCountSummary(rows) {
+    const byC = {};
+    rows.forEach(r => {
+      const key = `${r.Balls}-${r.Strikes}`;
+      if (!byC[key]) byC[key] = { seen:0, ooz:0, sw:0, chase:0, wh:0 };
+      const m = byC[key]; m.seen++;
+      const side = +r.PlateLocSide, ht = +r.PlateLocHeight;
+      const inZone = side>=-0.85 && side<=0.85 && ht>=1.5 && ht<=3.5;
+      if (!inZone) m.ooz++;
+      const swung = !['BallCalled','StrikeCalled'].includes(r.PitchCall);
+      if (swung) { m.sw++; if (r.PitchCall==='StrikeSwinging') m.wh++; if (!inZone) m.chase++; }
     });
-  });
+    return Object.entries(byC).map(([cnt,m]) => ({
+      Count:cnt,
+      PitchesSeen:m.seen,
+      InZone:((m.seen-m.ooz)/m.seen*100).toFixed(1)+'%',
+      Swing:(m.sw/m.seen*100).toFixed(1)+'%',
+      Chase:(m.ooz? (m.chase/m.ooz*100).toFixed(1)+'%':'-'),
+      Whiff:(m.sw? (m.wh/m.sw*100).toFixed(1)+'%':'-')
+    }));
+  }
 
-  // draw home plate
-  const plate = document.createElementNS(svgNS,'rect');
-  plate.setAttribute('x', CX-5);
-  plate.setAttribute('y', CY-2);
-  plate.setAttribute('width',10);
-  plate.setAttribute('height',4);
-  plate.setAttribute('fill','#555');
-  svg.appendChild(plate);
-
-  cont.appendChild(svg);
-}
-
-function computePitchTypeMetrics(rows) {
-  const totalPitches = rows.length;
-  const byType = {};
-
-  rows.forEach(r => {
-    const type = r.AutoPitchType || 'undefined';
-    if (!byType[type]) {
-      byType[type] = {
-        cnt: 0,
-        ab: 0,
-        hits: 0,
-        TB: 0,
-        evSum: 0, evCount: 0,
-        laSum: 0, laCount: 0,
-        swings: 0,
-        whiffs: 0,
-        ooz: 0,
-        chase: 0
-      };
-    }
-    const m = byType[type];
-    m.cnt++;
-
-    // did batter swing?
-    const swung = !['BallCalled','StrikeCalled'].includes(r.PitchCall);
-
-    // in-zone?
-    const side = +r.PlateLocSide, ht = +r.PlateLocHeight;
-    const inZone = side >= -0.85 && side <= 0.85 && ht >= 1.5 && ht <= 3.5;
-    if (!inZone) {
-      m.ooz++;
-      if (swung) m.chase++;
-    }
-
-    // official AB (no walks)
-    if (r.KorBB !== 'Walk') {
-      m.ab++;
-      if (/Single|Double|Triple|HomeRun/.test(r.PlayResult)) {
-        m.hits++;
-        const bases = { Single:1, Double:2, Triple:3, HomeRun:4 }[r.PlayResult];
-        m.TB += bases;
-      }
-    }
-
-    // record exit speed only when present
-    const ev = parseFloat(r.ExitSpeed);
-    if (!isNaN(ev)) {
-      m.evSum += ev;
-      m.evCount++;
-    }
-
-    // record launch angle only when present
-    const la = parseFloat(r.Angle);
-    if (!isNaN(la)) {
-      m.laSum += la;
-      m.laCount++;
-    }
-
-    // swings & whiffs
-    if (swung) {
-      m.swings++;
-      if (r.PitchCall === 'StrikeSwinging') {
-        m.whiffs++;
-      }
-    }
-  });
-
-  return Object.entries(byType).map(([type, m]) => ({
-    AutoPitchType: type,
-    pct:    ((m.cnt / totalPitches) * 100).toFixed(1) + '%',
-    AVG:    m.ab ? (m.hits / m.ab).toFixed(3).substring(1) : '-',
-    SLG:    m.ab ? (m.TB   / m.ab).toFixed(3).substring(1) : '-',
-    ExitVelo: m.evCount ? (m.evSum / m.evCount).toFixed(1) : '-',
-    LA:       m.laCount ? (m.laSum / m.laCount).toFixed(1) : '-',
-    Swing:    m.cnt ? (m.swings / m.cnt * 100).toFixed(1) + '%' : '-',
-    Chase:    m.ooz ? (m.chase / m.ooz * 100).toFixed(1) + '%' : '-',
-    Whiff:    m.swings ? (m.whiffs / m.swings * 100).toFixed(1) + '%' : '-'
-  }));
-}
-function renderPitchTypeTable(data) {
-  // Make a deep copy so we don't mutate the original array
-  const rows = data.map(r => ({ ...r }));
-
-  // 1) Compute overall totals by parsing each string metric back to numbers
-  let totalPitches = 0;
-  let totalHits = 0, totalAB = 0, totalTB = 0;
-  let totalEvSum = 0, totalEvCount = 0;
-  let totalLaSum = 0, totalLaCount = 0;
-  let totalSwings = 0, totalWhiffs = 0;
-  let totalOOZ = 0, totalChase = 0;
-
-  rows.forEach(r => {
-    const frac = parseFloat(r.pct) / 100;
-    totalPitches += frac;
-
-    // For AVG & SLG we need raw counts – we can back them out:
-    const ab = r.AVG==='-' ? 0 : parseFloat(r.AVG) * totalAB;    // this is approximate, better to track raw in computePitchTypeMetrics
-    const hits = r.AVG==='-' ? 0 : parseFloat(r.AVG) * ab;
-    totalAB  += ab;
-    totalHits += hits;
-
-    const slg = r.SLG==='-' ? 0 : parseFloat(r.SLG) * ab;
-    totalTB += slg * ab;
-
-    // Exit Velo & LA
-    if (r.ExitVelo!=='-') {
-      totalEvCount++;
-      totalEvSum += parseFloat(r.ExitVelo);
-    }
-    if (r.LA!=='-') {
-      totalLaCount++;
-      totalLaSum += parseFloat(r.LA);
-    }
-
-    // Swing, Chase, Whiff
-    if (r.Swing!=='-') {
-      totalSwings += frac * totalPitches;
-      totalWhiffs += parseFloat(r.Whiff) / 100 * (parseFloat(r.Swing)/100 * totalPitches);
-    }
-    if (r.Chase!=='-') {
-      totalChase += parseFloat(r.Chase) / 100 * (parseFloat(r.Chase)/100 * totalPitches);
-      totalOOZ   += (parseFloat(r.Chase)/100 * totalPitches);
-    }
-  });
-
-  // 2) Build the Total row
-  rows.push({
-    AutoPitchType: 'Total',
-    pct:    '100%',
-    AVG:    totalAB ? (totalHits / totalAB).toFixed(3).substring(1) : '-',
-    SLG:    totalAB ? (totalTB  / totalAB).toFixed(3).substring(1) : '-',
-    ExitVelo: totalEvCount ? (totalEvSum / totalEvCount).toFixed(1) : '-',
-    LA:       totalLaCount ? (totalLaSum / totalLaCount).toFixed(1) : '-',
-    Swing:    totalPitches ? (totalSwings / totalPitches * 100).toFixed(1) + '%' : '-',
-    Chase:    totalOOZ       ? (totalChase  / totalOOZ    * 100).toFixed(1) + '%' : '-',
-    Whiff:    totalSwings    ? (totalWhiffs / totalSwings * 100).toFixed(1) + '%' : '-'
-  });
-
-  // 3) Render the table
-  const tbl = document.createElement('table');
-  tbl.innerHTML = `
-    <thead>
-      <tr>
-        <th>AutoPitchType</th><th>%</th><th>AVG</th><th>SLG</th>
-        <th>Exit Velo</th><th>LA</th><th>Swing</th><th>Chase</th><th>Whiff</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows.map(r => `
+  function renderCountSummaryTable(data) {
+    data.sort((a,b)=>{
+      const [b1,s1]=a.Count.split('-').map(Number), [b2,s2]=b.Count.split('-').map(Number);
+      return b1!==b2? b1-b2 : s1-s2;
+    });
+    const tbl = document.createElement('table');
+    tbl.innerHTML = `
+      <thead><tr>
+        <th>Count</th><th>Pitches Seen</th><th>InZone%</th><th>Swing%</th><th>Chase%</th><th>Whiff%</th>
+      </tr></thead>
+      <tbody>` + data.map(r=>`
         <tr>
-          <td>${r.AutoPitchType}</td>
-          <td>${r.pct}</td>
-          <td>${r.AVG}</td>
-          <td>${r.SLG}</td>
-          <td>${r.ExitVelo}</td>
-          <td>${r.LA}</td>
+          <td>${r.Count}</td>
+          <td>${r.PitchesSeen}</td>
+          <td>${r.InZone}</td>
           <td>${r.Swing}</td>
           <td>${r.Chase}</td>
           <td>${r.Whiff}</td>
-        </tr>
-      `).join('')}
-    </tbody>`.trim();
+        </tr>`).join('') + `
+      </tbody>
+    `;
+    return tbl;
+  }
 
-  return tbl;
-}
+  function computePitchTypeMetrics(rows) {
+    const total = rows.length, byType = {};
+    rows.forEach(r=>{
+      const t = r.AutoPitchType||'undefined';
+      if (!byType[t]) byType[t] = { cnt:0, ab:0, hits:0, TB:0, evSum:0,evCount:0, laSum:0,laCount:0, swings:0, whiffs:0, ooz:0, chase:0 };
+      const m=byType[t]; m.cnt++;
+      const swung = !['BallCalled','StrikeCalled'].includes(r.PitchCall);
+      const side=+r.PlateLocSide, ht=+r.PlateLocHeight;
+      const inZone = side>=-0.85 && side<=0.85 && ht>=1.5 && ht<=3.5;
+      if (!inZone) { m.ooz++; if(swung) m.chase++; }
+      if (r.KorBB!=='Walk') { m.ab++; if(/Single|Double|Triple|HomeRun/.test(r.PlayResult)) { m.hits++; m.TB += {'Single':1,'Double':2,'Triple':3,'HomeRun':4}[r.PlayResult]; }}
+      const ev=parseFloat(r.ExitSpeed); if(!isNaN(ev)){m.evSum+=ev;m.evCount++;}
+      const la=parseFloat(r.Angle); if(!isNaN(la)){m.laSum+=la;m.laCount++;}
+      if(swung){m.swings++; if(r.PitchCall==='StrikeSwinging') m.whiffs++;}
+    });
+    return Object.entries(byType).map(([type,m])=>({
+      AutoPitchType:type,
+      pct:(m.cnt/total*100).toFixed(1)+'%',
+      AVG:m.ab? (m.hits/m.ab).toFixed(3).substr(1):'-',
+      SLG:m.ab? (m.TB/m.ab).toFixed(3).substr(1):'-',
+      ExitVelo:m.evCount? (m.evSum/m.evCount).toFixed(1):'-',
+      LA:m.laCount? (m.laSum/m.laCount).toFixed(1):'-',
+      Swing:m.cnt? (m.swings/m.cnt*100).toFixed(1)+'%':'-',
+      Chase:m.ooz? (m.chase/m.ooz*100).toFixed(1)+'%':'-',
+      Whiff:m.swings? (m.whiffs/m.swings*100).toFixed(1)+'%':'-'
+    }));
+  }
 
-// 2) Updated computeCountSummary to produce percentages
-function computeCountSummary(rows) {
-  const byC = {};
-  rows.forEach(r => {
-    const key = `${r.Balls}-${r.Strikes}`;
-    if (!byC[key]) byC[key] = { seen:0, ooz:0, sw:0, chase:0, wh:0 };
-    const m = byC[key];
-    m.seen++;
+  function renderPitchTypeTable(data) {
+    const rows = [...data];
+    // total row
+    const totalStats = rows.reduce((acc,r)=>{
+      const frac=parseFloat(r.pct)/100;
+      acc.totalFrac += frac;
+      if(r.AVG!=='-') { const ab=frac*rows.length; acc.hits+=parseFloat(r.AVG)*ab; acc.ab+=ab; }
+      if(r.ExitVelo!=='-'){acc.evSum+=parseFloat(r.ExitVelo);acc.evCount++;}
+      return acc;
+    },{totalFrac:0,hits:0,ab:0,evSum:0,evCount:0});
+    rows.push({AutoPitchType:'Total',pct:'100%',AVG:totalStats.ab? (totalStats.hits/totalStats.ab).toFixed(3).substr(1):'-',SLG:'-',ExitVelo:totalStats.evCount? (totalStats.evSum/totalStats.evCount).toFixed(1):'-',LA:'-',Swing:'-',Chase:'-',Whiff:'-'});
+    const tbl=document.createElement('table');
+    tbl.innerHTML = `
+      <thead><tr><th>Type</th><th>%</th><th>AVG</th><th>SLG</th><th>ExitVelo</th><th>LA</th><th>Swing</th><th>Chase</th><th>Whiff</th></tr></thead>
+      <tbody>` + rows.map(r=>`
+        <tr><td>${r.AutoPitchType}</td><td>${r.pct}</td><td>${r.AVG}</td><td>${r.SLG}</td><td>${r.ExitVelo}</td><td>${r.LA}</td><td>${r.Swing}</td><td>${r.Chase}</td><td>${r.Whiff}</td></tr>`).join('') + `
+      </tbody>
+    `;
+    return tbl;
+  }
 
-    const side = +r.PlateLocSide, ht = +r.PlateLocHeight;
-    const inZone = side>=-0.85 && side<=0.85 && ht>=1.5 && ht<=3.5;
-    if (!inZone) m.ooz++;
-
-    const swung = !['BallCalled','StrikeCalled'].includes(r.PitchCall);
-    if (swung) {
-      m.sw++;
-      if (r.PitchCall==='StrikeSwinging') m.wh++;
-      if (!inZone) m.chase++;
-    }
+  const currentPark = { leftFoul:325, leftCenter:362.5, center:400, rightCenter:362.5, rightFoul:325 };
+// Computes in‐play and hit percentages for each zone (_OF only used here)
+// 1) Compute in-play and hit % for 9 zones (4 infield + 5 outfield)
+// 1) computeSprayMetrics unchanged
+function computeSprayMetrics(rows) {
+  const IN_MAX = 250;
+  const ANGLES = [
+    { name:'LF', min:-45, max:-27 },
+    { name:'LC', min:-27, max:-9  },
+    { name:'CF', min:-9,  max:9   },
+    { name:'RC', min:9,   max:27  },
+    { name:'RF', min:27,  max:45  },
+  ];
+  const allC = {}, hitC = {};
+  ANGLES.forEach(z => {
+    allC[z.name+'_IN']=0; hitC[z.name+'_IN']=0;
+    allC[z.name+'_OF']=0; hitC[z.name+'_OF']=0;
   });
-
-  return Object.entries(byC).map(([cnt, m]) => ({
-    Count:       cnt,
-    PitchesSeen: m.seen,
-    InZone:      ((m.seen - m.ooz) / m.seen * 100).toFixed(1) + '%',
-    Swing:       (m.sw  / m.seen * 100).toFixed(1) + '%',
-    Chase:       (m.ooz ? (m.chase / m.ooz * 100).toFixed(1) + '%' : '-'),
-    Whiff:       (m.sw   ? (m.wh    / m.sw  * 100).toFixed(1) + '%' : '-')
+  rows.forEach(r => {
+    if(r.PitchCall!=='InPlay') return;
+    const d=parseFloat(r.Direction), f=parseFloat(r.Distance);
+    const z=ANGLES.find(z=>d>=z.min&&d<z.max);
+    if(!z) return;
+    const suf=f<=IN_MAX?'_IN':'_OF', key=z.name+suf;
+    allC[key] += 1;
+    if(/Single|Double|Triple|HomeRun/.test(r.PlayResult)) hitC[key]++;
+  });
+  const totalIP = Object.values(allC).reduce((a,b)=>a+b,0);
+  const totalH  = Object.values(hitC).reduce((a,b)=>a+b,0);
+  return ANGLES.flatMap(z=>['_IN','_OF'].map(suf=>{
+    const key=z.name+suf, ip=allC[key], h=hitC[key];
+    return {
+      zone: key,
+      inPlayPct: totalIP? Math.round(ip/totalIP*100)+'%':'0%',
+      hitPct:    totalH?  Math.round(h/totalH*100)+'%':'0%'
+    };
   }));
 }
 
-// 3) Updated renderCountSummaryTable to set width=50%
-function renderCountSummaryTable(data) {
-   data.sort((a, b) => {
-    const [b1, s1] = a.Count.split('-').map(Number);
-    const [b2, s2] = b.Count.split('-').map(Number);
-    if (b1 !== b2) return b1 - b2;
-    return s1 - s2;
-  });
+// 2) drawSprayCanvas at 1.4× scale, no buffer scaling
+function drawSprayCanvas(canvas, rows) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  canvas.width = W;  canvas.height = H;
+  ctx.clearRect(0,0,W,H);
 
-  const tbl = document.createElement('table');
-  tbl.setAttribute('style', 'width:40%;');   // make it 50% width
-  tbl.innerHTML = `<thead>
-<tr>
-  <th>Count</th>
-  <th>Pitches Seen</th>
-  <th>In Zone%</th>
-  <th>Swing%</th>
-  <th>Chase%</th>
-  <th>Whiff%</th>
-</tr></thead>
-<tbody>
-  ${data.map(r=>`
-<tr>
-  <td>${r.Count}</td>
-  <td>${r.PitchesSeen}</td>
-  <td>${r.InZone}</td>
-  <td>${r.Swing}</td>
-  <td>${r.Chase}</td>
-  <td>${r.Whiff}</td>
-</tr>`).join('')}
-</tbody>`;
-  return tbl;
-}
+  const park   = currentPark;
+  const origin = { x: W/2, y: H - 20 };
+  const baseS  = (H - 40) / park.center;
+  const scale  = baseS * 1.4;   // 1.4× size
+  const inR    = 250 * scale;
+  const outR   = park.center * scale;
 
-// 8) Approach-by-Count pie-grid
-function renderApproachByCount(rows, cId) {
-  // Build a map of "balls-strikes" → { Take: n, Swing: m }
-  const tree = {};
-  rows.forEach(r => {
-    const key = `${r.Balls}-${r.Strikes}`;
-    const action = ['BallCalled','StrikeCalled'].includes(r.PitchCall)
-      ? 'Take'
-      : 'Swing';
-    tree[key] = tree[key] || { Take: 0, Swing: 0 };
-    tree[key][action]++;
-  });
+  // -- field outlines inline --
 
-  const cont = document.getElementById(cId);
-  if (!cont) return;
-  cont.innerHTML = '';
-  cont.style.position = 'relative';
+  // foul lines
+  {
+    const ang = Math.PI/4;
+    ctx.strokeStyle='#888'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(origin.x,origin.y);
+    ctx.lineTo(
+      origin.x+Math.sin(-ang)*park.leftFoul*scale,
+      origin.y-Math.cos(-ang)*park.leftFoul*scale
+    );
+    ctx.moveTo(origin.x,origin.y);
+    ctx.lineTo(
+      origin.x+Math.sin( ang)*park.rightFoul*scale,
+      origin.y-Math.cos( ang)*park.rightFoul*scale
+    );
+    ctx.stroke();
+  }
 
-  // Determine how many rows (tiers) we need
-  const pairs = Object.keys(tree).map(k => k.split('-').map(Number));
-  const maxTier = pairs.reduce((mx, [b, s]) => Math.max(mx, b + s), 0);
+  // outfield wall
+  {
+    const walls=[-45,-22.5,0,22.5,45];
+    const dist =[park.leftFoul,park.leftCenter,park.center,park.rightCenter,park.rightFoul];
+    ctx.strokeStyle='#555'; ctx.lineWidth=3;
+    ctx.beginPath();
+    walls.forEach((d,i)=>{
+      const rad=d*Math.PI/180;
+      const x=origin.x+Math.sin(rad)*dist[i]*scale;
+      const y=origin.y-Math.cos(rad)*dist[i]*scale;
+      i? ctx.lineTo(x,y):ctx.moveTo(x,y);
+    });
+    ctx.stroke();
+  }
 
-  const BOX = 55, XSP = 55, YSP = 55;
-
-  for (let sum = 0; sum <= maxTier; sum++) {
-    // Collect all (b,s) with b+s === sum
-    const tier = [];
-    for (let b = 0; b <= 3; b++) {
-      const s = sum - b;
-      if (s < 0 || s > 2) continue;
-      tier.push({ b, s, counts: tree[`${b}-${s}`] || { Take: 0, Swing: 0 } });
-    }
-    tier.sort((a, b) => b.b - a.b);
-
-    // Center this row horizontally
-    const rowWidth = (tier.length - 1) * XSP + BOX;
-    const startX = (cont.clientWidth - rowWidth) / 4;
-
-    tier.forEach((cell, i) => {
-      // 1) Create wrapper for one mini-pie
-      const wrapper = document.createElement('div');
-      wrapper.style.cssText = `
-        position: absolute;
-        left: ${startX + i * XSP}px;
-        top: ${sum * YSP}px;
-        width: ${BOX}px;
-        height: ${BOX}px;
-        color: white;
-        text-align: center;
-      `;
-      cont.appendChild(wrapper);
-
-      // 2) Prepare data
-      const labels = ['Take', 'Swing'];
-      const values = labels.map(l => cell.counts[l] || 0);
-      const nonZero = values.filter(v => v > 0).length;
-      const textInfo = nonZero > 1 ? 'none' : 'none';
-
-      // 3) Draw the pie, filling the full box so it's centered
-      Plotly.newPlot(wrapper, [{
-        type: 'pie',
-        hole: 0,
-        labels,
-        values,
-        textinfo: textInfo,
-        marker: { colors: ['green', 'blue'] },
-        domain: { x: [0, 1], y: [0, 1] }
-      }], {
-        showlegend: false,
-        margin: { t: 0, b: 0, l: 0, r: 0 },
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)'
-      }, {
-        displayModeBar: false
-      });
-
-      // 4) Overlay the count label
-      const total = values.reduce((a, b) => a + b, 0);
-      const lbl = document.createElement('div');
-      lbl.innerHTML = `${cell.b}-${cell.s}<br>${total}`;
-      lbl.style.cssText = `
-        position: absolute;
-        left: 50%; top: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 10px;
-        pointer-events: none;
-      `;
-      wrapper.appendChild(lbl);
+  // infield diamond
+  {
+    const bases=[
+      {x:0,z:0},
+      {x:90*Math.cos(Math.PI/4), z:90*Math.sin(Math.PI/4)},
+      {x:90*Math.SQRT2,          z:0},
+      {x:90*Math.cos(Math.PI/4), z:-90*Math.sin(Math.PI/4)}
+    ];
+    ctx.strokeStyle='#444'; ctx.lineWidth=2;
+    ctx.beginPath();
+    bases.forEach((pt,i)=>{
+      const x=origin.x+pt.z*scale,y=origin.y-pt.x*scale;
+      i? ctx.lineTo(x,y):ctx.moveTo(x,y);
+    });
+    ctx.closePath(); ctx.stroke();
+    ctx.fillStyle='#fff';
+    bases.forEach(pt=>{
+      const x=origin.x+pt.z*scale,y=origin.y-pt.x*scale;
+      ctx.fillRect(x-6,y-6,12,12);
     });
   }
 
-  // 5) Single legend (with print-friendly colors)
-  const legend = document.createElement('div');
-  legend.className = 'legend';
-  legend.innerHTML = `
-    <div>
-      <span style="
-        display:inline-block;
-        width:12px;
-        height:12px;
-        background-color:green;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      "></span>
-      Take
-    </div>
-    <div>
-      <span style="
-        display:inline-block;
-        width:12px;
-        height:12px;
-        background-color:blue;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      "></span>
-      Swing
-    </div>
-  `;
-  cont.appendChild(legend);
+  // infield arc
+  {
+    ctx.strokeStyle='#aaa'; ctx.lineWidth=2;
+    ctx.beginPath();
+    for(let d=-45;d<=45;d++){
+      const rad=d*Math.PI/180;
+      const r0=145, r1=90*Math.SQRT2+28.5;
+      const t=1-Math.abs(d)/45, r=r0+t*(r1-r0);
+      const x=origin.x+Math.sin(rad)*r*scale;
+      const y=origin.y-Math.cos(rad)*r*scale;
+      d===-45? ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+
+  // -- zone lines --
+
+  const bounds=[-45,-27,-9,9,27,45];
+  ctx.strokeStyle='#222'; ctx.lineWidth=2;
+  bounds.forEach(deg=>{
+    const rad=deg*Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(origin.x,origin.y);
+    ctx.lineTo(
+      origin.x+Math.sin(rad)*outR,
+      origin.y-Math.cos(rad)*outR
+    );
+    ctx.stroke();
+  });
+
+  // -- labels --
+
+  const MET = computeSprayMetrics(rows);
+  ctx.fillStyle='#000';
+  ctx.font='12px sans-serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+
+  const names=['LF','LC','CF','RC','RF'];
+  for(let i=0;i<5;i++){
+    const a=bounds[i],b=bounds[i+1], mid=(a+b)/2*Math.PI/180;
+    // infield (skip CF if you want 9 total)
+    if(names[i]!=='CF'){
+      const mIn=MET.find(m=>m.zone===names[i]+'_IN'),
+            txtIn=mIn?`${mIn.inPlayPct} / ${mIn.hitPct}`:'',
+            xIn=origin.x+Math.sin(mid)*(inR*0.6),
+            yIn=origin.y-Math.cos(mid)*(inR*0.6);
+      ctx.fillText(txtIn,xIn,yIn);
+    }
+    // outfield
+    const mOf=MET.find(m=>m.zone===names[i]+'_OF'),
+          txtOf=mOf?`${mOf.inPlayPct} / ${mOf.hitPct}`:'',
+          xOf=origin.x+Math.sin(mid)*(outR*0.6),
+          yOf=origin.y-Math.cos(mid)*(outR*0.6);
+    ctx.fillText(txtOf,xOf,yOf);
+  }
 }
 
 
-
-
-
-
-
-
+  function renderApproachByCount(rows, containerId) {
+    const tree={}; rows.forEach(r=>{
+      const key=`${r.Balls}-${r.Strikes}`;
+      const action=['BallCalled','StrikeCalled'].includes(r.PitchCall)?'Take':'Swing';
+      tree[key]=tree[key]||{Take:0,Swing:0}; tree[key][action]++;
+    });
+    const cont=document.getElementById(containerId); if(!cont)return; cont.innerHTML=''; cont.style.position='relative';
+    const pairs=Object.keys(tree).map(k=>k.split('-').map(Number));
+    const maxTier=pairs.reduce((mx,[b,s])=>Math.max(mx,b+s),0);
+    const BOX=55,XSP=55,YSP=55;
+    for(let sum=0;sum<=maxTier;sum++){
+      const tier=[]; for(let b=0;b<=3;b++){const s=sum-b; if(s<0||s>2)continue; tier.push({b,s,counts:tree[`${b}-${s}`]||{Take:0,Swing:0}});} tier.sort((a,b)=>b.b-a.b);
+      const rowWidth=(tier.length-1)*XSP+BOX;
+      const startX=(cont.clientWidth-rowWidth)/4;
+      tier.forEach((cell,i)=>{
+        const wrap=document.createElement('div'); wrap.style.cssText=`position:absolute;left:${startX+i*XSP}px;top:${sum*YSP}px;width:${BOX}px;height:${BOX}px;color:white;text-align:center;`;
+        cont.appendChild(wrap);
+        Plotly.newPlot(wrap,[{type:'pie',hole:0,labels:['Take','Swing'],values:[cell.counts.Take,cell.counts.Swing],textinfo:[],marker:{colors:['green','blue']},domain:{x:[0,1],y:[0,1]}}],{showlegend:false,margin:{t:0,b:0,l:0,r:0},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)'},{displayModeBar:false});
+        const lbl=document.createElement('div'); lbl.innerHTML=`${cell.b}-${cell.s}<br>${cell.counts.Take+cell.counts.Swing}`;
+        lbl.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:10px;pointer-events:none;'; wrap.appendChild(lbl);
+      });
+    }
+    const legend=document.createElement('div'); legend.className='legend'; legend.innerHTML=`<div><span style="display:inline-block;width:12px;height:12px;background-color:green;‑webkit-print-color-adjust:exact;print-color-adjust:exact"></span>Take</div><div><span style="display:inline-block;width:12px;height:12px;background-color:blue;‑webkit-print-color-adjust:exact;print-color-adjust:exact"></span>Swing</div>`;
+    cont.appendChild(legend);
+  }
   </script>
 </body>
 </html>
