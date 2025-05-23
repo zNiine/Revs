@@ -798,6 +798,7 @@ function plotCountSplits(rows){
 function plotGameTrends(rows){
   // group by date
   const map={};
+  rows = rows.filter(r => r.Date instanceof Date && !isNaN(r.Date));
   rows.forEach(r=>{
     const d=r.Date.toISOString().slice(0,10);
     map[d]=map[d]||{ev:[],hh:[],pa:0};

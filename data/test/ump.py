@@ -96,7 +96,10 @@ umpire_mapping = {
     "fb068cc5-c9c8-46d0-af41-9b077474351b" : "Nick Sempert",
     "78e21db6-4e06-4a66-9a47-57538185dceb" : "Steve Bartelstein",
     "7ac42478-d3b0-47d0-bc20-25fc4970fb0e" : "Andrew Eng",
-    "9d08e312-9223-4e4d-97bd-389d9e0b4eca" : "John Torres"
+    "9d08e312-9223-4e4d-97bd-389d9e0b4eca" : "John Torres",
+    "bb2195e4-44ef-43a2-8447-4d49ae4daa33": "",
+    "6d872a1e-f4ad-43b9-94ba-1c10e7e340ec": "Gain Holdgreve",
+    "1ba55bb6-217b-4a71-b4e3-c59953797ca8": "Ruben Ramirez"
 
     # add your other GameID→Umpire entries here…
 }
