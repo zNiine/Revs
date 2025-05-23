@@ -92,10 +92,49 @@
     function inZone(r){const h=+r.PlateLocHeight,s=+r.PlateLocSide;return h>=1.5&&h<=3.5&&s>=-0.83&&s<=0.83;}
     function resetFilters(){['dateFilter','sideFilter','pitcherThrowFilter'].forEach(id=>document.getElementById(id).value='');applyFilters();}
     function applyFilters(){umpName=getParam('player');document.getElementById('umpName').textContent='Umpire: '+umpName;let f=allData.filter(r=>r.Umpire===umpName);const d=document.getElementById('dateFilter').value;if(d)f=f.filter(r=>r.Date===d);const bs=document.getElementById('sideFilter').value;if(bs)f=f.filter(r=>r.BatterSide===bs);const pt=document.getElementById('pitcherThrowFilter').value;if(pt)f=f.filter(r=>r.PitcherThrows===pt);renderPlateView(f);renderMissHeatmap(f);renderAccuracyPie(f);renderUmpRank(f);}
-    function renderPlateView(rows){
-        const calls=rows.filter(r=>['StrikeCalled','BallCalled'].includes(r.PitchCall));
-        const strikes=calls.filter(r=>r.PitchCall==='StrikeCalled'),balls=calls.filter(r=>r.PitchCall==='BallCalled');Plotly.newPlot('plateView',[{x:strikes.map(r=>+r.PlateLocSide),y:strikes.map(r=>+r.PlateLocHeight),mode:'markers',name:'StrikeCalled',marker:{color:'#e74c3c',size:7},type:'scatter'},{x:balls.map(r=>+r.PlateLocSide),y:balls.map(r=>+r.PlateLocHeight),mode:'markers',name:'BallCalled',marker:{color:'#3498db',size:7},type:'scatter'}],commonLayout);}    
-    function renderMissHeatmap(rows){const calls=rows.filter(r=>['StrikeCalled','BallCalled'].includes(r.PitchCall));const misses=calls.filter(r=>(r.PitchCall==='StrikeCalled')?!inZone(r):inZone(r));Plotly.newPlot('missHeatmap',[{x:misses.map(r=>+r.PlateLocSide),y:misses.map(r=>+r.PlateLocHeight),type:'histogram2d',nbinsx:40,nbinsy:20,colorscale:'Reds',colorbar:{title:'Count'}}],commonLayout);}    
+   function renderPlateView(rows) {
+  // separate out called pitches
+  const calls   = rows.filter(r => ['StrikeCalled','BallCalled'].includes(r.PitchCall));
+  const strikes = calls.filter(r => r.PitchCall === 'StrikeCalled');
+  const balls   = calls.filter(r => r.PitchCall === 'BallCalled');
+
+  // build two traces, embedding PitchUID in customdata
+  const strikeTrace = {
+    x: strikes.map(r => +r.PlateLocSide),
+    y: strikes.map(r => +r.PlateLocHeight),
+    mode: 'markers',
+    name: 'StrikeCalled',
+    marker: { color: '#e74c3c', size: 7 },
+    type: 'scatter',
+    customdata: strikes.map(r => r.PitchUID)    // <— stash UIDs here
+  };
+
+  const ballTrace = {
+    x: balls.map(r => +r.PlateLocSide),
+    y: balls.map(r => +r.PlateLocHeight),
+    mode: 'markers',
+    name: 'BallCalled',
+    marker: { color: '#3498db', size: 7 },
+    type: 'scatter',
+    customdata: balls.map(r => r.PitchUID)      // <— and here
+  };
+
+  // draw the plot
+  Plotly.newPlot('plateView', [strikeTrace, ballTrace], commonLayout)
+    .then(() => {
+      const chartDiv = document.getElementById('plateView');
+
+      // attach click handler
+      chartDiv.on('plotly_click', evt => {
+        const uid = evt.points[0].customdata;
+        if (uid) {
+          // open in a new tab
+          window.open(`Game-view.html?pitchUID=${uid}`, '_blank');
+        }
+      });
+    });
+}
+function renderMissHeatmap(rows){const calls=rows.filter(r=>['StrikeCalled','BallCalled'].includes(r.PitchCall));const misses=calls.filter(r=>(r.PitchCall==='StrikeCalled')?!inZone(r):inZone(r));Plotly.newPlot('missHeatmap',[{x:misses.map(r=>+r.PlateLocSide),y:misses.map(r=>+r.PlateLocHeight),type:'histogram2d',nbinsx:40,nbinsy:20,colorscale:'Reds',colorbar:{title:'Count'}}],commonLayout);}    
     function renderAccuracyPie(rows){const calls=rows.filter(r=>['StrikeCalled','BallCalled'].includes(r.PitchCall));let correct=0;calls.forEach(r=>{const strike=r.PitchCall==='StrikeCalled';if((strike&&inZone(r))||(!strike&&!inZone(r)))correct++;});const incorrect=calls.length-correct;Plotly.newPlot('accuracyPie',[{values:[correct,incorrect],labels:['Correct','Incorrect'],type:'pie',textinfo:'label+percent'}],{margin:{t:20,b:40,l:40,r:120}});}    
     function renderUmpRank(rows){const map={};allData.forEach(r=>{if(r.PitchCall!=='StrikeCalled'&&r.PitchCall!=='BallCalled')return;map[r.Umpire]=map[r.Umpire]||{total:0,correct:0};map[r.Umpire].total++;const strike=r.PitchCall==='StrikeCalled';if((inZone(r)&&strike)||(!inZone(r)&&!strike))map[r.Umpire].correct++;});const arr=Object.entries(map).map(([u,s])=>({name:u,accuracy:s.correct/s.total})).sort((a,b)=>b.accuracy-a.accuracy);const idx=arr.findIndex(x=>x.name===umpName)+1;const pct=((arr.length-idx)/(arr.length-1)*100).toFixed(0);document.getElementById('umpRankInfo').innerHTML=`<p><strong>Rank:</strong> ${idx} of ${arr.length}</p><p><strong>Percentile:</strong> Top ${pct}%</p>`;}    
     document.addEventListener('DOMContentLoaded',()=>{Papa.parse('./data.csv',{download:true,header:true,skipEmptyLines:true,complete:res=>{allData=res.data.map(r=>({...r,Date:r.Date.split('T')[0]}));const dates=Array.from(new Set(allData.filter(r=>r.Umpire===getParam('player')).map(r=>r.Date))).sort();const df=document.getElementById('dateFilter');dates.forEach(d=>df.append(new Option(d)));const dl=document.getElementById('suggestions');new Set(allData.map(r=>r.Umpire)).forEach(n=>dl.append(new Option(n)));applyFilters();}});document.getElementById('search-form').addEventListener('submit',e=>{e.preventDefault();const q=document.getElementById('search').value.trim();if(allData.some(r=>r.Umpire===q))window.location.href=`ump-profiles.html?player=${encodeURIComponent(q)}`;else alert('No matching umpire found.');});});

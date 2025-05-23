@@ -207,7 +207,7 @@ function createReportsForPitcher(container, pitcher, side, rows) {
   // ensure rows is a true Array
   if (!Array.isArray(rows)) rows = Array.from(rows);
 
-  const hand = rows[0].PitcherThrows === 'R' ? 'RHP' : 'LHP';
+  const hand = rows[0].PitcherThrows === 'Right' ? 'RHP' : 'LHP';
   const parts = pitcher.split(' ');
   const displayName = `${parts.slice(-1)} ${parts.slice(0,-1).join(' ')} (${hand}) vs ${side}`;
 

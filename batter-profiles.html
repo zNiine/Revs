@@ -441,6 +441,64 @@
         </div>
       </div>
 
+      <div class="col">
+  <h4>Spin-Rate</h4>
+  <div id="spinRateHist" class="card" style="height:300px;"></div>
+</div>
+
+
+<div class="col">
+  <h4>Spin-Axis</h4>
+  <div id="spinAxisPlot" class="card" style="height:300px;"></div>
+</div>
+
+<div class="chart-description" style="max-width:600px; margin:1rem auto; padding:1rem; background:#fafafa; border:1px solid #ddd; border-radius:4px; font-size:0.9rem; line-height:1.4;">
+  <strong>Reading Spin-Axis Angles:</strong><br>
+  Your spin axis is reported in degrees around the ball. By convention:<br>
+  • <em>Horizontal axis</em> (≈0° or 180°) → <strong>backspin</strong> (good carry)<br>
+  • <em>Vertical axis</em> (≈90° or 270°) → <strong>topspin</strong> or <strong>side-spin</strong><br>
+  • Intermediate angles combine lift with a slice or hook.<br><br>
+
+  <table style="width:100%; border-collapse:collapse; text-align:center;">
+    <thead>
+      <tr style="background:#e0e0e0;">
+        <th style="padding:6px; border:1px solid #ccc;">Angle Range</th>
+        <th style="padding:6px; border:1px solid #ccc;">Spin Type</th>
+        <th style="padding:6px; border:1px solid #ccc;">Resulting Ball Behavior</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:6px; border:1px solid #ccc;">170°–190°<br>(or 350°–10°)</td>
+        <td style="padding:6px; border:1px solid #ccc;"><strong>Pure backspin</strong></td>
+        <td style="padding:6px; border:1px solid #ccc;">True flies with max carry</td>
+      </tr>
+      <tr>
+        <td style="padding:6px; border:1px solid #ccc;">80°–100°</td>
+        <td style="padding:6px; border:1px solid #ccc;"><strong>Side-spin</strong></td>
+        <td style="padding:6px; border:1px solid #ccc;">Slices toward opposite field</td>
+      </tr>
+      <tr>
+        <td style="padding:6px; border:1px solid #ccc;">260°–280°</td>
+        <td style="padding:6px; border:1px solid #ccc;"><strong>Side-spin</strong></td>
+        <td style="padding:6px; border:1px solid #ccc;">Slices toward pull-side</td>
+      </tr>
+      <tr>
+        <td style="padding:6px; border:1px solid #ccc;">0°–30° or 150°–210°</td>
+        <td style="padding:6px; border:1px solid #ccc;">Backspin ± small side</td>
+        <td style="padding:6px; border:1px solid #ccc;">Lifted with slight fade/hook</td>
+      </tr>
+      <tr>
+        <td style="padding:6px; border:1px solid #ccc;">60°–120° or 240°–300°</td>
+        <td style="padding:6px; border:1px solid #ccc;">Topspin ± small side</td>
+        <td style="padding:6px; border:1px solid #ccc;">Weak pop-ups or short flies</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+
 <h3>Zone BA / SLG Heatmap</h3>
 <div id="zoneHeatmap" style="display:flex; gap:2rem; justify-content:center;">
   <div id="baHeatmap" style="width:300px;height:300px;"></div>
@@ -1271,64 +1329,106 @@ function plotRadarMetrics(rows){
 
 
 
-        function initDashboard() {
-            playerName = new URLSearchParams(location.search).get('player') || '';
-            document.getElementById('playerName').textContent = playerName;
+      function initDashboard() {
+  // 1) Figure out which player we’re looking at
+  playerName = new URLSearchParams(location.search).get('player') || '';
+  document.getElementById('playerName').textContent = playerName;
 
-            const pits = [...new Set(allData.filter(r => r.Batter === playerName).map(r => r.Pitcher))];
-            document.getElementById('pitcherFilter').innerHTML = '<option value="">All</option>' + pits.map(p => `<option>${p}</option>`).join('');
+  // 2) Grab all of their rows once
+  const batterRows = allData.filter(r => r.Batter === playerName);
 
-            const pts = [...new Set(allData.filter(r => r.Batter === playerName).map(r => r.AutoPitchType))];
-            document.getElementById('pitchTypeFilter').innerHTML = '<option value="">All</option>' + pts.map(t => `<option>${t}</option>`).join('');
+  // 3) Build a fixed list of all pitch types and a GLOBAL color map
+  const allTypes = [...new Set(batterRows.map(r => r.AutoPitchType))];
+  window.GLOBAL_CM = {};
+  allTypes.forEach((type, i) => {
+    GLOBAL_CM[type] = `hsl(${(i * 60) % 360}, 70%, 50%)`;
+  });
 
-            document.getElementById('showAllDates').addEventListener('change', () => { const c = document.getElementById('showAllDates').checked; document.getElementById('startDate').disabled = c; document.getElementById('endDate').disabled = c; });
-const parts = playerName.trim().split(' ');
+  // 4) Render the legend once
+  let legendHTML = '<strong>AutoPitchType:</strong><br>';
+  allTypes.forEach(t => {
+    legendHTML += `
+      <span style="
+        display:inline-block;
+        width:12px; height:12px;
+        background:${GLOBAL_CM[t]};
+        margin-right:4px;
+      "></span>${t}<br>`;
+  });
+  document.getElementById('legendDiv').innerHTML = legendHTML;
+
+  // 5) Populate the pitcher dropdown
+  const pits = [...new Set(batterRows.map(r => r.Pitcher))];
+  document.getElementById('pitcherFilter').innerHTML =
+    '<option value="">All</option>' +
+    pits.map(p => `<option>${p}</option>`).join('');
+
+  // 6) Initialize the pitch-type dropdown (we'll rebuild it inside applyFilters)
+  document.getElementById('pitchTypeFilter').innerHTML = '<option value="">All</option>';
+  document.getElementById('pitchTypeFilter').value = '';
+
+  // 7) Date‐toggle: disable date inputs when "Show All Dates" is checked
+  document.getElementById('showAllDates').addEventListener('change', () => {
+    const c = document.getElementById('showAllDates').checked;
+    document.getElementById('startDate').disabled = c;
+    document.getElementById('endDate').disabled   = c;
+  });
+
+  // 8) Set document.title to "Last, First (L/R)" when possible
+  const parts = playerName.trim().split(' ');
   const last  = parts.pop();
   const first = parts.join(' ');
-  // 2) find the batter side:
-  const rec = allData.find(r => r.Batter === playerName);
-  const side = rec && rec.BatterSide ? rec.BatterSide.charAt(0).toUpperCase() : '';
-  // 3) build your title and assign:
+  const rec   = batterRows.find(r => r.Batter === playerName);
+  const side  = rec && rec.BatterSide
+              ? rec.BatterSide.charAt(0).toUpperCase()
+              : '';
   if (last && first && (side === 'L' || side === 'R')) {
     document.title = `${last}, ${first} (${side})`;
   } else {
     document.title = playerName;
   }
 
-  // cache references
-const paC   = document.getElementById('paContainer');
-const logC  = document.getElementById('gameLogContainer');
+  // 9) Tab logic (Plate Appearances ↔ Game Log)
+  const paC  = document.getElementById('paContainer');
+  const logC = document.getElementById('gameLogContainer');
+  function activate(tab) {
+    paC.style.display  = tab === 'pa'  ? '' : 'none';
+    logC.style.display = tab === 'log' ? '' : 'none';
+    document.getElementById('tabPA')
+            .classList.toggle('sub-active', tab === 'pa');
+    document.getElementById('tabGameLog')
+            .classList.toggle('sub-active', tab === 'log');
+  }
+  document.getElementById('tabPA')
+          .addEventListener('click', () => activate('pa'));
+  document.getElementById('tabGameLog')
+          .addEventListener('click', () => {
+    // build the game-log title
+    const parts2 = playerName.split(' ');
+    const ln     = parts2.pop();
+    const fn     = parts2.join(' ');
+    document.getElementById('gameLogTitle')
+            .textContent = `${ln} ${fn} Game Log`;
+    renderGameLog();
+    activate('log');
+  });
+  // same for the second set of buttons
+  document.getElementById('tabPA2')
+          .addEventListener('click', () => activate('pa'));
+  document.getElementById('tabGameLog2')
+          .addEventListener('click', () => {
+    const parts3 = playerName.split(' ');
+    const ln2    = parts3.pop();
+    const fn2    = parts3.join(' ');
+    document.getElementById('gameLogTitle')
+            .textContent = `${ln2} ${fn2} Game Log`;
+    renderGameLog();
+    activate('log');
+  });
 
-function activate(tab) {
-  paC.style.display      = tab==='pa'   ? '' : 'none';
-  logC.style.display     = tab==='log'  ? '' : 'none';
-  document.getElementById('tabPA').classList.toggle('sub-active', tab==='pa');
-  document.getElementById('tabGameLog').classList.toggle('sub-active', tab==='log');
+  // 10) Finally, draw everything for the first time
+  applyFilters();
 }
-
-document.getElementById('tabPA').addEventListener('click',   () => activate('pa'));
-document.getElementById('tabGameLog').addEventListener('click', () => {
-  // build title
-  const parts = playerName.split(' '), last=parts.pop(), first=parts.join(' ');
-  document.getElementById('gameLogTitle').textContent = `${last} ${first} Game Log`;
-  renderGameLog();
-  activate('log');
-});
-
-
-// existing activate() stays the same
-document.getElementById('tabPA2').addEventListener('click', () => activate('pa'));
-document.getElementById('tabGameLog2').addEventListener('click', () => {
-  const parts = playerName.split(' '),
-        last  = parts.pop(),
-        first = parts.join(' ');
-  document.getElementById('gameLogTitle').textContent = `${last} ${first} Game Log`;
-  renderGameLog();
-  activate('log');
-});
-
-            applyFilters();
-        }
 
         function renderGameLog() {
   // filter to this batter
@@ -1423,40 +1523,135 @@ document.getElementById('tabGameLog2').addEventListener('click', () => {
             applyFilters();
         }
 
-        function applyFilters() {
-            let f = allData.filter(r => r.Batter === playerName);
-            if (!document.getElementById('showAllDates').checked) {
-                const sd = document.getElementById('startDate').value, ed = document.getElementById('endDate').value;
-                if (sd) f = f.filter(r => r.Date >= new Date(sd));
-                if (ed) f = f.filter(r => r.Date <= new Date(ed));
-            }
-            const hand = document.getElementById('handFilter').value; if (hand) f = f.filter(r => r.PitcherThrows === hand);
-            const pit = document.getElementById('pitcherFilter').value; if (pit) f = f.filter(r => r.Pitcher === pit);
-            const pt = document.getElementById('pitchTypeFilter').value; if (pt) f = f.filter(r => r.AutoPitchType === pt);
-            const at = document.getElementById('atBatFilter').value; if (at) f = f.filter(r => `${r.Date.toISOString().slice(0, 10)} PA${r.PAofInning} Inning${r.Inning}` === at);
+      function applyFilters() {
+  // 1) start with every pitch by this batter
+  let f = allData.filter(r => r.Batter === playerName);
 
-            plotPlate(f);
-            renderTable(f);
-            renderAtBatDetails(f);
-              plotExitHist(f);
+  // 2) date-range
+  if (!document.getElementById('showAllDates').checked) {
+    const sd = document.getElementById('startDate').value;
+    const ed = document.getElementById('endDate').value;
+    if (sd) f = f.filter(r => r.Date >= new Date(sd));
+    if (ed) f = f.filter(r => r.Date <= new Date(ed));
+  }
+
+  // 3) hand & pitcher filters
+  const hand = document.getElementById('handFilter').value;
+  if (hand) f = f.filter(r => r.PitcherThrows === hand);
+
+  const pit = document.getElementById('pitcherFilter').value;
+  if (pit) f = f.filter(r => r.Pitcher === pit);
+
+  // 4) **REBUILD** pitch-type dropdown from remaining data
+  const remainingTypes = [...new Set(f.map(r => r.AutoPitchType))];
+  const ptSelect      = document.getElementById('pitchTypeFilter');
+  const prevType      = ptSelect.value;
+  ptSelect.innerHTML  = '<option value="">All</option>'
+    + remainingTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+  // preserve previous selection if still valid, else reset
+  ptSelect.value      = remainingTypes.includes(prevType) ? prevType : '';
+
+  // 5) now apply the pitch-type filter
+  const pt = ptSelect.value;
+  if (pt) f = f.filter(r => r.AutoPitchType === pt);
+
+  // 6) at-bat filter
+  const at = document.getElementById('atBatFilter').value;
+  if (at) {
+    f = f.filter(r =>
+      `${r.Date.toISOString().slice(0,10)} PA${r.PAofInning} Inning${r.Inning}` === at
+    );
+  }
+
+  // 7) re-draw everything
+  plotPlate(f);            // now uses GLOBAL_CM inside
+  renderTable(f);
+  renderAtBatDetails(f);
+  plotExitHist(f);
   plotAngleVelDensity(f);
   plotDiscipline(f);
   plotGameTrends(f);
-  plotBBTypes(f)
+  plotBBTypes(f);
   plotStatcast(f);
   plotZoneHeatmaps(f);
-  plotPitchMix(f)
+  plotPitchMix(f);
   plotSwingPct(f);
-   parkSelect2.addEventListener('change', () => drawSprayCanvas(f));
-      updateSpray(f);
+  plotHardHitPct(f);
+  plotWhiffPct(f);
+  plotRadarMetrics(f);
+  plotZoneCountMap(f);
+  plotSpinRate(f);
+  plotSpinAxis(f);
+  plotLocationPieClusters(f);
+  updateSpray(f);          // your canvas-spray update
+}
 
-plotZoneCountMap(f);
 
-    plotHardHitPct(f);
-    plotWhiffPct(f);    plotRadarMetrics(f);
-    plotLocationPieClusters(f);
+        function plotSpinRate(rows) {
+  // pull out all valid spin‐rate values
+  const sr = rows
+    .map(r => r.HitSpinRate)
+    .filter(n => n != null);
 
-        }
+  if (!sr.length) {
+    document.getElementById('spinRateHist').innerHTML = '<em>No spin-rate data</em>';
+    return;
+  }
+
+  Plotly.newPlot('spinRateHist', [{
+    x: sr,
+    type: 'histogram',
+    nbinsx: 25,
+    marker: { color: 'lightseagreen' }
+  }], {
+    title: 'Batted-Ball Spin-Rate Distribution',
+    xaxis: { title: 'Spin Rate (rpm)' },
+    yaxis: { title: 'Count' },
+    margin: { t:40, b:40 }
+  });
+}
+
+function plotSpinAxis(rows) {
+  console.log("⚙️ plotSpinAxis called");
+  console.log("   rows.length =", rows.length);
+
+  // 1) coerce to numbers
+  const sa = rows
+    .map(r => parseNum(r.HitSpinAxis))   // ← parseNum returns null if not a valid number
+    .filter(n => n != null);             // drop nulls
+
+  console.log("   numeric sa.length =", sa.length, "sample:", sa.slice(0,5));
+
+  const container = document.getElementById('spinAxisPlot');
+  if (!sa.length) {
+    container.innerHTML = '<em>No spin-axis data</em>';
+    return;
+  }
+
+  // 2) draw one 10°-wide bar per hit at radius=1
+  Plotly.newPlot(container, [{
+    type: 'barpolar',
+    r:     sa.map(() => 1),
+    theta: sa,
+    width: sa.map(() => 10),
+    marker: { color: 'coral', line: { color: 'black', width: 1 }},
+    opacity: 0.7
+  }], {
+    title: 'Spin-Axis Distribution',
+    polar: {
+      angularaxis: {
+        rotation: 90,
+        direction: 'clockwise',
+        tickmode: 'array',
+        tickvals: [0,45,90,135,180,225,270,315],
+        ticktext: ['0°','45°','90°','135°','180°','225°','270°','315°']
+      },
+      radialaxis: { showticklabels: false, ticks: '' }
+    },
+    margin: { t:40,b:20 }
+  });
+}
+
 
         
         function plotLocationPieClusters(rows) {
@@ -1591,159 +1786,79 @@ plotZoneCountMap(f);
             }
         }
 
-        function plotPlate(data) {
-    const atVal = document.getElementById('atBatFilter').value;
-    // Build table rows for numbering
-    const tableRows = data.filter(r => r.PlayResult !== 'Undefined');
-    tableRows.forEach((r, i) => r.__hitNumber = i + 1);
-    const indexMap = new Map(tableRows.map(r => [r, r.__hitNumber]));
-    // If At Bat selected, number by sequence in 'data'
-    const atSeq = atVal ? data.map((_, i) => i + 1) : null;
-
-    // Generate a consistent color map for pitch types
-    const types = [...new Set(data.map(r => r.AutoPitchType))];
-    const CM = {};
-    types.forEach((t, i) => CM[t] = `hsl(${(i * 60) % 360},70%,50%)`);
-
-    // Determine marker symbol: square on swing, circle on take
-    const swing = r => r.PitchCall !== 'StrikeCalled' && r.PitchCall !== 'BallCalled';
-
-    const trace = {
-        x: data.map(r => parseNum(r.PlateLocSide)),
-        y: data.map(r => parseNum(r.PlateLocHeight)),
-        text: data.map((r, i) => atVal ? atSeq[i] : (indexMap.get(r) || '')),
-        mode: 'markers+text',
-        marker: {
-            symbol: data.map(r => swing(r) ? 'square' : 'circle'),
-            size: 10,
-            color: data.map(r => CM[r.AutoPitchType] || '#999')
-        },
-        textfont: { size: 10, color: '#000' }
-    };
-
-    const layout = {
-        width: 400,
-        height: 400,
-        margin: { l: 40, r: 20, t: 20, b: 40 },
-        xaxis: {
-            title: 'Horizontal Location (ft)',
-            range: [-1.5, 1.5],
-            autorange: false,
-            fixedrange: true
-        },
-        yaxis: {
-            title: 'Vertical Location (ft)',
-            range: [0, 5],
-            autorange: false,
-            fixedrange: true
-        },
-        shapes: [{
-            type: 'rect',
-            x0: -0.708,
-            x1: 0.708,
-            y0: 1.5,
-            y1: 3.5,
-            line: { color: 'black', width: 2 }
-        }]
-    };
-
-    Plotly.newPlot('plateChart', [trace], layout);
-
-    // Build legend HTML
-    let html = '<strong>AutoPitchType:</strong><br>';
-    types.forEach(t => {
-        html += `<span style="display:inline-block;width:12px;height:12px;background:${CM[t]};margin-right:5px"></span>${t}<br>`;
-    });
-    html += '<br><strong>Action:</strong><br>';
-    html += '<span style="display:inline-block;width:12px;height:12px;background:blue;margin-right:5px"></span>Swing<br>';
-    html += '<span style="display:inline-block;width:12px;height:12px;border:1px solid blue;border-radius:50%;width:12px;height:12px;display:inline-block;margin-right:5px"></span>Take';
-
-    document.getElementById('legendDiv').innerHTML = html;
-}
-
-
-
-
  function plotPlate(data) {
-  const atVal = document.getElementById('atBatFilter').value;
-  // Build table rows for numbering
+  // 1) Number your hits for labeling
   const tableRows = data.filter(r => r.PlayResult !== 'Undefined');
-  tableRows.forEach((r,i) => r.__hitNumber = i+1);
+  tableRows.forEach((r, i) => r.__hitNumber = i + 1);
   const indexMap = new Map(tableRows.map(r => [r, r.__hitNumber]));
-  // If At Bat selected, number by sequence in 'data'
-  const atSeq = atVal ? data.map((_,i) => i+1) : null;
 
-  // 1) Determine unique pitch types and their counts
-  const counts = {};
-  data.forEach(r => {
-    const t = r.AutoPitchType || 'undefined';
-    counts[t] = (counts[t] || 0) + 1;
-  });
-  const types = Object.keys(counts);
-  const CM = {};
-  types.forEach((t,i) => CM[t] = `hsl(${(i*60)%360},70%,50%)`);
+  // 2) See if the “At Bat” toggle is on
+  const atVal = document.getElementById('atBatFilter').value;
 
-  // 2) Plot the plate locations
-  const swing = r => r.PitchCall !== 'StrikeCalled' && r.PitchCall !== 'BallCalled';
+  // 3) Build the Plotly trace using your global color map
   const trace = {
     x: data.map(r => parseNum(r.PlateLocSide)),
     y: data.map(r => parseNum(r.PlateLocHeight)),
-    text: data.map((r,i) => atVal ? atSeq[i] : (indexMap.get(r) || '')),
+    text: data.map(r => atVal ? indexMap.get(r) : ''),
     mode: 'markers+text',
     marker: {
-      symbol: data.map(r => swing(r) ? 'square' : 'circle'),
+      // square for swings, circle for takes
+      symbol: data.map(r =>
+        (r.PitchCall !== 'StrikeCalled' && r.PitchCall !== 'BallCalled')
+          ? 'square'
+          : 'circle'
+      ),
       size: 10,
-      color: data.map(r => CM[r.AutoPitchType] || '#999')
-    }
+      // lookup color from GLOBAL_CM
+      color: data.map(r => window.GLOBAL_CM[r.AutoPitchType] || '#999')
+    },
+    textfont: { size: 10, color: '#000' },
+    customdata: data.map(r => r.PitchUID)
   };
-   const layout = {
-        width: 400,
-        height: 400,
-        margin: { l: 40, r: 20, t: 20, b: 40 },
-        xaxis: {
-            title: 'Horizontal Location (ft)',
-            range: [-1.5, 1.5],
-            autorange: false,
-            fixedrange: true,
-            autorange: 'reversed'
-        },
-        yaxis: {
-            title: 'Vertical Location (ft)',
-            range: [0, 5],
-            autorange: false,
-            fixedrange: true
-        },
-        shapes: [{
-            type: 'rect',
-            x0: -0.708,
-            x1: 0.708,
-            y0: 1.5,
-            y1: 3.5,
-            line: { color: 'black', width: 2 }
-        }]
-    };
-  Plotly.newPlot('plateChart', [trace], layout);
 
-  // 3) Build the legend, appending the count after each type
-  let html = '<strong>AutoPitchType:</strong><br>';
-  types.forEach(t => {
-    html +=
-      `<span style="display:inline-block;width:12px;height:12px;
-                    background:${CM[t]};margin-right:5px;
-                    vertical-align:middle;"></span>` +
-      `${t} (${counts[t]})<br>`;
-  });
+  // 4) Layout with a fixed strike‐zone rectangle
+  const layout = {
+    width: 400,
+    height: 400,
+    margin: { l: 40, r: 20, t: 20, b: 40 },
+    xaxis: {
+      title: 'Horizontal Location (ft)',
+      range: [-1.5, 1.5],
+      fixedrange: true,
+          autorange: 'reversed'
 
-  html += '<br><strong>Action:</strong><br>' +
-    `<span style="display:inline-block;width:12px;height:12px;
-                   background:blue;margin-right:5px;
-                   vertical-align:middle;"></span>Swing<br>` +
-    `<span style="display:inline-block;width:12px;height:12px;
-                   border:1px solid blue;border-radius:50%;
-                   margin-right:5px;vertical-align:middle;"></span>Take`;
+    },
+    yaxis: {
+      title: 'Vertical Location (ft)',
+      range: [0, 5],
+      fixedrange: true
+    },
+    shapes: [{
+      type: 'rect',
+      x0: -0.708, x1: 0.708,
+      y0: 1.5,   y1: 3.5,
+      line: { color: 'black', width: 2 }
+    }]
+  };
 
-  document.getElementById('legendDiv').innerHTML = html;
+  // 5) Draw the chart and attach click handler
+  Plotly.newPlot('plateChart', [trace], layout)
+    .then(() => {
+      const chartDiv = document.getElementById('plateChart');
+      chartDiv.on('plotly_click', evt => {
+        const uid = evt.points[0].customdata;
+        if (uid) {
+    window.open(`Game-view.html?pitchUID=${uid}`, '_blank');
+        }
+      });
+    });
+
+  // 6) Note: legend is rendered once in initDashboard(), so we do *not* touch it here.
 }
+
+
+
+
 
     function plotSpray(rows) {
       rows=rows.filter(r=>r.PlayResult!=='Undefined');
@@ -1807,7 +1922,7 @@ plotZoneCountMap(f);
            <tr>
              <th>#</th><th>Date</th><th>Pitcher</th><th>Inning</th>
              <th>PlayCall</th><th>ExitSpeed</th><th>Angle</th>
-             <th>Distance</th><th>Animate</th><th>Watch</th><th>Details</th>
+             <th>Distance</th><th>Spin Axis</th><th>Spin Rate</th><th>Animate</th><th>Watch</th><th>Details</th>
            </tr>
          </thead>
          <tbody>`;
@@ -1831,6 +1946,8 @@ plotZoneCountMap(f);
          <td>${r.ExitSpeed}</td>
          <td>${r.Angle}</td>
          <td>${r.Distance}</td>
+         <td>${r.HitSpinAxis}</td>
+         <td>${r.HitSpinRate}</td>
          <td><button class="viewBtn" data-pitchuid="${r.PitchUID}">View</button></td>
          <td>
         <button

@@ -91,7 +91,12 @@ umpire_mapping = {
     "5f0a4741-6e30-403e-bc1b-083b7fa7a470": "Bill Reuter",
     "d2379525-f633-40a2-9082-beee9e1b8ccf": "Andy McPherson",
     "c90c751f-78a6-440b-8be7-3baa006d4074": "Matt Criss",
-    "aa191e4f-d210-4a17-aac1-52af3336b1bb": "Bill Worthington"
+    "aa191e4f-d210-4a17-aac1-52af3336b1bb": "Bill Worthington",
+    "9536bc1c-b251-4c04-a5e4-9f8ba39cbc66" : "Clark Morgan",
+    "fb068cc5-c9c8-46d0-af41-9b077474351b" : "Nick Sempert",
+    "78e21db6-4e06-4a66-9a47-57538185dceb" : "Steve Bartelstein",
+    "7ac42478-d3b0-47d0-bc20-25fc4970fb0e" : "Andrew Eng",
+    "9d08e312-9223-4e4d-97bd-389d9e0b4eca" : "John Torres"
 
     # add your other GameID→Umpire entries here…
 }

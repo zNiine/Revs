@@ -3069,7 +3069,9 @@ function drawSaberMetrics(rows) {
             size: 10,
             color: data.map(r => CM[r.AutoPitchType] || '#999')
         },
-        textfont: { size: 10 }
+        textfont: { size: 10 },
+            customdata: data.map(r => r.PitchUID)
+
     };
 
 
@@ -3100,7 +3102,17 @@ function drawSaberMetrics(rows) {
         }]
     };
 
-    Plotly.newPlot('plateChart', [trace], layout);
+ // 5) Draw the chart and attach click handler
+  Plotly.newPlot('plateChart', [trace], layout)
+    .then(() => {
+      const chartDiv = document.getElementById('plateChart');
+      chartDiv.on('plotly_click', evt => {
+        const uid = evt.points[0].customdata;
+        if (uid) {
+    window.open(`Game-view.html?pitchUID=${uid}`, '_blank');
+        }
+      });
+    });
 
     // Build legend
     let html = '<strong>AutoPitchType:</strong><br>';
