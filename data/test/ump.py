@@ -98,8 +98,12 @@ umpire_mapping = {
     "7ac42478-d3b0-47d0-bc20-25fc4970fb0e" : "Andrew Eng",
     "9d08e312-9223-4e4d-97bd-389d9e0b4eca" : "John Torres",
     "bb2195e4-44ef-43a2-8447-4d49ae4daa33": "",
-    "6d872a1e-f4ad-43b9-94ba-1c10e7e340ec": "Gain Holdgreve",
-    "1ba55bb6-217b-4a71-b4e3-c59953797ca8": "Ruben Ramirez"
+    "6d872a1e-f4ad-43b9-94ba-1c10e7e340ec": "Gavin Holdgreve",
+    "1ba55bb6-217b-4a71-b4e3-c59953797ca8": "Ruben Ramirez",
+    "5fe1c786-dfa3-4b12-ae2f-89c8dc5c27c3" : "Vinny Marianni",
+    "68966b7f-119a-498f-8a74-64e519db170b": "Matt Criss (CC)",
+    "f9119c1f-3030-46f5-b47f-a77ffe9c6920": "Ben Wilson",
+    "8075fe2f-3de9-4b15-9e2e-5e41d043d106" : "Jason Smith"
 
     # add your other GameID→Umpire entries here…
 }
