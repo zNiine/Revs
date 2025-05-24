@@ -988,7 +988,7 @@ const filtered = data.filter(r =>
 const uniq = Array.from(new Set(data.map(r => r[columns.playResult])));
 console.log(uniq);
 // 1) Filter & map to numeric + display fields
-const hrWithNum = filtered
+let hrWithNum = filtered
   .filter(r => /home\s*run/i.test(r[columns.playResult]))
   .map(r => ({
     __dist: parseFloat(r[columns.distance].replace(/,/g,'')) || 0,
@@ -1006,7 +1006,10 @@ const hrWithNum = filtered
   }));
 
 // 2) (optional) apply your UI filters here…
-
+const hrTeam   = document.getElementById('hr-team-filter').value;
+const hrPlayer = document.getElementById('hr-player-filter').value;
+if (hrTeam)   hrWithNum = hrWithNum.filter(r => r.Team   === hrTeam);
+if (hrPlayer) hrWithNum = hrWithNum.filter(r => r.Batter === hrPlayer);
 // 3) Sort & slice
 hrWithNum.sort((a,b) => b.__dist - a.__dist);
 const topTen = hrWithNum.slice(0,10);
@@ -1022,7 +1025,10 @@ renderLeaderboard(
   hrDisplay,
   ['Team','Batter','Pitcher','Exit Vel','Launch Ang','Distance','AutoPitchType','Date','Details','Watch']
 );
-
+['hr-team-filter','hr-player-filter']
+  .forEach(id => document.getElementById(id)
+    .addEventListener('input', computeAndRender)
+);
 
 
       // 2. Fastest Exit Velocity
