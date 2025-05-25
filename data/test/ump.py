@@ -103,7 +103,12 @@ umpire_mapping = {
     "5fe1c786-dfa3-4b12-ae2f-89c8dc5c27c3" : "Vinny Marianni",
     "68966b7f-119a-498f-8a74-64e519db170b": "Matt Criss (CC)",
     "f9119c1f-3030-46f5-b47f-a77ffe9c6920": "Ben Wilson",
-    "8075fe2f-3de9-4b15-9e2e-5e41d043d106" : "Jason Smith"
+    "8075fe2f-3de9-4b15-9e2e-5e41d043d106" : "Jason Smith",
+    "c4c2dd22-812e-45cd-a2a5-eb903e083c59": "Andrew Eng",
+    "2d7ab1d4-06dd-452b-b782-fd4f4359c910" : "Rob Massaro",
+    "4487d841-f295-4c2c-9040-066d06434d92": "Antonio Pinzon",
+    "54c878a2-8f03-41aa-a8a5-6efef8f27844": "Phillip Heim",
+    "90df5f8e-748b-4728-8b05-dd7ff7d561b3": "Justin Clarke"
 
     # add your other GameID→Umpire entries here…
 }
