@@ -208,8 +208,8 @@ def scrape_date_range_to_csv(
 
 if __name__ == "__main__":
     scrape_date_range_to_csv(
-        start="2025-05-20",
-        end=  "2025-05-22",
+        start="2025-05-23",
+        end=  "2025-05-26",
         steals_csv="all_steals.csv",
         info_csv=  "game_info.csv"
     )

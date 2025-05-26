@@ -108,7 +108,12 @@ umpire_mapping = {
     "2d7ab1d4-06dd-452b-b782-fd4f4359c910" : "Rob Massaro",
     "4487d841-f295-4c2c-9040-066d06434d92": "Antonio Pinzon",
     "54c878a2-8f03-41aa-a8a5-6efef8f27844": "Phillip Heim",
-    "90df5f8e-748b-4728-8b05-dd7ff7d561b3": "Justin Clarke"
+    "90df5f8e-748b-4728-8b05-dd7ff7d561b3": "Justin Clarke",
+    "616366e6-0c66-478f-a260-bcc6b1fbf9ba" : "Gavin Holdgreve",
+    "8a8d400b-e77c-4263-9c89-5ffa628c3c39" : "Ruben Ramirez",
+    "9bd8f780-4916-4f8f-97dd-8877195b8533" : "Justin Alvarez",
+    "edab676e-883e-40de-95b8-93b1408dd173" : "Dustin Fields",
+    "dd5acc96-412f-47f4-87b1-b2436f9dd2f3" : "Darnell Ray"
 
     # add your other GameID→Umpire entries here…
 }
