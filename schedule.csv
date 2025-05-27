@@ -65,8 +65,8 @@
 4,May  96:30 PM,York,Hagerstown,,,,Hagerstown
 ,May  96:35 PM,York,Hagerstown,8-6,"Llovera, M","Kelly, R",final|
 7,May  96:37 PM,Charleston,S Maryland,6-7,"Sherfy, J","Demurias, E",final|
-7,May  97:04 PM,Staten Island,Lexington,1-11,"Eastman, C","Mejia, A",final|
 7,May  97:04 PM,High Point,Gastonia,9-10,"Myatt, T","Lewis, J",final|
+7,May  97:04 PM,Staten Island,Lexington,1-11,"Eastman, C","Mejia, A",final|
 7,May  97:20 PM,Lancaster,Long Island,1-11,"Gant, J","Swarmer, M",final|
 5,May 106:06 PM,York,Hagerstown,11-2,"Scott, W","Corcino, D",final|
 8,May 106:35 PM,Lancaster,Long Island,0-1,"Plesac, Z","Killgore, K",final|
@@ -119,7 +119,6 @@
 14,May 216:39 PM,S Maryland,York,,,,York
 14,May 216:40 PM,High Point,Charleston,12-4,"Emanuel, K","Hill, J",final|
 11,May 216:49 PM,Hagerstown,Lancaster,6-3,"Picone, D","Swarmer, M",final|
-15,May 2211:00 AM,S Maryland,York,,,,York
 12,May 2211:07 AM,Hagerstown,Lancaster,5-7,"Rees, J","Kickham, M",final|
 ,May 226:19 PM,Long Island,Staten Island,,,,Cancelled
 15,May 226:43 PM,High Point,Charleston,2-7,"McGowin, K","Backman, B",final|
@@ -134,14 +133,14 @@
 14,May 246:49 PM,York,Lancaster,1-8,"Bremer, N","Denz, D",final|
 14,May 247:01 PM,High Point,Gastonia,6-2,"Uelmen, E","Smith, K",final|
 14,May 247:03 PM,Charleston,Lexington,4-5,"Haab, J","Reyes, S",final|
-15,May 251:35 PM,Staten Island,Long Island,,,,Long Island
-15,May 252:00 PM,York,Lancaster,,,,Penn Medicine
-12,May 252:00 PM,S Maryland,Hagerstown,,,,Hagerstown
-15,May 252:00 PM,Charleston,Lexington,,,,Lexington
-15,May 254:00 PM,High Point,Gastonia,,,,Gastonia
+15,May 251:33 PM,Staten Island,Long Island,2-3,"Melville, T","Higgins, C",final|
+15,May 252:03 PM,York,Lancaster,4-2,"Palm, T","Scafidi, C",final|
+12,May 252:04 PM,S Maryland,Hagerstown,2-7,"Richardson, D","Semple, S",final|
+15,May 252:08 PM,Charleston,Lexington,4-2,"Lebron, D","Laio, N",final|
+15,May 254:02 PM,High Point,Gastonia,13-12,"Lewis, J","Hennen, R",final|
 16,May 276:30 PM,S Maryland,Gastonia,,,,Gastonia
-13,May 276:30 PM,York,Hagerstown,,,,Hagerstown
 13,May 276:30 PM,Lancaster,Staten Island,,,,Staten Island
+13,May 276:30 PM,York,Hagerstown,,,,Hagerstown
 16,May 276:35 PM,High Point,Charleston,,,,Charleston
 16,May 276:45 PM,Long Island,Lexington,,,,Lexington
 17,May 2810:35 AM,High Point,Charleston,,,,Charleston
@@ -150,8 +149,8 @@
 14,May 286:30 PM,Lancaster,Staten Island,,,,Staten Island
 17,May 286:45 PM,Long Island,Lexington,,,,Lexington
 15,May 2910:30 AM,Lancaster,Staten Island,,,,Staten Island
-18,May 296:30 PM,S Maryland,Gastonia,,,,Gastonia
 15,May 296:30 PM,York,Hagerstown,,,,Hagerstown
+18,May 296:30 PM,S Maryland,Gastonia,,,,Gastonia
 18,May 296:35 PM,High Point,Charleston,,,,Charleston
 18,May 296:45 PM,Long Island,Lexington,,,,Lexington
 16,May 306:30 PM,Long Island,York,,,,York
@@ -161,14 +160,15 @@
 16,May 307:00 PM,Lancaster,Staten Island,,,,Staten Island
 17,May 316:30 PM,Lancaster,Staten Island,,,,Staten Island
 17,May 316:30 PM,Long Island,York,,,,York
-20,May 316:35 PM,Lexington,Charleston,,,,Charleston
-11,May 316:35 PM,Hagerstown,High Point,,,,High Point
 14,May 316:35 PM,Gastonia,S Maryland,,,,Regency Furn.
+11,May 316:35 PM,Hagerstown,High Point,,,,High Point
+20,May 316:35 PM,Lexington,Charleston,,,,Charleston
 18,Jun  11:00 PM,Long Island,York,,,,York
 18,Jun  11:30 PM,Lancaster,Staten Island,,,,Staten Island
 15,Jun  12:05 PM,Gastonia,S Maryland,,,,Regency Furn.
 12,Jun  12:05 PM,Hagerstown,High Point,,,,High Point
 21,Jun  13:04 PM,Lexington,Charleston,,,,Charleston
+15,Jun  212:00 PM,S Maryland,York,,,,York
 19,Jun  36:30 PM,Staten Island,York,,,,York
 19,Jun  36:30 PM,Lexington,Gastonia,,,,Gastonia
 13,Jun  36:35 PM,Charleston,High Point,,,,High Point
@@ -282,8 +282,8 @@
 29,Jun 286:30 PM,Staten Island,York,,,,York
 29,Jun 286:35 PM,Gastonia,Charleston,,,,Charleston
 23,Jun 286:35 PM,Lancaster,High Point,,,,High Point
-26,Jun 286:35 PM,Lexington,S Maryland,,,,Regency Furn.
 29,Jun 286:35 PM,Hagerstown,Long Island,,,,Long Island
+26,Jun 286:35 PM,Lexington,S Maryland,,,,Regency Furn.
 30,Jun 291:00 PM,Staten Island,York,,,,York
 30,Jun 291:35 PM,Hagerstown,Long Island,,,,Long Island
 27,Jun 292:05 PM,Lexington,S Maryland,,,,Regency Furn.
