@@ -113,7 +113,12 @@ umpire_mapping = {
     "8a8d400b-e77c-4263-9c89-5ffa628c3c39" : "Ruben Ramirez",
     "9bd8f780-4916-4f8f-97dd-8877195b8533" : "Justin Alvarez",
     "edab676e-883e-40de-95b8-93b1408dd173" : "Dustin Fields",
-    "dd5acc96-412f-47f4-87b1-b2436f9dd2f3" : "Darnell Ray"
+    "dd5acc96-412f-47f4-87b1-b2436f9dd2f3" : "Darnell Ray",
+    "20760162-6120-4d27-848c-468992490d88" : "Timothy Gansrow",
+    "921f1551-9ff7-483d-a69a-6fceaad9ef37" : "Andy McPherson",
+    "f6007450-804c-491c-bff3-c13a37f7f566" : "Scott Hart",
+    "2a248719-d428-403f-aca4-a5eb5bc0f6ee" : "Fred DeJesus",
+    "8e916188-3ab7-4241-9c35-d16aab3b5c52": "Marvin King"
 
     # add your other GameID→Umpire entries here…
 }
