@@ -1033,7 +1033,9 @@ renderLeaderboard(
 
       // 2. Fastest Exit Velocity
       let evRows = filtered.filter(r =>
-        r[columns.exitSpeed] && r[columns.playResult] !== 'Undefined'
+        r[columns.exitSpeed] && r[columns.playResult] !== 'Undefined' &&
+    // exclude mis‐reads: ground balls with launch angle < –18°
+    parseFloat(r[columns.angle]) >= -18
       );
       const evTeam = document.getElementById('ev-team-filter').value;
       const evPlayer = document.getElementById('ev-player-filter').value;

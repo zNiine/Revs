@@ -50,13 +50,11 @@
     <table id="pf-table">
       <thead>
         <tr>
-          <th>Park</th>
-          <th>HR</th>
-          <th>3B</th>
-          <th>2B</th>
-          <th>1B</th>
-          <th>H</th>
-        </tr>
+  <th>Park</th>
+  <th>Elev</th>
+  <th>HR</th><th>3B</th><th>2B</th><th>1B</th><th>H</th>
+</tr>
+
       </thead>
       <tbody></tbody>
     </table>
@@ -70,6 +68,35 @@
       side: 'BatterSide', paId: 'PitchofPA',
       batter: 'Batter', game: 'GameID'
     };
+
+    // map home-team code → official park name
+const teamParkMap = {
+  'LAN'     : 'Penn Medicine Park',
+  'SMD'     : 'Regency Furniture Stadium',
+  'YOR'     : 'Wellspan Park',
+  'HAG_FLY' : 'Meritus Park',
+  'LI'      : 'Fairfield Properties BallPark',
+  'GAS'     : 'CaroMont Health Park',
+  'STA_YAN' : 'SIUH Community Park',
+  'HP'      : 'Truist Point',
+  'LEX_LEG' : 'Legends Field',
+  'WES_POW' : 'GoMart BallPark'
+};
+
+// map park name → elevation in feet
+const parkElevationMap = {
+  'Penn Medicine Park'            : 368,
+  'Regency Furniture Stadium'     : 15,
+  'Wellspan Park'                 : 367,
+  'Meritus Park'                  : 538,
+  'Fairfield Properties BallPark' : 20,
+  'CaroMont Health Park'          : 738,  // Gastonia, NC
+  'SIUH Community Park'           : 20,
+  'Truist Point'                  : 866,
+  'Legends Field'                 : 978,
+  'GoMart BallPark'               : 597
+};
+
 
     let raw = [];
     let sortKey = 'H';
@@ -87,162 +114,242 @@
         return `rgb(255,${g},${g})`;
       }
     }
+function computeFactors() {
+  const MIN_PARKS = 4;
+  const sideFilter = document.getElementById('bat-side-filter').value;
 
-    function computeFactors() {
-      const sideFilter = document.getElementById('bat-side-filter').value;
+  // 1) Build global totals, per-park per-player stats, and park-count per player
+  const global    = {};  // global[p]        = { pa, hr, tb3, db, sb, h }
+  const parkMap   = {};  // parkMap[park][p] = { pa, hr, tb3, db, sb, h }
+  const parkCount = {};  // parkCount[p]     = Set of parks they've appeared in
 
-      // 1) Build parkMap and global totals
-      const global = {}, parkMap = {}, parkCount = {};
+  raw.forEach(r => {
+    const pa    = r[cols.paId] === '1';
+    const pr    = r[cols.play];
+    const side  = r[cols.side];
+    if (sideFilter !== 'All' && side !== sideFilter) return;
 
-      raw.forEach(r => {
-        const pa  = r[cols.paId] === '1';
-        const pr  = r[cols.play];
-        const side = r[cols.side];
-        if (sideFilter !== 'All' && side !== sideFilter) return;
+    const p    = r[cols.batter];
+    const park = r[cols.home];
 
-        const p    = r[cols.batter];
-        const park = r[cols.home];
+    // TRACK how many different parks each batter appears in
+    if (pa) {
+      parkCount[p] = parkCount[p] || new Set();
+      parkCount[p].add(park);
+    }
 
-        // track hitters who've had PAs in multiple parks
-        if (pa) {
-          parkCount[p] = parkCount[p] || new Set();
-          parkCount[p].add(park);
-        }
+    // INIT global[p]
+    if (!global[p]) {
+      global[p] = { pa: 0, hr: 0, tb3: 0, db: 0, sb: 0, h: 0 };
+    }
+    // INIT parkMap[park][p]
+    parkMap[park] = parkMap[park] || {};
+    if (!parkMap[park][p]) {
+      parkMap[park][p] = { pa: 0, hr: 0, tb3: 0, db: 0, sb: 0, h: 0 };
+    }
 
-        // init global & park
-        global[p]        = global[p]        || { pa:0, hr:0, tb3:0, db:0, sb:0, h:0 };
-        parkMap[park]    = parkMap[park]    || {};
-        parkMap[park][p] = parkMap[park][p] || { pa:0, hr:0, tb3:0, db:0, sb:0, h:0 };
+    // ACCUMULATE
+    if (pa) {
+      global[p].pa++;
+      parkMap[park][p].pa++;
+    }
+    if (pr === 'HomeRun') {
+      global[p].hr++;
+      parkMap[park][p].hr++;
+    }
+    if (pr === 'Triple') {
+      global[p].tb3++;
+      parkMap[park][p].tb3++;
+    }
+    if (pr === 'Double') {
+      global[p].db++;
+      parkMap[park][p].db++;
+    }
+    if (pr === 'Single') {
+      global[p].sb++;
+      parkMap[park][p].sb++;
+    }
+    if (['HomeRun','Triple','Double','Single'].includes(pr)) {
+      global[p].h++;
+      parkMap[park][p].h++;
+    }
+  });
 
-        // 2) accumulate only into home park
-        if (pa) {
-          global[p].pa++;
-          parkMap[park][p].pa++;
-        }
-        if (pr === 'HomeRun') {
-          global[p].hr++;
-          parkMap[park][p].hr++;
-        }
-        if (pr === 'Triple') {
-          global[p].tb3++;
-          parkMap[park][p].tb3++;
-        }
-        if (pr === 'Double') {
-          global[p].db++;
-          parkMap[park][p].db++;
-        }
-        if (pr === 'Single') {
-          global[p].sb++;
-          parkMap[park][p].sb++;
-        }
-        if (['HomeRun','Triple','Double','Single'].includes(pr)) {
-          global[p].h++;
-          parkMap[park][p].h++;
-        }
-      });
+  // 2) Compute a raw (un­normalized) factor per park, per stat
+  const rawFactors = [];  // will hold { park, HR, 3B, 2B, 1B, H } where each is already *100
 
-      // 3) Compute raw factor arrays
-      const factors = [];
-      Object.entries(parkMap).forEach(([park, hitters]) => {
-        const ratios = { HR:[], '3B':[], '2B':[], '1B':[], H:[] };
+  Object.entries(parkMap).forEach(([park, hitters]) => {
+    // For each stat we’ll build a weighted sum and total PA
+    const sums   = { HR: 0, '3B': 0, '2B': 0, '1B': 0, H: 0 };
+    const totPA  = { HR: 0, '3B': 0, '2B': 0, '1B': 0, H: 0 };
 
-        Object.entries(hitters).forEach(([p, st]) => {
-          if (st.pa < 1) return;
-          if ((parkCount[p]||new Set()).size < 2) return;             // need multi-park PAs
-          const g = global[p];
-          const outsidePA = g.pa - st.pa;
-          if (outsidePA < 1) return;
+    Object.entries(hitters).forEach(([p, st]) => {
+      // skip players with <1 PA here or <MIN_PARKS total parks
+      if (st.pa < 1) return;
+      if ((parkCount[p] || new Set()).size < MIN_PARKS) return;
 
-          ratios.HR.push(  (st.hr  / st.pa) / ((g.hr  - st.hr)  / outsidePA) );
-          ratios['3B'].push((st.tb3 / st.pa) / ((g.tb3 - st.tb3) / outsidePA));
-          ratios['2B'].push((st.db  / st.pa) / ((g.db   - st.db)   / outsidePA));
-          ratios['1B'].push((st.sb  / st.pa) / ((g.sb   - st.sb)   / outsidePA));
-          ratios.H.push(   (st.h   / st.pa) / ((g.h    - st.h)    / outsidePA));
-        });
+      const g         = global[p];
+      const outsidePA = g.pa - st.pa;
+      if (outsidePA < 1) return;
 
-        const entry = { park };
-        ['HR','3B','2B','1B','H'].forEach(k => {
-          const arr = ratios[k].filter(Number.isFinite);
-          entry[k] = arr.length
-            ? arr.reduce((a,b) => a + b, 0) / arr.length * 100
-            : NaN;
-        });
-        if (!isNaN(entry.HR)) factors.push(entry);
-      });
+      // compute each ratio
+      const ratios = {
+        HR:  (st.hr  / st.pa) / ((g.hr  - st.hr)  / outsidePA),
+        '3B':(st.tb3 / st.pa) / ((g.tb3 - st.tb3) / outsidePA),
+        '2B':(st.db  / st.pa) / ((g.db   - st.db)   / outsidePA),
+        '1B':(st.sb  / st.pa) / ((g.sb   - st.sb)   / outsidePA),
+        H:   (st.h   / st.pa) / ((g.h    - st.h)    / outsidePA)
+      };
 
-      // 4) Normalize each stat to avg=100
-      const norms = {};
+      // accumulate weighted sums
       ['HR','3B','2B','1B','H'].forEach(k => {
-        const vals = factors.map(r => r[k]);
-        norms[k] = vals.reduce((a,b) => a + b,0) / vals.length;
-      });
-
-      return factors.map(r => {
-        const out = { park: r.park };
-        ['HR','3B','2B','1B','H'].forEach(k => {
-          out[k] = isNaN(r[k]) ? NaN : r[k] / norms[k] * 100;
-        });
-        return out;
-      });
-    }
-
-    function render() {
-      const tbody = document.querySelector('#pf-table tbody');
-      tbody.innerHTML = '';
-      const data = computeFactors();
-      data.sort((a,b) =>
-        sortAsc
-          ? a[sortKey] - b[sortKey]
-          : b[sortKey] - a[sortKey]
-      );
-
-      const keys = ['HR','3B','2B','1B','H'];
-      const ranges = {};
-      keys.forEach(k => {
-        const vals = data.map(d => d[k]);
-        ranges[k] = { min: Math.min(...vals), max: Math.max(...vals) };
-      });
-
-      data.forEach(d => {
-        const tr = document.createElement('tr');
-        const name = (raw.find(r=>r[cols.home]===d.park)||{})[cols.homeFull] || d.park;
-        tr.append(Object.assign(document.createElement('td'),{ textContent: name }));
-
-        keys.forEach(k => {
-          const td = document.createElement('td');
-          td.textContent = isNaN(d[k]) ? '-' : d[k].toFixed(1);
-          if (!isNaN(d[k])) {
-            td.style.background = heatColor(d[k], ranges[k].min, ranges[k].max);
-            td.style.color      = d[k] <= 75 ? 'white' : 'black';
-          }
-          tr.append(td);
-        });
-        tbody.append(tr);
-      });
-    }
-
-    function setup(){
-      Papa.parse('./data.csv', {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: results => {
-          raw = results.data;
-          document.getElementById('bat-side-filter')
-                  .addEventListener('change', render);
-          document.querySelectorAll('#pf-table th')
-                  .forEach((th,i) => {
-            const key = ['park','HR','3B','2B','1B','H'][i];
-            th.addEventListener('click', ()=> {
-              if (sortKey === key) sortAsc = !sortAsc;
-              else { sortKey = key; sortAsc = true; }
-              render();
-            });
-          });
-          render();
+        if (Number.isFinite(ratios[k])) {
+          sums[k]  += ratios[k] * st.pa;
+          totPA[k] += st.pa;
         }
       });
+    });
+
+    // build the raw-factor entry (scaled ×100)
+    const entry = { park };
+    ['HR','3B','2B','1B','H'].forEach(k => {
+      entry[k] = totPA[k]
+        ? (sums[k] / totPA[k]) * 100
+        : NaN;
+    });
+
+    // only include if we got at least one HR data point
+    if (!isNaN(entry.HR)) rawFactors.push(entry);
+  });
+
+  // 3) Compute league‐wide averages for normalization
+  const norms = {};
+  ['HR','3B','2B','1B','H'].forEach(k => {
+    const vals  = rawFactors.map(r => r[k]).filter(Number.isFinite);
+    norms[k]    = vals.reduce((a,b) => a + b, 0) / vals.length;
+  });
+
+  // 4) Return the final array, normalized to 100 = league avg
+  return rawFactors.map(r => {
+    const out = { park: r.park };
+    ['HR','3B','2B','1B','H'].forEach(k => {
+      out[k] = Number.isFinite(r[k])
+        ? (r[k] / norms[k]) * 100
+        : NaN;
+    });
+    return out;
+  });
+}
+function render() {
+  const tbody = document.querySelector('#pf-table tbody');
+  tbody.innerHTML = '';
+
+  // 1) Pull in raw factors and decorate each row with Elev
+  let data = computeFactors().map(d => {
+    const parkName = teamParkMap[d.park] || d.park;
+    return {
+      park:    parkName,
+      Elev:    parkElevationMap[parkName] || 0,
+      HR:      d.HR,
+      '3B':    d['3B'],
+      '2B':    d['2B'],
+      '1B':    d['1B'],
+      H:       d.H
+    };
+  });
+
+  // 2) Sort based on sortKey / sortAsc
+  data.sort((a, b) => {
+    const vA = a[sortKey], vB = b[sortKey];
+
+    if (sortKey === 'park') {
+      // alphabetical sort for park names
+      return sortAsc
+        ? String(vA).localeCompare(String(vB))
+        : String(vB).localeCompare(String(vA));
+    } else {
+      // numeric sort for Elev, HR, 3B, 2B, 1B, H
+      return sortAsc
+        ? (vA - vB)
+        : (vB - vA);
     }
+  });
+
+  // 3) Compute color ranges for the heatmap cells (excluding park & Elev)
+  const statKeys = ['HR','3B','2B','1B','H'];
+  const ranges = {};
+  statKeys.forEach(k => {
+    const vals = data.map(d => d[k]).filter(Number.isFinite);
+    ranges[k] = { min: Math.min(...vals), max: Math.max(...vals) };
+  });
+
+  // 4) Build table rows
+  data.forEach(d => {
+    const tr = document.createElement('tr');
+
+    // Park cell
+    const tdPark = document.createElement('td');
+    tdPark.textContent = d.park;
+    tr.appendChild(tdPark);
+
+    // Elevation cell
+    const tdElev = document.createElement('td');
+    tdElev.textContent = `${d.Elev} ft`;
+    tr.appendChild(tdElev);
+
+    // Stat cells with heat coloring
+    statKeys.forEach(k => {
+      const td = document.createElement('td');
+      td.textContent = isNaN(d[k]) ? '-' : d[k].toFixed(1);
+
+      if (!isNaN(d[k])) {
+        // reuse your existing heatColor function
+        td.style.background = heatColor(d[k], ranges[k].min, ranges[k].max);
+        td.style.color      = d[k] <= 75 ? 'white' : 'black';
+      }
+
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
+
+function setup() {
+  // Parse CSV
+  Papa.parse('./data.csv', {
+    download: true,
+    header:   true,
+    skipEmptyLines: true,
+    complete: results => {
+      raw = results.data;
+
+      // Bat-side filter
+      document.getElementById('bat-side-filter')
+              .addEventListener('change', render);
+
+      // Header click handlers
+      const headerKeys = ['park','Elev','HR','3B','2B','1B','H'];
+      document.querySelectorAll('#pf-table thead th')
+              .forEach((th, idx) => {
+        th.addEventListener('click', () => {
+          const key = headerKeys[idx];
+          if (sortKey === key) {
+            sortAsc = !sortAsc;
+          } else {
+            sortKey = key;
+            sortAsc = true;
+          }
+          render();
+        });
+      });
+
+      // Initial render
+      render();
+    }
+  });
+}
     setup();
   </script>
 

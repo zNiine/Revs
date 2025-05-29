@@ -118,7 +118,10 @@ umpire_mapping = {
     "921f1551-9ff7-483d-a69a-6fceaad9ef37" : "Andy McPherson",
     "f6007450-804c-491c-bff3-c13a37f7f566" : "Scott Hart",
     "2a248719-d428-403f-aca4-a5eb5bc0f6ee" : "Fred DeJesus",
-    "8e916188-3ab7-4241-9c35-d16aab3b5c52": "Marvin King"
+    "8e916188-3ab7-4241-9c35-d16aab3b5c52": "Marvin King",
+    "2e5c00ea-02a8-4fe3-ad54-4a2c654b35c0" : "Anthony Greene",
+    "19e1af40-01d9-4ea6-b711-993fc68437eb" : "Ronnie Winthrow",
+    "2b3f9385-8d0f-4c45-88ef-dd20d1df1bfd" : "Gavin Holdgreve"
 
     # add your other GameID→Umpire entries here…
 }
