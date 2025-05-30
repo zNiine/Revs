@@ -121,7 +121,14 @@ umpire_mapping = {
     "8e916188-3ab7-4241-9c35-d16aab3b5c52": "Marvin King",
     "2e5c00ea-02a8-4fe3-ad54-4a2c654b35c0" : "Anthony Greene",
     "19e1af40-01d9-4ea6-b711-993fc68437eb" : "Ronnie Winthrow",
-    "2b3f9385-8d0f-4c45-88ef-dd20d1df1bfd" : "Gavin Holdgreve"
+    "2b3f9385-8d0f-4c45-88ef-dd20d1df1bfd" : "Gavin Holdgreve",
+    "a01c64a3-3417-489b-9ee0-7a245fcfd552" : "Clark Morgan",
+    "727a9e5a-135d-4e60-8124-ea9f00883da8" : "Charles Hudson",
+    "13255443-4fc0-493b-8572-eb6674bb7184" : "Stephen Zawisky",
+    "3b785435-3382-4362-a7a6-a0f0ff9461c7" : "Ian Pittinger",
+    "63460063-a20c-4f4d-bb59-863f798ec32b" : "",
+    "56ae71a8-408a-41ea-97fd-84f902352cbb" : "Vinny Mariani",
+    "ca384131-3f5b-4e74-ba5b-68b69f416f78" : "Warren Nicholson"
 
     # add your other GameID→Umpire entries here…
 }
