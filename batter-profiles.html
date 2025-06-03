@@ -1564,27 +1564,40 @@ function plotRadarMetrics(rows){
     );
   }
 
+    setTimeout(() => {
+
   // 7) re-draw everything
   plotPlate(f);            // now uses GLOBAL_CM inside
   renderTable(f);
   renderAtBatDetails(f);
   plotExitHist(f);
   plotAngleVelDensity(f);
+    }, 200);
+    setTimeout(() => {
+
   plotDiscipline(f);
   plotGameTrends(f);
   plotBBTypes(f);
   plotStatcast(f);
   plotZoneHeatmaps(f);
+      }, 600);
+    setTimeout(() => {
+
   plotPitchMix(f);
   plotSwingPct(f);
   plotHardHitPct(f);
   plotWhiffPct(f);
+        }, 900);
+    setTimeout(() => {
+
   plotRadarMetrics(f);
   plotZoneCountMap(f);
   plotSpinRate(f);
   plotSpinAxis(f);
   plotLocationPieClusters(f);
-  updateSpray(f);          // your canvas-spray update
+  updateSpray(f);   
+          }, 1400);
+       // your canvas-spray update
 }
 
 

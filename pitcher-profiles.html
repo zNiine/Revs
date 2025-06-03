@@ -2667,10 +2667,13 @@ function applyFilters() {
 
   renderTable(f);
   renderAtBatDetails(f);
+    setTimeout(() => {
+
   drawMovementProfile(f);
 populatePitchTypeTableFilter(f);
     // initial render:
     renderPitchStatsByCount(f);      plotLocationPieClusters(f);
+  }, 600);
 
 
   const metrics = computeContactPercentages(f);
@@ -2703,6 +2706,7 @@ if (metrics) {
   document.getElementById('contactMetrics').textContent = 'No batted-ball data.';
 }
 
+    setTimeout(() => {
 
 drawReleasePoint(f); drawSpinBreakBoxes(f); drawUsageOverTime(f);
   drawTunnelMap(f); renderCallRates(f);
@@ -2710,6 +2714,9 @@ drawSunburst(f);
   drawRunValue(f);
   drawInningTrend(f);
   drawZoneAccuracy(f);
+  }, 1300);
+
+      setTimeout(() => {
 
   drawSpinAxisRose(f);
 drawExitVelByPitch(f);
@@ -2719,8 +2726,15 @@ drawVeloPercentile();
 drawExitVelPercentile();
 drawChasePercentile();
 drawWhiffPercentile();
+  }, 1500);
+
+        setTimeout(() => {
+
 drawHardHitPercentile();
 drawStuffGauge(f);
+
+  }, 400);
+
     parkSelect2.addEventListener('change', () => drawSprayCanvas(f));
 
 
