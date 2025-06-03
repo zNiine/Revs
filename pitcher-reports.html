@@ -64,6 +64,18 @@
   padding: 12px;
 }
 
+    .jersey-number {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #333;
+      /* adjust padding/background if you want a background box: */
+      /* background: rgba(255,255,255,0.8);
+         padding: 4px 8px;
+         border-radius: 4px; */
+    }
 /* Chart container sits centered and takes full card width */
 .card .chart {
   width: 100%;
@@ -161,6 +173,31 @@
       complete: results => { allData.push(...results.data); initUI(); }
     });
 
+    const rosterMap = {}; // rosterMap["Last First"] = "12"  (for example)
+
+    Papa.parse('rosters.csv', {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: results => {
+        results.data.forEach(row => {
+          // Assuming your "Player" column is exactly "Player" in rosters.csv
+          // and "Number" column is exactly "Number".
+          // Also assume roster CSV uses the same naming format as your pitch data’s "Pitcher" field.
+          const fullName = row.Player.trim();
+          const jersey   = row.Number.trim();
+
+          // Split on whitespace, assume last token is Lastname,
+          // rest is Firstname (handles middle names, too).
+          const parts = fullName.split(/\s+/);
+          const last  = parts.pop();
+          const first = parts.join(' ');
+
+          const key = `${last}, ${first}`; 
+          rosterMap[key] = jersey;
+        });
+      }})
+
     function initUI() {
       const teamFilter = document.getElementById('teamFilter'),
             generateBtn = document.getElementById('generateBtn');
@@ -176,12 +213,27 @@
       generateBtn.onclick = () => generateReports(teamFilter.value);
     }
 
+    const excludedPitchers = [
+  "Capuano, Christian",
+  "Abbatine, Anthony",
+  "Sigman, Jackson"
+];
+
     function generateReports(team) {
       const container = document.getElementById('reportContainer');
       container.innerHTML = '';
       let pitchers = [...new Set(
         allData.filter(r => r.PitcherTeam === team).map(r => r.Pitcher)
       )];
+
+        pitchers = pitchers.filter(name => !excludedPitchers.includes(name));
+
+
+        pitchers.sort((a, b) => {
+        const numA = rosterMap[a] ? parseInt(rosterMap[a], 10) : Infinity;
+        const numB = rosterMap[b] ? parseInt(rosterMap[b], 10) : Infinity;
+        return numA - numB;
+      });
       // filter to Joey Hennessey only while testing
 
       pitchers.forEach(pitcher => {
@@ -210,12 +262,13 @@ function createReportsForPitcher(container, pitcher, side, rows) {
   const hand = rows[0].PitcherThrows === 'Right' ? 'RHP' : 'LHP';
   const parts = pitcher.split(' ');
   const displayName = `${parts.slice(-1)} ${parts.slice(0,-1).join(' ')} (${hand}) vs ${side}`;
+    const jerseyNum = rosterMap[pitcher] || '—';
 
   // now just render the 4 pages for this one side:
-  renderUsageStatsPage (container, displayName, pitcher, side, rows);
-  renderRunnersPage    (container, displayName, pitcher, side, rows);
-  renderMovementGridPage(container, displayName, pitcher, side, rows);
-  renderSummaryPage    (container, displayName, pitcher, side, rows);
+  renderUsageStatsPage (container, displayName, pitcher, side, rows, jerseyNum);
+  renderRunnersPage    (container, displayName, pitcher, side, rows, jerseyNum);
+  renderMovementGridPage(container, displayName, pitcher, side, rows, jerseyNum);
+  renderSummaryPage    (container, displayName, pitcher, side, rows, jerseyNum);
 }
 
 
@@ -223,11 +276,14 @@ function createReportsForPitcher(container, pitcher, side, rows) {
 // each of these takes the same arguments and
 // appends exactly one .page to `container`.
 
-function renderUsageStatsPage(container, displayName, pitcher, side, rows) {
+function renderUsageStatsPage(container, displayName, pitcher, side, rows, jerseyNum) {
   const pg = newPage(container);
   pg.appendChild(makeHeader(displayName));
   pg.appendChild(makeVsLine(side));
-
+const numDiv = document.createElement('div');
+      numDiv.className = 'jersey-number';
+      numDiv.textContent = `#${jerseyNum}`;
+      pg.appendChild(numDiv);
   const usageCont = document.createElement('div');
   usageCont.className = 'usage-container';
   const uDiv = document.createElement('div');
@@ -283,11 +339,15 @@ function renderRunnersPage(container, displayName, pitcher, side, rows) {
   renderStats(runnerRows, `stats_${sanitize(pitcher)}_${side}_runners`);
 }
 
-function renderMovementGridPage(container, displayName, pitcher, side, rows) {
+function renderMovementGridPage(container, displayName, pitcher, side, rows, jerseyNum) {
   const pg = newPage(container);
       pg.style.cssText = `height: 95vh;
       width: 100%`
 
+        const numDiv = document.createElement('div');
+      numDiv.className = 'jersey-number';
+      numDiv.textContent = `#${jerseyNum}`;
+      pg.appendChild(numDiv);
   pg.appendChild(makeHeader(displayName));
   pg.appendChild(makeVsLine(side));
 
@@ -311,13 +371,16 @@ function renderMovementGridPage(container, displayName, pitcher, side, rows) {
     fn(rows, chartId);
   });
 }
-function renderSummaryPage(container, displayName, pitcher, side, rows) {
+function renderSummaryPage(container, displayName, pitcher, side, rows, jerseyNum) {
   const pg = newPage(container);
   pg.style.cssText = `height: 100vh`
 
   pg.appendChild(makeHeader(displayName));
   pg.appendChild(makeVsLine(side));
-
+const numDiv = document.createElement('div');
+      numDiv.className = 'jersey-number';
+      numDiv.textContent = `#${jerseyNum}`;
+      pg.appendChild(numDiv);
   // summary table
   const sumId = `sum_${sanitize(pitcher)}_${side}`;
   const sumTable = document.createElement('table');
@@ -940,6 +1003,8 @@ Plotly.newPlot(containerId, [...rawTraces, avgTrace], {
 });
 
 }
+
+
 
 
 
