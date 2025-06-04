@@ -128,8 +128,13 @@ umpire_mapping = {
     "3b785435-3382-4362-a7a6-a0f0ff9461c7" : "Ian Pittinger",
     "63460063-a20c-4f4d-bb59-863f798ec32b" : "",
     "56ae71a8-408a-41ea-97fd-84f902352cbb" : "Vinny Mariani",
-    "ca384131-3f5b-4e74-ba5b-68b69f416f78" : "Warren Nicholson"
-
+    "ca384131-3f5b-4e74-ba5b-68b69f416f78" : "Warren Nicholson",
+    "148c6cb5-dbae-48e3-ade8-8ce29ce3e959" : "",
+    "2537d2be-5a40-43d1-8e38-5ae0339806db" : "Timothy Gansrow",
+    "3b884954-8d62-4542-9a83-c711adf685d6" : "Antonio Pinzon (CC)",
+    "1e7476bc-5320-4638-928c-a08b7e3d6de2" : "Steve Zawisky",
+    "3ffb4ba9-a0ab-4f89-82ce-583a767d0db6" : "Lindy Hall",
+    "e56c44ec-bea1-4173-9810-036f0ed0ea09":  "Scott Hart"
     # add your other GameID→Umpire entries here…
 }
 

@@ -2677,9 +2677,10 @@ function applyFilters() {
   drawMovementProfile(f);
 populatePitchTypeTableFilter(f);
     // initial render:
-    renderPitchStatsByCount(f);      plotLocationPieClusters(f);
+    renderPitchStatsByCount(f);      
   }, 1000);
 
+     
 
   const metrics = computeContactPercentages(f);
 if (metrics) {
@@ -2715,11 +2716,15 @@ if (metrics) {
 
 drawReleasePoint(f); drawSpinBreakBoxes(f); drawUsageOverTime(f);
   drawTunnelMap(f); renderCallRates(f);
-drawSunburst(f);
   drawRunValue(f);
   drawInningTrend(f);
   drawZoneAccuracy(f);
-  }, 1500);
+
+    setTimeout(() => {
+
+  drawSunburst(f);
+
+  }, 2800);
 
       setTimeout(() => {
 
@@ -2739,6 +2744,12 @@ drawHardHitPercentile();
 drawStuffGauge(f);
 
   }, 2500);
+
+   setTimeout(() => {
+
+
+  plotLocationPieClusters(f);
+  }, 4000);
 
     parkSelect2.addEventListener('change', () => drawSprayCanvas(f));
 
