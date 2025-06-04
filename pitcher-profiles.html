@@ -2353,20 +2353,41 @@ function drawMovementProfile(data) {
             applyFilters();
         }
         function loadData() {
-  // Build an absolute URL so the worker can fetch it
-  const csvUrl = window.location.origin + '/data.csv';
+  // 1) Build a fully qualified URL so that the Papa Parse worker can fetch it.
+  //    If data.csv is in the same directory as this HTML file, this ends up
+  //    as "https://your-domain.com/path/to/pitcher-profiles.html/data.csv". 
+  //    You might also hard-code "/data.csv" if it’s served from the web root.
+  const csvUrl = window.location.origin + window.location.pathname.replace(/[^\/]+$/, "") + "data.csv";
 
   Papa.parse(csvUrl, {
     download: true,
-    worker:   true,
+    worker:   true,        // Optional: allow Papa Parse to spin up a web worker
     header:   true,
     skipEmptyLines: true,
-    complete: res => {
+
+    complete: (res) => {
+      // If res or res.data is undefined, log an error and bail out
+      if (!res || typeof res.data === "undefined") {
+        console.error("Papa.parse failed to load or parse 'data.csv' at:", csvUrl);
+        return;
+      }
+
+      // 2) Populate your variables exactly as before:
       data = res.data;
-      allData = res.data.map(r => ({ ...r, Date: new Date(r.Date) }));
+      allData = res.data.map(r => ({
+        ...r,
+        // Convert the "Date" string into a real Date object
+        Date: new Date(r.Date)
+      }));
+
+      // 3) Now that data is loaded, initialize everything:
       initDashboard();
       initSearchHandler();
       populateSuggestions();
+    },
+
+    error: (err) => {
+      console.error("Papa.parse reported an error:", err);
     }
   });
 }
