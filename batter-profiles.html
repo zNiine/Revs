@@ -561,13 +561,64 @@
         function parseNum(s) { const n = parseFloat(s); return isNaN(n) ? null : n; }
 
         function loadData() {
-            Papa.parse('./data.csv', { download: true, header: true, skipEmptyLines: true, complete: res => {
-                 allData = res.data.map(r => ({ ...r, Date: new Date(r.Date) }));
-                 data = allData
-                 initSearchHandler();
-                 populateSuggestions();
-                 initDashboard(); } });
-        }
+  Papa.parse('./data.csv', {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: header => {
+      // only keep the columns this page uses:
+      const wanted = [
+        'Date',
+        'Batter',
+        'Pitcher',
+        'PitcherThrows',
+        'AutoPitchType',
+        'PlateLocSide',
+        'PlateLocHeight',
+        'HorzBreak',
+        'InducedVertBreak',
+        'Extension',
+        'RelSide',
+        'RelHeight',
+        'SpinAxis',
+        'RelSpeed',
+        'SpinRate',
+        'TaggedHitType',
+        'ExitSpeed',
+        'Angle',
+        'Distance',
+        'Direction',
+        'PositionAt110X',
+        'PositionAt110Y',
+        'PlayResult',
+        'PitchCall',
+        'KorBB',
+        'Inning',
+        'PAofInning',
+        'PitchUID',
+        'PlayID',
+        'GameUID',
+        'HomeNameFull',
+        'AwayNameFull',
+        'Umpire',
+        'Balls',
+        'Strikes',
+        'HitSpinRate',
+        'HitSpinAxis',
+        'SpeedDrop'
+      ];
+      return wanted.includes(header) ? header : null;
+    },
+    complete: res => {
+      // res.data now contains only those fields; convert Date→Date()
+      allData = res.data.map(r => ({ ...r, Date: new Date(r.Date) }));
+      data = allData;
+      initSearchHandler();
+      populateSuggestions();
+      initDashboard();
+    }
+  });
+}
 
         // helper to bin into 9 strike-zone cells
 function zoneCell(x,y){
