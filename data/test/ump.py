@@ -134,8 +134,13 @@ umpire_mapping = {
     "3b884954-8d62-4542-9a83-c711adf685d6" : "Antonio Pinzon (CC)",
     "1e7476bc-5320-4638-928c-a08b7e3d6de2" : "Steve Zawisky",
     "3ffb4ba9-a0ab-4f89-82ce-583a767d0db6" : "Lindy Hall",
-    "e56c44ec-bea1-4173-9810-036f0ed0ea09":  "Scott Hart"
-    # add your other GameID→Umpire entries here…
+    "e56c44ec-bea1-4173-9810-036f0ed0ea09":  "Scott Hart",
+    "26e7f8e8-1574-4c9f-8693-beb15f3645da" : "Calvin Baker",
+    "5c0c1102-f238-4884-a8e9-c4aff4eada9e" : "Vincenzo Mariani",
+    "67bca9eb-54d5-45bc-9a9c-008801b8fbd8" : "Mike Williams",
+    "d65079a3-8dcf-4b68-9af8-ef39f7dbbdc1" : "Steve Hart",
+    "7a5818d9-83f5-4d4a-a302-d7588af6d14f" : "Andrew Eng"
+    # add your other GameID→Umpire entries here…Steve Hart
 }
 
 # 3. Create the new “Umpire” column by mapping GameID
