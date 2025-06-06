@@ -139,7 +139,13 @@ umpire_mapping = {
     "5c0c1102-f238-4884-a8e9-c4aff4eada9e" : "Vincenzo Mariani",
     "67bca9eb-54d5-45bc-9a9c-008801b8fbd8" : "Mike Williams",
     "d65079a3-8dcf-4b68-9af8-ef39f7dbbdc1" : "Steve Hart",
-    "7a5818d9-83f5-4d4a-a302-d7588af6d14f" : "Andrew Eng"
+    "7a5818d9-83f5-4d4a-a302-d7588af6d14f" : "Andrew Eng",
+    "b41cf95b-6026-43a7-8fe0-0e8bfdb3f32c" :"Clark Morgan",
+    "95680162-66e1-4525-9c34-c7d5f9d1c1a7" : "Justin Alvarez",
+    "ee16881d-dc6b-48ce-a958-c2337ec8ea33" : "Bill Reuter",
+    "b47d2752-71ff-49ca-98e8-3b7d87814d80" : "Gavin Holdgreve",
+    "18f6e0cf-10c3-4a18-8e31-89c9a6fd855b" : "Phillip Heim"
+
     # add your other GameID→Umpire entries here…Steve Hart
 }
 
