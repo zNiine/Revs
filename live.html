@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TrackMan Stats Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+    #main { flex: 3; padding: 1rem; overflow-y: auto; }
+    #stats { flex: 1; border-left: 1px solid #ccc; padding: 1rem; background: #f9f9f9; overflow-y: auto; }
+    .toggle-group { margin-bottom: 1rem; }
+    select { margin-bottom: 1rem; width: 100%; padding: .5rem; }
+    #cards { display: flex; flex-wrap: wrap; gap: 1rem; }
+    .card { flex: 0 0 calc(20% - 1rem); background: #fff; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); padding: .5rem; }
+    .card-header { font-weight: bold; margin-bottom: .5rem; }
+    .card-body p { margin: .3rem 0; }
+    canvas.sprayCanvas { display: block; margin: .5rem auto; background: #fafafa; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+    th, td { border: 1px solid #ccc; padding: .3rem; text-align: center; }
+    th.sortable { cursor: pointer; background: #eee; }
+    h2 { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div id="main">
+    <h1>Live TrackMan Dashboard</h1>
+    <label for="parkSelect">Select Park:</label>
+    <select id="parkSelect"></select>
+    <div id="cards"></div>
+  </div>
+
+  <div id="stats">
+    <div class="toggle-group">
+      <label><input type="radio" name="mode" value="pitcher" checked> Pitchers</label>
+      <label><input type="radio" name="mode" value="batter"> Batters</label>
+    </div>
+    <div id="pitcherTables"></div>
+    <div id="batterTableContainer" style="display:none;">
+      <table id="batterTable"><thead>
+        <tr><th class="sortable">Batter</th><th class="sortable">Hardest (mph)</th><th class="sortable">Farthest (ft)</th></tr>
+      </thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script>
+    // 1) Park setup
+    const teamParkMap = {
+      LAN:'Penn Medicine Park',
+      SMD:'Regency Furniture Stadium',
+      YOR:'Wellspan Park',
+      HAG_FLY:'Meritus Park',
+      LI:'Fairfield Properties BallPark',
+      GAS:'CaroMont Health Park',
+      STA_YAN:'SIUH Community Park',
+      HP:'Truist Point',
+      LEX_LEG:'Legends Field',
+      WES_POW:'GoMart BallPark'
+    };
+    const parks = {
+      default: { leftFoul:325, leftCenter:(325+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 },
+      'Meritus Park':        { leftFoul:346, leftCenter:(346+387)/2, center:400, rightCenter:(400+360)/2, rightFoul:325 },
+      'Wellspan Park':       { leftFoul:300, leftCenter:(300+405)/2, center:405, rightCenter:(405+326)/2, rightFoul:326 },
+      'CaroMont Health Park':{ leftFoul:315, leftCenter:361, center:400, rightCenter:367, rightFoul:325 },
+      'Penn Medicine Park':  { leftFoul:320, leftCenter:409, center:400, rightCenter:363, rightFoul:300 },
+      'Fairfield Properties BallPark': { leftFoul:325, leftCenter:(325+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 },
+      'SIUH Community Park': { leftFoul:320, leftCenter:(320+390)/2, center:390, rightCenter:(390+318)/2, rightFoul:318 },
+      'GoMart BallPark':     { leftFoul:330, leftCenter:(330+400)/2, center:400, rightCenter:(400+320)/2, rightFoul:320 },
+      'Truist Point':        { leftFoul:336, leftCenter:363, center:400, rightCenter:366, rightFoul:339 },
+      'Legends Field':       { leftFoul:320, leftCenter:(320+401)/2, center:401, rightCenter:(401+318)/2, rightFoul:318 },
+      'Regency Furniture Stadium': { leftFoul:310, leftCenter:(310+400)/2, center:400, rightCenter:(400+325)/2, rightFoul:325 }
+    };
+    const parkSelect = document.getElementById('parkSelect');
+    Object.entries(teamParkMap).forEach(([code,name])=>{
+      let opt = document.createElement('option');
+      opt.value = name; opt.textContent = code;
+      parkSelect.appendChild(opt);
+    });
+    let currentPark = parks.default;
+    parkSelect.addEventListener('change', () => {
+      currentPark = parks[parkSelect.value] || parks.default;
+      document.querySelectorAll('canvas.sprayCanvas').forEach(c => {
+        drawSprayCanvas(c, [{
+          Direction: parseFloat(c.dataset.dir),
+          Distance:  parseFloat(c.dataset.dist),
+          ExitSpeed: parseFloat(c.dataset.ev)
+        }]);
+      });
+    });
+
+    // 2) Converters
+    const msToMph   = mps => mps * 2.23694;
+    const mToFt     = m   => m * 3.28084;
+    const mToInches = m   => m * 39.3701;
+
+
+    /**
+ * Classify a pitch without using vertical-break metrics.
+ *
+ * @param {Object} data  – full pitch object (movement.spinAxis, movement.horizontal, nineP, speedDrop, release, etc.)
+ * @param {Object} start – start object ({ speed, spinRate })
+ * @param {string} hand  – "Right" or "Left"
+ * @returns {string}     – one of 'Four-Seam FB', 'Sinker', 'Slider', 'Curveball', 'Changeup', 'Unknown'
+ */
+function guessPitchType(data, start, hand) {
+  // 1) Speed & spin
+  const speedMph = (start?.speed || 0) * 2.23694;  // m/s → mph
+  const spinRpm  = start?.spinRate || 0;           // rpm
+
+  // 2) Horizontal sweep normalized to “glove side” positive
+  const rawHorz  = data?.movement?.horizontal || 0;        // m
+  const horzIn   = rawHorz * 39.3701                      // → in
+                 * (hand === "Left" ? 1 : -1);
+
+  // 3) Spin-axis for FB separation
+  const axisDeg  = data?.movement?.spinAxis || 0;         // 0–360°
+
+  // 4) Speed decay for changeup
+  const dropMph  = (data?.speedDrop || 0) * 2.23694;      // m/s → mph
+
+  // --- 1) Changeup detection ---
+  if (dropMph > 7 && speedMph < 85) {
+    return "Changeup";
+  }
+
+  // --- 2) Fastballs (Four-Seam, Sinker, Cutter) ---
+  if (speedMph >= 90) {
+    // Cutter: *very* small lateral bite at FB speeds
+    //   - horizontal sweep: 6–8 in
+    //   - spin < 2050 rpm (cutters usually lose some spin vs. 4-seam)
+    if (Math.abs(horzIn) >= 6 &&
+        Math.abs(horzIn) <= 8 &&
+        spinRpm < 2050) {
+      return "Cutter";
+    }
+
+    // Sinker: arm-side run on RHP (negative horzIn) & axis ~180–220°
+    if (axisDeg >= 180 && axisDeg <= 220 && horzIn < 0) {
+      return "Sinker";
+    }
+
+    // Otherwise, treat it as a Four-Seam
+    return "Four-Seam";
+  }
+
+  // --- 3) Slurve detection ---
+  if (
+    speedMph >= 80 && speedMph < 88 &&
+    spinRpm  >= 2000 && spinRpm  <= 2800 &&
+    axisDeg  >= 120  && axisDeg  <= 160
+  ) {
+    return "Slurve";
+  }
+
+  // --- 4) Curve detection ---
+  if (speedMph < 85 && axisDeg >= 200 && axisDeg <= 260) {
+    return "Curve";
+  }
+
+  // --- 5) Slider detection ---
+  if (
+    spinRpm >= 2300 && spinRpm <= 3000 &&
+    ((axisDeg <= 60) || (axisDeg >= 300)) &&
+    Math.abs(horzIn) >= 6
+  ) {
+    return "Slider";
+  }
+
+  // --- 6) Fallback heuristics ---
+  if (speedMph >= 88) {
+    // anything really hard and not matching the above is a Four-Seam
+    return "Four-Seam";
+  }
+  return "Slider";
+}
+
+
+    // 4) Spray canvas
+    function drawSprayCanvas(canvas, rows) {
+      const ctx = canvas.getContext('2d');
+      canvas.width  = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      const park = currentPark;
+      const org  = { x: canvas.width/2, y: canvas.height - 20 };
+      const scale= (canvas.height - 40) / park.center;
+      const ang  = Math.PI/4;
+      // foul lines
+      ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(org.x, org.y);
+      ctx.lineTo(org.x + Math.sin(-ang)*park.leftFoul*scale, org.y - Math.cos(-ang)*park.leftFoul*scale);
+      ctx.moveTo(org.x, org.y);
+      ctx.lineTo(org.x + Math.sin( ang)*park.rightFoul*scale, org.y - Math.cos( ang)*park.rightFoul*scale);
+      ctx.stroke();
+      // arcs
+      const angles = [-45, -22.5, 0, 22.5, 45];
+      const radii  = [park.leftFoul, park.leftCenter, park.center, park.rightCenter, park.rightFoul];
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      angles.forEach((d,i)=>{
+        const rad = d*Math.PI/180;
+        const x   = org.x + Math.sin(rad)*radii[i]*scale;
+        const y   = org.y - Math.cos(rad)*radii[i]*scale;
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+      // hits
+      rows.forEach(r=>{
+        const dir = parseFloat(r.Direction),
+              dist= parseFloat(r.Distance),
+              ev  = parseFloat(r.ExitSpeed);
+        if (isNaN(dir)||isNaN(dist)) return;
+        const rad = dir * Math.PI/180,
+              dpx = Math.min(dist,park.center)*scale,
+              x   = org.x + Math.sin(rad)*dpx,
+              y   = org.y - Math.cos(rad)*dpx,
+              size= isNaN(ev)?6:Math.min(ev/4,8);
+        ctx.fillStyle='red'; ctx.beginPath();
+        ctx.arc(x,y,size,0,2*Math.PI); ctx.fill();
+      });
+    }
+
+    // 5) Firebase init
+    firebase.initializeApp({
+      apiKey: "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
+      authDomain: "revs-2c987.firebaseapp.com",
+      databaseURL: "https://revs-2c987-default-rtdb.firebaseio.com",
+      projectId: "revs-2c987",
+      storageBucket: "revs-2c987.appspot.com",
+      messagingSenderId: "181256684157",
+      appId: "1:181256684157:web:a9e1c5dfd767658e2ba714",
+      measurementId: "G-2050889X0C"
+    });
+    const db = firebase.database();
+
+    // 6) DOM refs
+    const cards            = document.getElementById('cards'),
+          modeRadios       = document.getElementsByName('mode'),
+          pitcherTablesDiv = document.getElementById('pitcherTables'),
+          batterContainer  = document.getElementById('batterTableContainer'),
+          batterBody       = document.querySelector('#batterTable tbody');
+
+    // 7) Helper to get a name
+    function getName(p){ if(!p) return 'N/A'; return p.name||p.fullName||p.lastName||p.firstName||'Unknown'; }
+
+    // 8) Card builder
+    function addCard(type, inning, time, fields){
+      const card = document.createElement('div'); card.className='card';
+      const hdr  = document.createElement('div'); hdr.className='card-header';
+      hdr.textContent = `${type.toUpperCase()} @ ${inning} @ ${time}`;
+      card.appendChild(hdr);
+      const body = document.createElement('div'); body.className='card-body';
+      fields.forEach(f=>{
+        let p=document.createElement('p');
+        p.innerHTML = `<strong>${f.label}:</strong> ${f.value}`;
+        body.appendChild(p);
+      });
+      card.appendChild(body);
+      cards.prepend(card);
+      return card;
+    }
+
+    // 9) Render stats
+    function renderStats() {
+      const mode = Array.from(modeRadios).find(r=>r.checked).value;
+      if (mode === 'pitcher') {
+        batterContainer.style.display = 'none';
+        pitcherTablesDiv.innerHTML   = '';
+        // group by pitcher then by pitch type
+        const byP = {};
+        events.filter(e=>e.kind==='Pitch').forEach(e=>{
+          const nm  = getName(e.pitcher);
+          const spd = msToMph(e.start.speed),
+                spn = e.start.spinRate,
+                hz  = e.pitch.movement.horizontal*39.3701,
+                vt  = e.pitch.movement.vertical*39.3701;
+          const type = guessPitchType(e.pitch, e.start, e.pitcher.handedness);
+          byP[nm] = byP[nm]||{};
+          byP[nm][type] = byP[nm][type]||{count:0, speeds:[], spins:[]};
+          byP[nm][type].count++;
+          byP[nm][type].speeds.push(spd);
+          byP[nm][type].spins.push(spn);
+        });
+
+        // render tables
+        Object.entries(byP).forEach(([nm, stats])=>{
+          const h2 = document.createElement('h2');
+          h2.textContent = nm;
+          pitcherTablesDiv.appendChild(h2);
+
+          const tbl = document.createElement('table');
+          tbl.innerHTML = `<thead><tr>
+            <th>Type</th><th>Count</th><th>Fastest (mph)</th><th>Slowest (mph)</th><th>Avg Spin (rpm)</th>
+          </tr></thead><tbody></tbody>`;
+          const tb = tbl.querySelector('tbody');
+
+          Object.entries(stats).forEach(([type, data])=>{
+            const maxV = Math.max(...data.speeds).toFixed(1),
+                  minV = Math.min(...data.speeds).toFixed(1),
+                  avgS = Math.round(data.spins.reduce((a,b)=>a+b,0)/data.spins.length);
+            tb.innerHTML += `<tr>
+              <td>${type}</td>
+              <td>${data.count}</td>
+              <td>${maxV}</td>
+              <td>${minV}</td>
+              <td>${avgS}</td>
+            </tr>`;
+          });
+
+          pitcherTablesDiv.appendChild(tbl);
+        });
+      } else {
+        pitcherTablesDiv.innerHTML = '';
+        batterContainer.style.display = '';
+        const byB = {};
+        events.filter(e=>e.hit&&e.hit.landingFlat).forEach(e=>{
+          const nm = getName(e.batter),
+                ev = msToMph(e.start.speed),
+                d  = mToFt(e.hit.landingFlat.distance),
+                inn= e.inning;
+          byB[nm] = byB[nm]||{exitVs:[], dists:[], inns:[]};
+          byB[nm].exitVs.push(ev);
+          byB[nm].dists.push(d);
+          byB[nm].inns.push(inn);
+        });
+        batterBody.innerHTML = '';
+        Object.entries(byB).forEach(([n,st])=>{
+          const maxEv = Math.max(...st.exitVs),
+                iEv   = st.exitVs.indexOf(maxEv),
+                maxD  = Math.max(...st.dists),
+                iD    = st.dists.indexOf(maxD);
+          batterBody.innerHTML += `<tr>
+            <td>${n}</td>
+            <td>${maxEv.toFixed(1)} mph (${st.inns[iEv]||''})</td>
+            <td>${maxD.toFixed(1)} ft (${st.inns[iD]||''})</td>
+          </tr>`;
+        });
+      }
+    }
+    Array.from(modeRadios).forEach(r=>r.addEventListener('change', renderStats));
+
+    // 10) Incoming events
+    const events = [];
+    db.ref('events').on('child_added', snap => {
+      const d = snap.val();
+      events.unshift(d);
+      renderStats();
+
+      const inningLabel = (typeof d.inning === 'number' ? d.inning : '–');
+      const timeLabel   = new Date(d.trackStartTime).toLocaleTimeString();
+
+      // HIT card
+      if (d.hit && d.hit.landingFlat) {
+        const card = addCard('Hit', inningLabel, timeLabel, [
+          {label:'Batter',     value: getName(d.batter)},
+          {label:'Pitcher',    value: getName(d.pitcher)},
+          {label:'Exit Speed', value: msToMph(d.start.speed).toFixed(1)+' mph'},
+          {label:'Distance',   value: mToFt(d.hit.landingFlat.distance).toFixed(1)+' ft'}
+        ]);
+        const canvas = document.createElement('canvas');
+        canvas.className = 'sprayCanvas';
+        canvas.style.width  = '220px';
+        canvas.style.height = '220px';
+        canvas.dataset.dir  = d.hit.launch.horizontalAngle;
+        canvas.dataset.dist = mToFt(d.hit.landingFlat.distance).toFixed(1);
+        canvas.dataset.ev   = msToMph(d.start.speed);
+        card.querySelector('.card-body').appendChild(canvas);
+        drawSprayCanvas(canvas, [{
+          Direction: canvas.dataset.dir,
+          Distance:  canvas.dataset.dist,
+          ExitSpeed: canvas.dataset.ev
+        }]);
+      }
+
+      // PITCH card
+      if (d.kind === 'Pitch' && d.start) {
+        const spd  = msToMph(d.start.speed).toFixed(1),
+              spn  = d.start.spinRate.toFixed(0),
+              hz   = (d.pitch.movement.horizontal*39.3701).toFixed(1),
+              vt   = (d.pitch.movement.vertical*39.3701).toFixed(1),
+              type = guessPitchType(d.pitch, d.start, d.pitcher.handedness);
+
+        const card = addCard('Pitch', inningLabel, timeLabel, [
+          {label:'Pitcher',   value: getName(d.pitcher)},
+          {label:'Batter',    value: getName(d.batter)},
+          {label:'Type',      value: type},
+          {label:'Speed',     value: spd+' mph'},
+          {label:'Spin',      value: spn+' rpm'},
+          {label:'Horz Move', value: hz+' in'},
+          {label:'Vert Move', value: vt+' in'}
+        ]);
+
+        // draw strike‐zone dot
+       const svgNS   = 'http://www.w3.org/2000/svg';
+const svg     = document.createElementNS(svgNS, 'svg');
+const pxPerInch = 10;
+const zoneW     = 17  * pxPerInch;
+const zoneH     = (40 - 21) * pxPerInch;
+const margin    = 10;
+const extra     = 20;  // buffer around the zone
+
+// total viewport size
+const viewW = zoneW + margin*2 + extra*2;
+const viewH = zoneH + margin*2 + extra*2;
+
+svg.setAttribute('width',  viewW);
+svg.setAttribute('height', viewH);
+// shift coords so original (0,0) is at (-extra,-extra)
+svg.setAttribute('viewBox', `${-extra} ${-extra} ${viewW} ${viewH}`);
+
+// draw the strike zone rectangle in the center
+const rect = document.createElementNS(svgNS, 'rect');
+rect.setAttribute('x', margin);
+rect.setAttribute('y', margin);
+rect.setAttribute('width',  zoneW);
+rect.setAttribute('height', zoneH);
+rect.setAttribute('fill',   'none');
+rect.setAttribute('stroke', '#333');
+svg.appendChild(rect);
+
+// calculate your dot position exactly as before, no clamping
+const latPx = mToInches(d.lastMeasured.position.z) * pxPerInch;
+const htPx  = mToInches(d.lastMeasured.position.y) * pxPerInch;
+
+const cx = margin + zoneW/2 + latPx;
+const relY = (htPx - 21 * pxPerInch) / zoneH;
+const cy   = margin + zoneH * (1 - relY);
+
+// draw the pitch dot
+const dot = document.createElementNS(svgNS, 'circle');
+dot.setAttribute('cx', cx);
+dot.setAttribute('cy', cy);
+dot.setAttribute('r',  (2.9 * pxPerInch) / 2);
+dot.setAttribute('fill', 'rgba(0,0,255,0.7)');
+svg.appendChild(dot);
+
+// append to card
+card.querySelector('.card-body').appendChild(svg);
+
+      }
+    });
+  </script>
+</body>
+</html>
