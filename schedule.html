@@ -55,19 +55,19 @@
             <th data-key="W">W</th>
             <th data-key="L">L</th>
             <th data-key="pct">Pct</th>
-            <th data-key="home">HOME</th>
-            <th data-key="away">AWAY</th>
+        
             <th data-key="RS">RS</th>
             <th data-key="RA">RA</th>
             <th data-key="diff">DIFF</th>
-            <th data-key="L10">L10</th>
-            <th data-key="onrun">1 Run</th>
             <th data-key="elo">Power Rankings</th>
+            
             <th data-key="played">Toughest Schedule Played</th>
             <th data-key="remaining">Toughest Schedule Remaining</th>
                         <th data-key="tough1st">Toughest Remaining 1st Half Schedule</th>
 
             <th data-key="expW">Expected W-L</th>
+            <th data-key="firstHalfProb">1st-Half Probability</th>
+
           </tr>
         </thead>
         <tbody></tbody>
@@ -84,6 +84,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
     /* parsing and table-rendering logic unchanged */
+      let firstHalfProb = {};
+
     function parseDate(str){return new Date(str);}    
     function sortBy(arr,key,desc=false){return arr.sort((a,b)=>(a[key]<b[key]?(desc?1:-1):(a[key]>b[key]?(desc?-1:1):0)));}
  function renderTable(data){
@@ -96,22 +98,21 @@
             <td>${o.W}</td>
             <td>${o.L}</td>
             <td>${o.pct.toFixed(3)}</td>
-            <td>${o.homeW}-${o.homeL}</td>
-            <td>${o.awayW}-${o.awayL}</td>
+            
             <td>${o.RS}</td>
             <td>${o.RA}</td>
             <td>${o.diff}</td>
-            <td>${o.L10W}-${o.L10L}</td>
-            <td>${o.oneRunW}-${o.oneRunL}</td>
             <td>${Math.round(o.elo)} (${o.eloRank})</td>
             <td>${o.played} (${o.playedRank})</td>
             <td>${o.remaining} (${o.remainingRank})</td>
             <td>${o.toughest1st} (${o.toughest1stRank})</td>
             <td>${Math.round(o.expW)}-${Math.round(o.expL)}</td>
+                 <td>${ ( (o.firstHalfProb||0) * 100 ).toFixed(1) }%</td>
+
           </tr>`;
       });
     }    function applySortHandlers(data){document.querySelectorAll('#summary-table th').forEach(th=>{th.addEventListener('click',()=>{const key=th.dataset.key,desc=!th.classList.contains('sorted-desc');document.querySelectorAll('#summary-table th').forEach(h=>h.classList.remove('sorted-asc','sorted-desc'));th.classList.toggle('sorted-desc',desc);th.classList.toggle('sorted-asc',!desc);renderTable(sortBy(data.slice(),key,desc));});});}
-    Papa.parse('schedule.csv', {
+    Papa.parse('schedule_with_probs.csv', {
   download: true,
   header: true,
   complete(results) {
@@ -124,6 +125,12 @@
       const [aRuns, hRuns] = r.Result.split('-').map(s => +s.trim());
       const away = r.Away, home = r.Home;
 
+       if (r.Away && r.away_prob) {
+          firstHalfProb[r.Away] = parseFloat(r.away_prob);
+        }
+        if (r.Home && r.home_prob) {
+          firstHalfProb[r.Home] = parseFloat(r.home_prob);
+        }
       // Ensure team objects exist
       [away, home].forEach(t => {
         if (!teams[t]) {
@@ -234,7 +241,9 @@
         remaining: o.opponentsRemaining.reduce((s, opp) => s + Math.round(teams[opp].elo), 0),
         toughest1st,
         expW,
-        expL: G - expW
+        expL: G - expW,
+            firstHalfProb: firstHalfProb[o.team] || 0
+
       };
     });
 
