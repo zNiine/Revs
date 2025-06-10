@@ -152,31 +152,47 @@ th, td {
       populateTeamSelectors();
     }
   });
+const excludePlayers = new Set([
+  'Corcino, Daniel',
+  'Martinez, Jorge',
+  'Rivera, Eduardo',
+  'Quintana, Franky',
+  'Colon, Rabel',
+  'Walker, Mason',
+  'Connell, Justin',
+  'Tovalin, Osvaldo',
+  'Richards, Jairus',
+  'Otosaka, Tomo'
+]);
+function buildPAList(){
+  const keys = new Set();
+  paList.length = 0;   // clear previous list
 
-  // 2) Unique Plate Appearances
-  function buildPAList(){
-    const keys = new Set();
-    gamePitches.forEach(r => {
+  gamePitches
+    // 2. Filter out any rows where batter or pitcher is in the exclude list
+    .filter(r => !excludePlayers.has(r.Batter) && !excludePlayers.has(r.Pitcher))
+    .forEach(r => {
       const key = [r.Batter, r.Pitcher, r.Inning, r['Top/Bottom'], r.PAofInning].join('||');
-      if(!keys.has(key)){
+      if (!keys.has(key)) {
         keys.add(key);
         paList.push({
-          batter: r.Batter,
-          pitcher: r.Pitcher,
-          inning: r.Inning,
-          half: r['Top/Bottom'],
-          paIndex: r.PAofInning,
+          batter:   r.Batter,
+          pitcher:  r.Pitcher,
+          inning:   r.Inning,
+          half:     r['Top/Bottom'],
+          paIndex:  r.PAofInning,
           date:     r.Date  
         });
       }
     });
-    paList.sort((a,b)=>{
-      if(a.batter!==b.batter) return a.batter.localeCompare(b.batter);
-      if(a.pitcher!==b.pitcher) return a.pitcher.localeCompare(b.pitcher);
-      return (+a.paIndex) - (+b.paIndex);
-    });
-  }
 
+  // 3. Sort as before
+  paList.sort((a, b) => {
+    if (a.batter !== b.batter)   return a.batter.localeCompare(b.batter);
+    if (a.pitcher !== b.pitcher) return a.pitcher.localeCompare(b.pitcher);
+    return (+a.paIndex) - (+b.paIndex);
+  });
+}
   // 3) Team dropdowns
   function populateTeamSelectors(){
     const batTeams = [...new Set(gamePitches.map(r=>r.BatterTeam))].sort(),
