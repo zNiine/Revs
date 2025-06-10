@@ -584,3 +584,56 @@ gameid,inning,half,batting_team,defense_team,player,base,result,balls,strikes,ou
 624685,6,top,Lexington Legends,Gastonia Ghost Peppers,Ryan McCarthy,2,SB,2,1,2
 624685,6,top,Lexington Legends,Gastonia Ghost Peppers,Ryan McCarthy,3,SB,3,2,2
 624685,6,top,Lexington Legends,Gastonia Ghost Peppers,Brian Fuentes,2,CS,3,2,2
+624117,1,bottom,Lancaster Stormers,Staten Island Ferry Hawks,Yeison Coca,3,SB,3,0,2
+624117,3,bottom,Lancaster Stormers,Staten Island Ferry Hawks,Daniel Amaral,2,SB,0,1,3
+624118,3,bottom,Lancaster Stormers,Staten Island Ferry Hawks,Slater Schield,2,SB,1,1,1
+624118,3,bottom,Lancaster Stormers,Staten Island Ferry Hawks,Yeison Coca,3,SB,1,1,1
+624118,6,bottom,Lancaster Stormers,Staten Island Ferry Hawks,Nick Lucky,2,SB,1,1,2
+624118,8,bottom,Lancaster Stormers,Staten Island Ferry Hawks,Yeison Coca,2,SB,0,1,2
+624119,2,top,Staten Island Ferry Hawks,Lancaster Stormers,Brandon Martorano,2,CS,3,2,1
+624119,3,bottom,Lancaster Stormers,Staten Island Ferry Hawks,Slater Schield,2,SB,2,2,0
+624119,5,top,Staten Island Ferry Hawks,Lancaster Stormers,Damon Dues,2,SB,2,1,0
+624119,5,top,Staten Island Ferry Hawks,Lancaster Stormers,Nate Scantlin,3,SB,2,1,0
+624119,6,top,Staten Island Ferry Hawks,Lancaster Stormers,Amani Jones,2,CS,2,2,2
+624119,6,bottom,Lancaster Stormers,Staten Island Ferry Hawks,Ariel Sandoval,2,SB,0,1,1
+624119,7,bottom,Lancaster Stormers,Staten Island Ferry Hawks,Daniel Amaral,2,SB,1,1,0
+624240,2,top,Southern Maryland Blue Crabs,High Point Rockers,Jackson Loftin,2,SB,1,0,3
+624240,2,top,Southern Maryland Blue Crabs,High Point Rockers,Jackson Loftin,3,SB,1,1,3
+624240,4,top,Southern Maryland Blue Crabs,High Point Rockers,Giovanni Digiacomo,2,CS,1,0,1
+624240,5,top,Southern Maryland Blue Crabs,High Point Rockers,John Taylor,2,SB,1,1,3
+624240,5,top,Southern Maryland Blue Crabs,High Point Rockers,Jackson Loftin,3,SB,1,1,3
+624240,7,top,Southern Maryland Blue Crabs,High Point Rockers,Jackson Loftin,2,CS,1,1,1
+624240,7,bottom,High Point Rockers,Southern Maryland Blue Crabs,Luis Gonzalez,2,SB,3,0,0
+624240,8,bottom,High Point Rockers,Southern Maryland Blue Crabs,Jack Conley,2,CS,0,2,1
+624241,7,bottom,High Point Rockers,Southern Maryland Blue Crabs,D.J. Burt,2,CS,2,1,1
+624241,8,top,Southern Maryland Blue Crabs,High Point Rockers,Pearce Howard,2,SB,1,1,1
+624241,8,top,Southern Maryland Blue Crabs,High Point Rockers,Jackson Loftin,2,SB,1,0,2
+624241,9,bottom,High Point Rockers,Southern Maryland Blue Crabs,Luis Gonzalez,2,SB,2,1,2
+624242,1,bottom,High Point Rockers,Southern Maryland Blue Crabs,Luis Gonzalez,2,SB,2,2,2
+624242,8,bottom,High Point Rockers,Southern Maryland Blue Crabs,Drew Mendoza,3,SB,1,1,1
+624555,4,top,Long Island Ducks,Hagerstown Flying Boxcars,Cody Thomas,2,SB,2,2,2
+624555,8,top,Long Island Ducks,Hagerstown Flying Boxcars,JC Encarnacion,2,SB,0,1,1
+624556,1,bottom,Hagerstown Flying Boxcars,Long Island Ducks,Gary Mattis,2,SB,3,2,2
+624621,1,top,York Revolution,Lexington Legends,Marty Costes,2,SB,2,2,2
+624621,2,top,York Revolution,Lexington Legends,Jaylin Davis,2,SB,1,0,2
+624621,6,top,York Revolution,Lexington Legends,Jaylin Davis,2,SB,1,2,1
+624622,2,top,York Revolution,Lexington Legends,Bubba Alleyne,3,SB,1,0,0
+624622,2,top,York Revolution,Lexington Legends,Marty Costes,2,CS,0,1,2
+624622,3,bottom,Lexington Legends,York Revolution,Brady Whalen,2,SB,3,0,1
+624622,4,bottom,Lexington Legends,York Revolution,Brady Whalen,2,CS,1,1,0
+624622,5,top,York Revolution,Lexington Legends,Jeffrey Wehler,2,SB,0,1,1
+624622,5,top,York Revolution,Lexington Legends,Jaylin Davis,2,SB,2,2,2
+624623,1,bottom,Lexington Legends,York Revolution,Pedro Gonzalez,2,SB,2,0,2
+624623,3,top,York Revolution,Lexington Legends,Jalen Miller,2,CS,0,1,0
+624623,6,top,York Revolution,Lexington Legends,Jaylin Davis,2,CS,1,1,2
+624623,8,bottom,Lexington Legends,York Revolution,Ryan McCarthy,2,SB,1,2,2
+624688,1,top,Charleston Dirty Birds,Gastonia Ghost Peppers,James Nelson,2,CS,0,2,0
+624688,2,top,Charleston Dirty Birds,Gastonia Ghost Peppers,Alsander Womack,2,SB,1,1,0
+624688,2,bottom,Gastonia Ghost Peppers,Charleston Dirty Birds,Brian OGrady,2,SB,3,2,0
+624688,3,top,Charleston Dirty Birds,Gastonia Ghost Peppers,Benjamin Blackwell,2,SB,1,2,3
+624688,3,bottom,Gastonia Ghost Peppers,Charleston Dirty Birds,Cole Roederer,2,SB,3,2,2
+624689,1,bottom,Gastonia Ghost Peppers,Charleston Dirty Birds,Dalton Guthrie,2,SB,3,2,2
+624689,1,bottom,Gastonia Ghost Peppers,Charleston Dirty Birds,Justin Wylie,3,SB,3,2,3
+624689,2,top,Charleston Dirty Birds,Gastonia Ghost Peppers,Zach Daniels,2,SB,0,1,1
+624689,3,top,Charleston Dirty Birds,Gastonia Ghost Peppers,James Nelson,2,SB,1,1,0
+624689,7,top,Charleston Dirty Birds,Gastonia Ghost Peppers,Alsander Womack 16 Demetrius Moorer,2,SB,0,0,2
