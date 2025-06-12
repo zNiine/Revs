@@ -1364,7 +1364,7 @@ rows.forEach((r,i) => {
         <tr>
           <th>#</th><th>Pitch Type</th><th>Result</th>
           <th>RelSpeed</th><th>SpinRate</th>
-          <th>InducedVertBreak</th><th>HorzBreak</th><th>Drop</th>
+          <th>InducedVertBreak</th><th>HorzBreak</th><th>Speed Drop</th><th>Vert Approach</th><th>Horz Approach</th>
         </tr>
       </thead><tbody>`;
 
@@ -1380,6 +1380,8 @@ rows.forEach((r,i) => {
         <td>${r.InducedVertBreak||''}</td>
         <td>${r.HorzBreak||''}</td>
         <td>${r.SpeedDrop||''}</td>
+        <td>${r.VertRelAngle||''}</td>
+        <td>${r.HorzRelAngle||''}</td>
       </tr>`;
   });
 
