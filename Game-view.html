@@ -1191,6 +1191,8 @@ const mapX = x => originX + (zone.right - x) * scale;
           <th style="border:1px solid #ddd; padding:.4em;">InducedVertBreak</th>
           <th style="border:1px solid #ddd; padding:.4em;">HorzBreak</th>
           <th style="border:1px solid #ddd; padding:.4em;">Drop</th>
+          <th style="border:1px solid #ddd; padding:.4em;">Vert Approach</th>
+          <th style="border:1px solid #ddd; padding:.4em;">Hor Approach</th>
         </tr>
       </thead>
       <tbody>`;
@@ -1207,6 +1209,8 @@ const mapX = x => originX + (zone.right - x) * scale;
         <td style="border:1px solid #ddd; padding:.4em;">${r.InducedVertBreak||''}</td>
         <td style="border:1px solid #ddd; padding:.4em;">${r.HorzBreak||''}</td>
         <td style="border:1px solid #ddd; padding:.4em;">${r.SpeedDrop||''}</td>
+        <td style="border:1px solid #ddd; padding:.4em;">${r.VertRelAngle||''}</td>
+        <td style="border:1px solid #ddd; padding:.4em;">${r.HorzRelAngle||''}</td>
       </tr>`;
   });
 
