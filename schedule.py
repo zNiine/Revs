@@ -132,3 +132,4 @@ df["home_prob"] = df["Home"].map(lambda t: north_prob.get(t, south_prob.get(t, n
 # 11) Save
 df.to_csv("schedule_with_probs.csv", index=False)
 print("✅ Done — schedule_with_probs.csv written with away_prob & home_prob")
+
