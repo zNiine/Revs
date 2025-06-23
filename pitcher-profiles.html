@@ -3416,7 +3416,7 @@ function renderUsageTree() {
   // 1) Build map: "b-s" → count of each AutoPitchType
   const tree = {};
   rows.forEach(r => {
-    const key = `${r.Balls}-${r.Strikes}`;
+const key = `${Math.round(r.Balls)}-${Math.round(r.Strikes)}`;
     const type = r.AutoPitchType || 'undefined';
     tree[key] = tree[key] || {};
     tree[key][type] = (tree[key][type]||0) + 1;

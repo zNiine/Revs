@@ -564,7 +564,7 @@ function renderUsageTree(rows, containerId) {
   // 1) Build a nested count map: { "balls-strikes": { pitchType: count, … }, … }
   const tree = {};
   rows.forEach(row => {
-    const countKey = `${row.Balls}-${row.Strikes}`;
+const countKey = `${Math.round(row.Balls)}-${Math.round(row.Strikes)}`;
     const pitchType = row.AutoPitchType || 'undefined';
     if (!tree[countKey]) {
       tree[countKey] = {};
