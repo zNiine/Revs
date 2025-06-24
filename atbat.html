@@ -116,6 +116,8 @@ th, td {
     <label>Pitching Team:
       <select id="pitchingTeam"><option>Loading…</option></select>
     </label>
+    <button id="renderBtn">Go</button>
+
   </div>
 
   <div id="reportContainer"></div>
@@ -209,9 +211,17 @@ function buildPAList(){
           pitSel = document.getElementById('pitchingTeam');
     batSel.innerHTML = batTeams.map(t=>`<option>${t}</option>`).join('');
     pitSel.innerHTML = pitTeams.map(t=>`<option>${t}</option>`).join('');
-    batSel.onchange = pitSel.onchange = renderReports;
+  }
+
+
+  document.getElementById('renderBtn').addEventListener('click', () => {
+  const batVal = document.getElementById('battingTeam').value;
+  const pitVal = document.getElementById('pitchingTeam').value;
+  if (batVal && pitVal && batVal !== 'Loading…' && pitVal !== 'Loading…') {
     renderReports();
   }
+});
+
 // 4) Draw one PA (plate appearance)
 function drawPA(pa, canvas, tableDiv) {
   // filter all pitches belonging to that PA

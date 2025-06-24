@@ -1076,12 +1076,14 @@ Plotly.newPlot(containerId, [...rawTraces, avgTrace], {
     }
 
     function getFavPitch(rows) {
-      const cnt = {};
-      rows.forEach(r => {
-        const t = r.AutoPitchType || 'undefined'; cnt[t] = (cnt[t]||0) + 1;
-      });
-      return Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
-    }
+  const cnt = {};
+  rows.forEach(r => {
+    const t = r.AutoPitchType || 'undefined';
+    cnt[t] = (parseInt(cnt[t]) || 0) + 1;
+  });
+  return Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0];
+}
+
 
     /**
  * Renders a transposed count‐matrix:
