@@ -5,7 +5,7 @@
   <title>Live Pitch + Hit Viewer</title>
   <style>
     body { font-family: sans-serif; padding: 1rem; background: #f0f0f0; }
-    .card { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 1rem; padding: 1rem; }
+    .card { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 1rem; padding: 1rem; cursor: pointer; }
     canvas, svg { display: block; margin: 1rem auto; }
     h2 { margin-top: 0; }
   </style>
@@ -39,44 +39,41 @@
       return 'Unknown';
     }
 
-  function drawStrikeZone(container, y, z) {
-  const width = 17 * pxPerIn;
-  const height = 19 * pxPerIn;
-  const margin = 10;
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("width", width + 20);
-  svg.setAttribute("height", height + 20);
+    function drawStrikeZone(container, y, z) {
+      const width = 17 * pxPerIn;
+      const height = 19 * pxPerIn;
+      const margin = 10;
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", width + 20);
+      svg.setAttribute("height", height + 20);
 
-  const rect = document.createElementNS(svg.namespaceURI, "rect");
-  rect.setAttribute("x", margin);
-  rect.setAttribute("y", margin);
-  rect.setAttribute("width", width);
-  rect.setAttribute("height", height);
-  rect.setAttribute("fill", "none");
-  rect.setAttribute("stroke", "#333");
-  svg.appendChild(rect);
+      const rect = document.createElementNS(svg.namespaceURI, "rect");
+      rect.setAttribute("x", margin);
+      rect.setAttribute("y", margin);
+      rect.setAttribute("width", width);
+      rect.setAttribute("height", height);
+      rect.setAttribute("fill", "none");
+      rect.setAttribute("stroke", "#333");
+      svg.appendChild(rect);
 
-  // Treat Z as horizontal from center of plate, Y as vertical from ground
-  const zIn = z * 12;  // feet to inches
-  const yIn = y * 12;
+      const zIn = z * 12;
+      const yIn = y * 12;
 
-  const strikeZoneTop = 42;    // 3.5 ft
-  const strikeZoneBottom = 18; // 1.5 ft
-  const strikeZoneHeight = strikeZoneTop - strikeZoneBottom;
+      const strikeZoneTop = 42;
+      const strikeZoneBottom = 18;
 
-  const cx = margin + width / 2 + zIn * pxPerIn;
-  const cy = margin + (strikeZoneTop - yIn) * pxPerIn;
+      const cx = margin + width / 2 + zIn * pxPerIn;
+      const cy = margin + (strikeZoneTop - yIn) * pxPerIn;
 
-  const dot = document.createElementNS(svg.namespaceURI, "circle");
-  dot.setAttribute("cx", cx);
-  dot.setAttribute("cy", cy);
-  dot.setAttribute("r", 5);
-  dot.setAttribute("fill", "red");
-  svg.appendChild(dot);
+      const dot = document.createElementNS(svg.namespaceURI, "circle");
+      dot.setAttribute("cx", cx);
+      dot.setAttribute("cy", cy);
+      dot.setAttribute("r", 5);
+      dot.setAttribute("fill", "red");
+      svg.appendChild(dot);
 
-  container.appendChild(svg);
-}
-
+      container.appendChild(svg);
+    }
 
     function drawSprayChart(container, angleDeg, distanceFt) {
       const canvas = document.createElement("canvas");
@@ -112,10 +109,19 @@
       container.appendChild(canvas);
     }
 
+    function makeRepostHandler(data) {
+      return function () {
+        const newKey = db.ref().child("trackman/pitches").push().key;
+        db.ref(`trackman/pitches/${newKey}`).set(data);
+        alert("Reposted to Firebase!");
+      }
+    }
+
     function renderPitchCard(pitchEvent, locationRow) {
       const loc = locationRow?.Pitch?.Location;
       const card = document.createElement('div');
       card.className = 'card';
+      card.onclick = makeRepostHandler(pitchEvent);
 
       const type = guessPitchType(pitchEvent.Pitch);
       const speed = (pitchEvent.Pitch?.Speed || 0).toFixed(1);
@@ -126,6 +132,8 @@
       cards.prepend(card);
     }
 
+    
+
     function renderHitCard(hitEvent, kindRow) {
       const pitch = kindRow?.Pitch;
       const hit = hitEvent?.Hit;
@@ -133,6 +141,7 @@
 
       const card = document.createElement('div');
       card.className = 'card';
+      card.onclick = makeRepostHandler(hitEvent);
 
       const type = guessPitchType(pitch);
       const speed = (pitch?.Speed || 0).toFixed(1);
