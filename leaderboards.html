@@ -553,7 +553,6 @@
       <li><a href="#release-speed">Release Speed</a></li>
       <li><a href="#catcher-stats">Catcher Stats</a></li>
       <li><a href="#avg-ev">Avg Exit Velocity</a></li>
-      <li><a href="#umpire-accuracy">Umpire Accuracy</a></li>
       <li><a href="#batter-run-exp">Batter Run Expectancy</a></li>
       <li><a href="#pitch-run-exp">Pitcher Run Expectancy</a></li>
       <li><a href="#spin-eff">Spin Efficiency</a></li>
@@ -741,26 +740,6 @@
                 <th data-key="Batter">Batter</th>
                 <th data-key="Team">Team</th>
                 <th data-key="AvgExitVelocity">Avg Exit Vel</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </details>
-
-      <!-- 7. Umpire Accuracy -->
-      <details class="card" id="umpire-accuracy" open>
-        <summary>
-          <h2>7. Umpire Accuracy</h2>
-          <button class="back-to-top">↑</button>
-        </summary>
-        <div class="leaderboard">
-          <table>
-            <thead>
-              <tr>
-                <th data-key="Umpire">Umpire</th>
-                <th data-key="Accuracy">Accuracy</th>
-                <th data-key="TotalCalls">Total Calls</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -1002,7 +981,6 @@
       exitSpeed: 'ExitSpeed',
       relSpeed: 'RelSpeed',
       angle: 'Angle',
-      ump: 'Umpire',
       autoType: 'AutoPitchType',
       plateHeight: 'PlateLocHeight',
       plateSide: 'PlateLocSide',
@@ -1017,7 +995,6 @@
     let data = [];
     let fullData = [];
     const teams = new Set(), playersSet = new Set();
-    let fullUmpireRows = [];
 
     function getFullTeamName(abbr, row) {
       if (abbr === row[columns.homeAbbr]) return row[columns.homeFull];
@@ -1326,30 +1303,7 @@
       renderLeaderboard('pitch-run-exp', out.slice(0,20), ['Pitcher','Pitch Type','AvgRunValue','Count']);
     }
 
-    function drawUmpireAccuracy(rows) {
-      const umpMap = {};
-      rows.forEach(r => {
-        const call = r[columns.pitchCall];
-        if (call !== 'StrikeCalled' && call !== 'BallCalled') return;
-        const u = r[columns.ump];
-        if (!umpMap[u]) umpMap[u] = { total: 0, correct: 0 };
-        umpMap[u].total++;
-        const h = parseFloat(r[columns.plateHeight]);
-        const s = parseFloat(r[columns.plateSide]);
-        const inZone = h >= 1.5 && h <= 3.5 && s >= -0.83 && s <= 0.83;
-        if ((inZone && call === 'StrikeCalled') || (!inZone && call === 'BallCalled')) {
-          umpMap[u].correct++;
-        }
-      });
-      fullUmpireRows = Object.entries(umpMap).map(([u, stats]) => ({
-        Umpire: u,
-        Accuracy: stats.total ? +(stats.correct / stats.total).toFixed(2) : 0,
-        TotalCalls: stats.total
-      }));
-      fullUmpireRows.sort((a,b) => b.Accuracy - a.Accuracy);
-      renderLeaderboard('umpire-accuracy', fullUmpireRows.slice(0,10), ['Umpire','Accuracy','TotalCalls']);
-    }
-
+ 
     function drawAvgExitByBatter(rows) {
       const avgMap = {};
       rows.filter(r => r.PitchCall === 'InPlay' && !isNaN(parseFloat(r[columns.exitSpeed])))
@@ -1551,7 +1505,6 @@
       drawAvgExitByBatter(filtered);
 
       /***** 7. Umpire Accuracy *****/
-      drawUmpireAccuracy(filtered);
 
       /***** 8 & 9. Run Expectancy (Batter + Pitcher) *****/
       drawBatterRunExp(filtered);

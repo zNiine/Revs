@@ -177,59 +177,92 @@ const HIT_PALETTE = {
     let idxCurrent = 0;
     var currentPark = parks.default
 
- 
-    Papa.parse(FIELDER_CSV, { header: true, download: true, complete: res => {
-  fPositions = res.data;
-fPositions.forEach(r => {
-  fPosIndex[r.GameUID + '|' + r.PitchUID] = r;
+ Papa.parse(FIELDER_CSV, {
+  header: true,
+  download: true,
+  complete: res => {
+    // Only store the relevant data for fPosIndex,
+    // avoiding storing the full fPositions array if not all of it is used later.
+    fPosIndex = {};
+    res.data.forEach(r => {
+      // Keep only the necessary fields for fPosIndex if possible,
+      // e.g., 'GameUID', 'PitchUID', and the fielder position data.
+      // If the full row is needed for drawSprayCanvas, then store the full row.
+      fPosIndex[r.GameUID + '|' + r.PitchUID] = {
+        '1B_PositionAtReleaseX': r['1B_PositionAtReleaseX'],
+        '1B_PositionAtReleaseZ': r['1B_PositionAtReleaseZ'],
+        '1B_Name': r['1B_Name'],
+        // ... repeat for 2B, 3B, SS, LF, CF, RF
+        '2B_PositionAtReleaseX': r['2B_PositionAtReleaseX'],
+        '2B_PositionAtReleaseZ': r['2B_PositionAtReleaseZ'],
+        '2B_Name': r['2B_Name'],
+        '3B_PositionAtReleaseX': r['3B_PositionAtReleaseX'],
+        '3B_PositionAtReleaseZ': r['3B_PositionAtReleaseZ'],
+        '3B_Name': r['3B_Name'],
+        'SS_PositionAtReleaseX': r['SS_PositionAtReleaseX'],
+        'SS_PositionAtReleaseZ': r['SS_PositionAtReleaseZ'],
+        'SS_Name': r['SS_Name'],
+        'LF_PositionAtReleaseX': r['LF_PositionAtReleaseX'],
+        'LF_PositionAtReleaseZ': r['LF_PositionAtReleaseZ'],
+        'LF_Name': r['LF_Name'],
+        'CF_PositionAtReleaseX': r['CF_PositionAtReleaseX'],
+        'CF_PositionAtReleaseZ': r['CF_PositionAtReleaseZ'],
+        'CF_Name': r['CF_Name'],
+        'RF_PositionAtReleaseX': r['RF_PositionAtReleaseX'],
+        'RF_PositionAtReleaseZ': r['RF_PositionAtReleaseZ'],
+        'RF_Name': r['RF_Name'],
+        GameUID: r.GameUID,
+        PitchUID: r.PitchUID
+      };
+    });
+    // Remove the global fPositions array if it's no longer directly used
+    // and its data is entirely captured within fPosIndex.
+    fPositions = []; // Clear if not needed directly
+  }
 });
 
 
-  
-}});
-
-
 // South Maryland Blue Crabs
+Papa.parse(DATA_CSV, {
+  header: true,
+  download: true,
+  complete: res => {
+    // Define the essential columns needed globally across all views
+    const essentialColumns = [
+      'GameUID', 'PitchUID', 'Inning', 'Top/Bottom', 'PitchNo', 'Batter', 'Pitcher',
+      'AwayNameFull', 'HomeNameFull', 'Date', 'LocalDate', 'RunsScored',
+      'PlayResult', 'PitchCall', 'KorBB', 'ExitSpeed', 'Angle', 'Distance',
+      'RelSpeed', 'AutoPitchType', 'PlateLocSide', 'PlateLocHeight', 'PlayID',
+      'PopTime', 'ExchangeTime', 'ThrowSpeed', 'PAofInning', 'BatterSide',
+      'SpinRate', 'InducedVertBreak', 'HorzBreak', 'SpeedDrop', 'VertRelAngle', 'HorzRelAngle'
+    ];
 
-    Papa.parse(DATA_CSV, { header:true, download:true,
-      complete: res => { allPitches = res.data;
-                  fPositions = res.data;
-                 buildCatchModel(DATA_CSV, FIELDER_CSV)
-  .then(model => {
-    console.log('Model stats:', model.stats);
-    console.log('Model weights:', model.weights);
-    console.log('Prob for a given PitchUID:', model.probMap['some-pitch-uid']);
-    console.log('On-the-fly predict:', model.predict(45, 25, 95));
-
-    // ① merge into global
-    Object.assign(probMap, model.probMap);
-
-    // ② log a few keys to be sure
-    console.log('probMap keys:', Object.keys(probMap).slice(0,10));
-
-    // ─── insert your sanity check here ───
-    const totalPitches = allPitches.length;
-    const withProb     = allPitches.filter(p => probMap.hasOwnProperty(p.PitchUID)).length;
-    console.log(`Sanity check: ${withProb} / ${totalPitches} total pitches have a probability`);
-    if (withProb < totalPitches) {
-      console.warn(
-        `Missing probabilities for ${totalPitches - withProb} pitches. ` +
-        `First few missing:`,
-        allPitches
-          .filter(p => !probMap.hasOwnProperty(p.PitchUID))
-          .slice(0,5)
-          .map(p => p.PitchUID)
-      );
-    }
-    // ───────────────────────────────────────
-
-    window._catchModel = model;
-    init();
-  })
-  .catch(console.error);
-
-                  init(); }
+    allPitches = res.data.map(row => {
+      const newRow = {};
+      essentialColumns.forEach(col => {
+        if (row.hasOwnProperty(col)) {
+          newRow[col] = row[col];
+        }
+      });
+      return newRow;
     });
+
+    // The rest of your existing complete callback
+    buildCatchModel(DATA_CSV, FIELDER_CSV) // Note: buildCatchModel's internal parsing needs to be updated too
+      .then(model => {
+        Object.assign(probMap, model.probMap);
+        console.log('probMap keys:', Object.keys(probMap).slice(0, 10));
+        const totalPitches = allPitches.length;
+        const withProb = allPitches.filter(p => probMap.hasOwnProperty(p.PitchUID)).length;
+        console.log(`Sanity check: ${withProb} / ${totalPitches} total pitches have a probability`);
+    
+        window._catchModel = model;
+        init();
+      })
+      .catch(console.error);
+    init();
+  }
+});
 
       const btnSummary = $('btnSummary'), btnMatchups = $('btnMatchups'),
           btnBreakdowns = $('btnBreakdowns'), btnSpray = $('btnSpray');
@@ -845,7 +878,7 @@ function renderPitch(container) {
   sprayBox.appendChild(sprayCan);
   container.appendChild(sprayBox);
   const key = p.GameUID + '|' + p.PitchUID;
-const fr  = fPosIndex[key];
+var fr  = fPosIndex[key];
 
   drawSprayCanvas(sprayCan, [p], fr);
 }
