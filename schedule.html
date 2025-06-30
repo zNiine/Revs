@@ -63,10 +63,8 @@
             
             <th data-key="played">Toughest Schedule Played</th>
             <th data-key="remaining">Toughest Schedule Remaining</th>
-                        <th data-key="tough1st">Toughest Remaining 1st Half Schedule</th>
 
             <th data-key="expW">Expected W-L</th>
-            <th data-key="firstHalfProb">1st-Half Probability</th>
 
           </tr>
         </thead>
@@ -105,9 +103,9 @@
             <td>${Math.round(o.elo)} (${o.eloRank})</td>
             <td>${o.played} (${o.playedRank})</td>
             <td>${o.remaining} (${o.remainingRank})</td>
-            <td>${o.toughest1st} (${o.toughest1stRank})</td>
+        
             <td>${Math.round(o.expW)}-${Math.round(o.expL)}</td>
-                 <td>${ ( (o.firstHalfProb||0) * 100 ).toFixed(1) }%</td>
+                
 
           </tr>`;
       });
@@ -230,19 +228,14 @@
     const summary = Object.values(teams).map(o => {
       const G = o.W + o.L;
       const expW = G * (o.RS ** 2 / (o.RS ** 2 + o.RA ** 2));
-      const toughest1st = o.opponentsRemainingFirstHalf.reduce(
-        (sum, opp) => sum + Math.round(teams[opp].elo),
-        0
-      );
+     
       return {
         ...o,
         pct: o.W / G || 0,
         played: o.opponentsPlayed.reduce((s, opp) => s + Math.round(teams[opp].elo), 0),
         remaining: o.opponentsRemaining.reduce((s, opp) => s + Math.round(teams[opp].elo), 0),
-        toughest1st,
         expW,
         expL: G - expW,
-            firstHalfProb: firstHalfProb[o.team] || 0
 
       };
     });
