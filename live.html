@@ -32,7 +32,7 @@
     function guessPitchType(pitch) {
       const mph = pitch?.Speed || 0;
       const axis = pitch?.SpinAxis || 0;
-      const spin = pitch?.SpinRate || 0;
+      const  spin = pitch?.SpinRate || 0;
       if (mph < 80 && axis > 200 && axis < 260) return 'Curveball';
       if (spin > 1300 && axis >= 220 && axis <= 260) return 'Slider';
       if (mph >= 85 && axis < 220) return 'Fastball';
