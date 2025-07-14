@@ -24,7 +24,8 @@ cols_to_drop = [
     "CatcherThrowCatchConfidence", "CatcherThrowReleaseConfidence", "CatcherThrowLocationConfidence",
     "ThrowTrajectoryXc0", "ThrowTrajectoryXc1", "ThrowTrajectoryXc2",
     "ThrowTrajectoryYc0", "ThrowTrajectoryYc1", "ThrowTrajectoryYc2",
-    "ThrowTrajectoryZc0", "ThrowTrajectoryZc1", "ThrowTrajectoryZc2"
+    "ThrowTrajectoryZc0", "ThrowTrajectoryZc1", "ThrowTrajectoryZc2", "TaggedPitchType", "ZoneSpeed", "ZoneTime", "HitSpinRate",	"PositionAt110X",	"PositionAt110Y", 	"PositionAt110Z",
+    "LastTrackedDistance", "pfxx", "pfxz","x0","y0","z0","vx0","vy0", "vz0", "ax0", "ay0", "az0" "League",
 ]
 
 # Read in the full dataset

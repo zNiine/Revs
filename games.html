@@ -375,21 +375,42 @@ const hrs = rows
       });
     }
 
-    function loadData() {
-      Papa.parse('./data.csv', {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: res => {
-          allData = res.data.map(r => ({ ...r, Date: new Date(r.Date) }));
-          populateTeamFilter();
-          buildRecentGames(
-            document.getElementById('filter-date').value,
-            document.getElementById('filter-team').value,
-          );
-        }
+   function loadData() {
+  allData = [];
+  Papa.parse('./data.csv', {
+    download:       true,
+    header:         true,
+    skipEmptyLines: true,
+    // offload parsing to a worker if you like:
+    // worker:     true,
+    step: ({ data: r }) => {
+      // pick only the fields you actually display or filter on
+      allData.push({
+        GameUID:       r.GameUID,
+        Date:          new Date(r.Date),
+        AwayNameFull:  r.AwayNameFull,
+        HomeNameFull:  r.HomeNameFull,
+        'Top/Bottom':  r['Top/Bottom'],
+        RunsScored:    +r.RunsScored,
+        RelSpeed:      +r.RelSpeed,
+        ExitSpeed:     +r.ExitSpeed,
+        Distance:      +r.Distance,
+        PlayResult:    r.PlayResult,
+        Batter:        r.Batter,
+        Pitcher:       r.Pitcher
       });
+    },
+    complete: () => {
+      populateTeamFilter();
+      buildRecentGames(
+        document.getElementById('filter-date').value,
+        document.getElementById('filter-team').value,
+        document.getElementById('toggle-leaders').checked
+      );
     }
+  });
+}
+
 
     // event wiring
     document.getElementById('filter-date').addEventListener('change', e => {

@@ -159,7 +159,7 @@ btnCatcher.onclick = () => switchView('catcher');
   };
 
   const probMap = {};
-const fPosIndex = {};
+var fPosIndex = {};
 
     const DATA_CSV = 'data.csv';
 const HIT_PALETTE = {
@@ -224,43 +224,51 @@ const HIT_PALETTE = {
 
 // South Maryland Blue Crabs
 Papa.parse(DATA_CSV, {
-  header: true,
-  download: true,
-  complete: res => {
-    // Define the essential columns needed globally across all views
-    const essentialColumns = [
-      'GameUID', 'PitchUID', 'Inning', 'Top/Bottom', 'PitchNo', 'Batter', 'Pitcher',
-      'AwayNameFull', 'HomeNameFull', 'Date', 'LocalDate', 'RunsScored',
-      'PlayResult', 'PitchCall', 'KorBB', 'ExitSpeed', 'Angle', 'Distance',
-      'RelSpeed', 'AutoPitchType', 'PlateLocSide', 'PlateLocHeight', 'PlayID',
-      'PopTime', 'ExchangeTime', 'ThrowSpeed', 'PAofInning', 'BatterSide',
-      'SpinRate', 'InducedVertBreak', 'HorzBreak', 'SpeedDrop', 'VertRelAngle', 'HorzRelAngle'
-    ];
-
-    allPitches = res.data.map(row => {
-      const newRow = {};
-      essentialColumns.forEach(col => {
-        if (row.hasOwnProperty(col)) {
-          newRow[col] = row[col];
-        }
-      });
-      return newRow;
+  download:        true,
+  header:          true,
+  skipEmptyLines:  true,
+  step: ({ data: r }) => {
+    // pick only your “essentialColumns”
+    allPitches.push({
+      GameUID:        r.GameUID,
+      PitchUID:       r.PitchUID,
+      Inning:         r.Inning,
+      'Top/Bottom':   r['Top/Bottom'],
+      PAofInning:     r.PAofInning,
+      PitchNo:        r.PitchNo,
+      Batter:         r.Batter,
+      Pitcher:        r.Pitcher,
+      AwayNameFull:   r.AwayNameFull,
+      HomeNameFull:   r.HomeNameFull,
+      Date:           r.Date,
+      LocalDate:      r.LocalDate,
+      RunsScored:     r.RunsScored,
+      PlayResult:     r.PlayResult,
+      PitchCall:      r.PitchCall,
+      KorBB:          r.KorBB,
+      ExitSpeed:      r.ExitSpeed,
+      Angle:          r.Angle,
+      Distance:       r.Distance,
+      RelSpeed:       r.RelSpeed,
+      AutoPitchType:  r.AutoPitchType,
+      PlateLocSide:   r.PlateLocSide,
+      PlateLocHeight: r.PlateLocHeight,
+      PlayID:         r.PlayID,
+      PopTime:        r.PopTime,
+      ExchangeTime:   r.ExchangeTime,
+      ThrowSpeed:     r.ThrowSpeed,
+      BatterSide:     r.BatterSide,
+      SpinRate:       r.SpinRate,
+      InducedVertBreak: r.InducedVertBreak,
+      HorzBreak:      r.HorzBreak,
+      SpeedDrop:      r.SpeedDrop,
+      VertRelAngle:   r.VertRelAngle,
+      Direction:   r.Direction,
+      // …only these fields, nothing more…
     });
-
-    // The rest of your existing complete callback
-    buildCatchModel(DATA_CSV, FIELDER_CSV) // Note: buildCatchModel's internal parsing needs to be updated too
-      .then(model => {
-        Object.assign(probMap, model.probMap);
-        console.log('probMap keys:', Object.keys(probMap).slice(0, 10));
-        const totalPitches = allPitches.length;
-        const withProb = allPitches.filter(p => probMap.hasOwnProperty(p.PitchUID)).length;
-        console.log(`Sanity check: ${withProb} / ${totalPitches} total pitches have a probability`);
-    
-        window._catchModel = model;
-        init();
-      })
-      .catch(console.error);
-    init();
+  },
+  complete: () => {
+    init()
   }
 });
 
@@ -1028,7 +1036,10 @@ const mapY = y => originY - (y - zone.bottom) * scale;
       d===-45? ctx.moveTo(x,y):ctx.lineTo(x,y);
     }
     ctx.stroke();
-   
+   rows.forEach(r => {
+  console.log(r);  // is r ever non‐null?
+  // …draw something unconditionally…
+});
     rows.filter(r=>r.PitchCall==='InPlay').forEach(r=>{
        const hitType = r.PlayResult || 'undefined';
 

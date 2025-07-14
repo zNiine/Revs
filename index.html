@@ -400,21 +400,7 @@
 
     <!-- MINI LEADERBOARDS -->
     <section id="mini-leaderboards">
-      <!-- Top Umpires -->
-      <div class="mini-board">
-        <h4>Top Umpires</h4>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Umpire</th>
-              <th>Acc.</th>
-              <th>Calls</th>
-            </tr>
-          </thead>
-          <tbody id="lb-ump"></tbody>
-        </table>
-      </div>
+   
 
       <!-- Farthest Home Runs -->
       <div class="mini-board">
@@ -458,20 +444,43 @@
   <!-- DATA + RENDERING LOGIC -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
-    let data = [];
+const data = [];   // this will hold only the columns you care about
 
-    Papa.parse('./data.csv', {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: ({ data: rows }) => {
-        data = rows;
-        renderHeroMetrics();
-        renderMiniBoards();
-        populateSearchDatalists();
-        buildRecentGames();
-      }
+Papa.parse('./data.csv', {
+  download: true,
+  header: true,
+  skipEmptyLines: true,
+  step: ({ data: row }) => {
+    // pull out only the fields you actually use downstream:
+    data.push({
+            PitchCall:      row.PitchCall,      // ← include this!
+
+      ExitSpeed:      +row.ExitSpeed,
+      Angle:          +row.Angle,
+      Distance:       +row.Distance,
+      AutoPitchType:  row.AutoPitchType,
+      RelSpeed:       +row.RelSpeed,
+      Umpire:         row.Umpire,
+      PlateLocHeight: +row.PlateLocHeight,
+      PlateLocSide:   +row.PlateLocSide,
+      PlayResult:     row.PlayResult,
+      Batter:         row.Batter,
+      BatterTeam:     row.BatterTeam,
+      HomeNameFull:   row.HomeNameFull,
+      AwayNameFull:   row.AwayNameFull,
+      LocalDateTime:  row.LocalDateTime || row.Date,
+      GameUID:        row.GameUID,
+      RunsScored:     +row.RunsScored,
+      TopBottom:      row['Top/Bottom'],
     });
+  },
+  complete: () => {
+    renderHeroMetrics();
+    renderMiniBoards();
+    populateSearchDatalists();
+    buildRecentGames();
+  }
+});
 
     function renderHeroMetrics() {
       const evs = data
@@ -503,42 +512,7 @@
 
     function renderMiniBoards() {
       // 1) Top Umpires
-      const umpMap = {};
-      data.forEach(r => {
-        const call = r.PitchCall;
-        if (call !== 'StrikeCalled' && call !== 'BallCalled') return;
-        const u = r.Umpire;
-        if (!umpMap[u]) umpMap[u] = { total: 0, correct: 0 };
-        umpMap[u].total++;
-        const h = parseFloat(r.PlateLocHeight),
-              s = parseFloat(r.PlateLocSide);
-        const inZone = h >= 1.5 && h <= 3.5 && s >= -0.83 && s <= 0.83;
-        if ((inZone && call === 'StrikeCalled') ||
-            (!inZone && call === 'BallCalled')) {
-          umpMap[u].correct++;
-        }
-      });
-      const fullUmpireRows = Object.entries(umpMap)
-        .map(([u, stats]) => ({
-          Umpire: u,
-          Accuracy: stats.total ? stats.correct / stats.total : 0,
-          TotalCalls: stats.total
-        }))
-        .sort((a, b) => b.Accuracy - a.Accuracy)
-        .slice(0, 3);
-
-      const ub = document.getElementById('lb-ump');
-      ub.innerHTML = '';
-      fullUmpireRows.forEach((r, i) => {
-        ub.insertAdjacentHTML('beforeend', `
-          <tr>
-            <td>${i+1}</td>
-            <td class="clickable" data-name="${r.Umpire}">${r.Umpire}</td>
-            <td>${(r.Accuracy * 100).toFixed(0)}%</td>
-            <td>${r.TotalCalls}</td>
-          </tr>
-        `);
-      });
+      
 
       // 2) Farthest Home Runs
       const hrBody = document.getElementById('lb-hr');
