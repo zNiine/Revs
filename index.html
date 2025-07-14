@@ -471,7 +471,7 @@ Papa.parse('./data.csv', {
       LocalDateTime:  row.LocalDateTime || row.Date,
       GameUID:        row.GameUID,
       RunsScored:     +row.RunsScored,
-      TopBottom:      row['Top/Bottom'],
+  'Top/Bottom': row['Top/Bottom'],   // keep the slash in the key
     });
   },
   complete: () => {
