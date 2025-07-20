@@ -1,12 +1,16 @@
 import pandas as pd
 
-# Load the CSV file
-df = pd.read_csv("../data.csv")
+# Load your full TrackMan dataset
+df = pd.read_csv('../data.csv')  # <-- replace with your actual filename
 
-# Filter rows where the pitcher is "Kickham, Mike"
-filtered_df = df[df["pitcher"] == "Kickham, Mike"]
-filtered_df.to_csv("kickham_mike_pitches.csv", index=False)
-# Display the result
+# Filter for rows where the pitcher team is "HP"
+pitching_df = df[df['PitcherTeam'] == 'YOR']
 
-# Optionally, save the filtered data to a new CSV
-# filtered_df.to_csv("kickham_mike_pitches.csv", index=False)
+# Filter for rows where the batter team is "YOR"
+batting_df = df[df['BatterTeam'] == 'HAG_FLY']
+
+# Save each filtered DataFrame to CSV
+pitching_df.to_csv('pitching_HP.csv', index=False)
+batting_df.to_csv('batting_YOR.csv', index=False)
+
+print("✅ Done! Files saved as 'pitching_HP.csv' and 'batting_YOR.csv'")
