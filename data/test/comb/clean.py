@@ -3,7 +3,14 @@ import pandas as pd
 
 # List of columns to remove
 cols_to_drop = [
+    "Level", "League",
+    "System", "HomeTeamForeignID",
+    "AwayTeamForeignID","CatcherId",
+    "PitcherSet",
     "DetectedShift",
+    "GameForeignID",
+    "Notes",
+    "TaggedPitchType",
     "1B_PositionAtReleaseX", "1B_PositionAtReleaseZ",
     "2B_PositionAtReleaseX", "2B_PositionAtReleaseZ",
     "3B_PositionAtReleaseX", "3B_PositionAtReleaseZ",
@@ -12,11 +19,6 @@ cols_to_drop = [
     "CF_PositionAtReleaseX", "CF_PositionAtReleaseZ",
     "RF_PositionAtReleaseX", "RF_PositionAtReleaseZ",
     "1B_Name", "1B_Id",
-    "League", "Level", "System",
-    "HomeTeamForeignID",
-    "AwayTeamForeignID",
-    "GameForeignID",
-    "CatcherId",
     "2B_Name", "2B_Id",
     "3B_Name", "3B_Id",
     "SS_Name", "SS_Id",
