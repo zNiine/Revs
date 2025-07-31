@@ -1,111 +1,236 @@
 gameid,inning,half,batting_team,defense_team,player,base,result,balls,strikes,outs
-624131,2,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Evan Alexander,2,CS,1,1,2
-624131,3,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Daniel Amaral,2,SB,0,1,3
-624131,6,top,Southern Maryland Blue Crabs,Lancaster Stormers,Giovanni Digiacomo,3,SB,1,2,2
-624131,6,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Mason Martin,2,SB,0,1,2
-624131,6,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Evan Alexander,3,SB,0,1,2
-624192,1,bottom,Southern Maryland Blue Crabs,Lexington Legends,Zach Racusin,2,CS,3,2,1
-624192,5,bottom,Southern Maryland Blue Crabs,Lexington Legends,Jackson Loftin,2,SB,3,1,1
-624254,3,top,York Revolution,High Point Rockers,Bubba Alleyne,3,SB,1,2,2
-624254,4,bottom,High Point Rockers,York Revolution,Luis Gonzalez,2,SB,1,2,1
-624254,4,bottom,High Point Rockers,York Revolution,Luis Gonzalez,3,SB,1,0,1
-624254,4,bottom,High Point Rockers,York Revolution,Ben Aklinski,2,SB,0,1,3
-624254,10,top,York Revolution,High Point Rockers,Jeremy Arocho,3,SB,16,2,2
-624254,10,top,York Revolution,High Point Rockers,Frankie Tostado 22 Frankie Tostado,2,SB,0,0,2
-624255,1,top,Gastonia Ghost Peppers,High Point Rockers,Jack Reinheimer,2,SB,3,2,3
-624255,4,top,Gastonia Ghost Peppers,High Point Rockers,Kevin Watson Jr.,2,SB,0,2,2
-624255,4,bottom,High Point Rockers,Gastonia Ghost Peppers,Drew Mendoza,2,SB,1,0,3
-624255,6,bottom,High Point Rockers,Gastonia Ghost Peppers,D.J. Burt,2,SB,0,1,1
-624255,8,top,Gastonia Ghost Peppers,High Point Rockers,Kevin Watson Jr.,2,SB,1,1,1
-624256,2,bottom,High Point Rockers,Gastonia Ghost Peppers,Ben Aklinski,2,SB,2,1,2
-624256,3,bottom,High Point Rockers,Gastonia Ghost Peppers,D.J. Burt,2,SB,1,0,2
-624256,5,bottom,High Point Rockers,Gastonia Ghost Peppers,Luis Gonzalez,2,SB,1,0,2
-624256,6,top,Gastonia Ghost Peppers,High Point Rockers,Cole Roederer,2,CS,1,0,1
-624256,9,bottom,High Point Rockers,Gastonia Ghost Peppers,Ben Aklinski,2,SB,2,2,2
-624256,10,bottom,High Point Rockers,Gastonia Ghost Peppers,Aidan Brewer,3,SB,7,2,1
-624256,10,bottom,High Point Rockers,Gastonia Ghost Peppers,Max Viera 10 Luis Gonzalez,2,SB,0,0,1
-624257,1,bottom,High Point Rockers,Gastonia Ghost Peppers,Ben Aklinski,2,SB,0,2,3
-624257,2,top,Gastonia Ghost Peppers,High Point Rockers,Kevin Watson Jr.,2,SB,0,2,2
-624257,7,bottom,High Point Rockers,Gastonia Ghost Peppers,Aidan Brewer,2,CS,1,1,0
-624257,8,top,Gastonia Ghost Peppers,High Point Rockers,Kevin Watson Jr.,2,SB,1,0,2
-624257,8,top,Gastonia Ghost Peppers,High Point Rockers,Eric De La Rosa,2,SB,2,2,3
-624321,2,top,Lancaster Stormers,Long Island Ducks,Yeison Coca,2,SB,1,0,2
-624321,6,bottom,Long Island Ducks,Lancaster Stormers,River Town,3,SB,1,1,2
-624321,9,top,Lancaster Stormers,Long Island Ducks,Daniel Amaral,2,SB,1,1,0
-624321,9,top,Lancaster Stormers,Long Island Ducks,Yeison Coca,2,SB,1,0,0
-624322,5,top,Lancaster Stormers,Long Island Ducks,Nick Ward,2,SB,1,2,2
-624322,5,top,Lancaster Stormers,Long Island Ducks,Nick Lucky,2,CS,3,2,2
-624322,6,bottom,Long Island Ducks,Lancaster Stormers,Kole Kaler,2,SB,1,1,3
-624322,9,bottom,Long Island Ducks,Lancaster Stormers,River Town,3,SB,1,1,1
-624323,3,bottom,Long Island Ducks,Lancaster Stormers,Ed Johnson,2,SB,0,2,1
-624323,4,top,Lancaster Stormers,Long Island Ducks,Ariel Sandoval,2,SB,1,1,2
-624323,4,top,Lancaster Stormers,Long Island Ducks,Daniel Amaral,2,SB,0,1,3
-624323,4,top,Lancaster Stormers,Long Island Ducks,Daniel Amaral,3,SB,1,2,3
-624323,5,bottom,Long Island Ducks,Lancaster Stormers,Ed Johnson,2,CS,0,1,2
-624323,7,top,Lancaster Stormers,Long Island Ducks,Scott Kelly,2,SB,2,0,1
-624323,7,top,Lancaster Stormers,Long Island Ducks,Daniel Amaral,3,SB,2,0,1
-624383,2,top,Long Island Ducks,Staten Island Ferry Hawks,Kole Kaler,2,SB,0,1,1
-624383,6,top,Long Island Ducks,Staten Island Ferry Hawks,JC Encarnacion,2,SB,1,0,2
-624383,6,top,Long Island Ducks,Staten Island Ferry Hawks,JC Encarnacion,3,SB,1,1,2
-624384,2,top,Long Island Ducks,Staten Island Ferry Hawks,JC Encarnacion,2,SB,1,0,3
-624384,3,top,Long Island Ducks,Staten Island Ferry Hawks,Troy Viola,2,SB,1,0,3
-624384,3,bottom,Staten Island Ferry Hawks,Long Island Ducks,Kolby Johnson,2,SB,1,1,2
-624384,5,top,Long Island Ducks,Staten Island Ferry Hawks,Ivan Castillo,2,CS,0,2,1
-624384,6,top,Long Island Ducks,Staten Island Ferry Hawks,Troy Viola,2,CS,3,2,1
-624384,7,top,Long Island Ducks,Staten Island Ferry Hawks,River Town,2,SB,1,0,1
-624385,1,top,Long Island Ducks,Staten Island Ferry Hawks,Chris Roller,2,SB,3,2,1
-624385,1,top,Long Island Ducks,Staten Island Ferry Hawks,Troy Viola,2,CS,0,1,1
-624385,1,top,Long Island Ducks,Staten Island Ferry Hawks,Chris Roller,3,SB,0,1,2
-624385,3,bottom,Staten Island Ferry Hawks,Long Island Ducks,Tyler Dearden,3,CS,1,0,1
-624447,7,top,Hagerstown Flying Boxcars,Charleston Dirty Birds,Dante Leach 12 Tyler Williams,2,SB,0,0,1
-624447,7,top,Hagerstown Flying Boxcars,Charleston Dirty Birds,Dante Leach,3,SB,0,0,1
-624447,7,bottom,Charleston Dirty Birds,Hagerstown Flying Boxcars,Demetrius Moorer,2,SB,2,0,0
-624447,7,bottom,Charleston Dirty Birds,Hagerstown Flying Boxcars,James Nelson,2,SB,1,0,2
-624447,7,bottom,Charleston Dirty Birds,Hagerstown Flying Boxcars,James Nelson,3,SB,3,2,2
-624449,1,bottom,Charleston Dirty Birds,Hagerstown Flying Boxcars,James Nelson,2,SB,2,2,2
-624510,3,bottom,York Revolution,Staten Island Ferry Hawks,Jeremy Arocho,3,SB,1,0,2
-624510,5,top,Staten Island Ferry Hawks,York Revolution,Mark Contreras,3,SB,3,1,2
-624510,6,top,Staten Island Ferry Hawks,York Revolution,Brandon Martorano,2,SB,1,1,1
-624510,6,top,Staten Island Ferry Hawks,York Revolution,Cristhian Rodriguez,3,SB,1,1,1
-624512,2,bottom,York Revolution,Staten Island Ferry Hawks,Shayne Fontana,2,SB,2,0,1
-624512,2,bottom,York Revolution,Staten Island Ferry Hawks,Brandon Lewis,2,SB,2,2,2
-624512,3,bottom,York Revolution,Staten Island Ferry Hawks,Jalen Miller,2,SB,1,0,1
-624513,1,bottom,York Revolution,High Point Rockers,Jalen Miller,3,SB,1,0,1
+624132,1,bottom,Lancaster Stormers,High Point Rockers,Mason Martin,2,SB,0,2,2
+624132,5,top,High Point Rockers,Lancaster Stormers,D.J. Burt,2,SB,0,1,1
+624132,5,bottom,Lancaster Stormers,High Point Rockers,Daniel Amaral,2,SB,1,2,1
+624133,1,bottom,Lancaster Stormers,High Point Rockers,Mason Martin,2,SB,1,2,3
+624133,3,bottom,Lancaster Stormers,High Point Rockers,Yeison Coca,2,SB,0,1,3
+624133,6,bottom,Lancaster Stormers,High Point Rockers,Ariel Sandoval,2,SB,2,0,2
+624133,7,bottom,Lancaster Stormers,High Point Rockers,Scott Kelly,2,SB,1,0,3
+624134,3,bottom,Lancaster Stormers,High Point Rockers,Yeison Coca,2,CS,0,1,1
+624135,7,bottom,Lancaster Stormers,Hagerstown Flying Boxcars,Scott Kelly,2,SB,1,2,1
+624136,5,bottom,Lancaster Stormers,Hagerstown Flying Boxcars,Nick Ward,3,SB,1,1,2
+624137,1,bottom,Lancaster Stormers,Hagerstown Flying Boxcars,Joseph Carpenter,2,SB,2,1,2
+624137,2,bottom,Lancaster Stormers,Hagerstown Flying Boxcars,Evan Alexander,3,SB,3,2,0
+624137,2,bottom,Lancaster Stormers,Hagerstown Flying Boxcars,Yeison Coca,3,SB,0,1,1
+624137,2,bottom,Lancaster Stormers,Hagerstown Flying Boxcars,Nick Lucky,2,SB,2,0,1
+624137,3,bottom,Lancaster Stormers,Hagerstown Flying Boxcars,Mason Martin,2,SB,2,0,0
+624137,5,bottom,Lancaster Stormers,Hagerstown Flying Boxcars,Joseph Carpenter,2,SB,1,0,2
+624195,7,top,Long Island Ducks,Southern Maryland Blue Crabs,Chris Roller,2,SB,1,0,1
+624195,11,top,Long Island Ducks,Southern Maryland Blue Crabs,Chris Roller,2,SB,6,2,2
+624195,11,top,Long Island Ducks,Southern Maryland Blue Crabs,Kole Kaler,3,SB,6,2,2
+624196,6,bottom,Southern Maryland Blue Crabs,Long Island Ducks,Jamari Baylor,2,SB,0,2,2
+624197,1,top,Long Island Ducks,Southern Maryland Blue Crabs,Chris Roller,2,SB,3,2,1
+624197,1,top,Long Island Ducks,Southern Maryland Blue Crabs,Ivan Castillo,3,SB,0,1,2
+624197,2,top,Long Island Ducks,Southern Maryland Blue Crabs,Kole Kaler,3,SB,2,1,2
+624197,5,top,Long Island Ducks,Southern Maryland Blue Crabs,Kole Kaler,3,SB,2,1,3
+624197,7,top,Long Island Ducks,Southern Maryland Blue Crabs,River Town,3,SB,3,0,2
+624197,8,top,Long Island Ducks,Southern Maryland Blue Crabs,Kole Kaler,2,SB,1,0,3
+624197,8,bottom,Southern Maryland Blue Crabs,Long Island Ducks,Alejandro De Aza,2,SB,1,1,1
+624198,1,bottom,Southern Maryland Blue Crabs,Hagerstown Flying Boxcars,Jackson Loftin,3,SB,3,1,0
+624198,7,top,Hagerstown Flying Boxcars,Southern Maryland Blue Crabs,Tyler Williams,2,SB,2,2,2
+624199,1,bottom,Southern Maryland Blue Crabs,Hagerstown Flying Boxcars,Ethan Wilson,2,SB,1,0,0
+624199,2,top,Hagerstown Flying Boxcars,Southern Maryland Blue Crabs,Tyler Williams,2,CS,0,1,2
+624199,3,bottom,Southern Maryland Blue Crabs,Hagerstown Flying Boxcars,Jamari Baylor,2,CS,0,1,1
+624199,4,bottom,Southern Maryland Blue Crabs,Hagerstown Flying Boxcars,Jackson Loftin,2,CS,1,0,2
+624200,1,top,Hagerstown Flying Boxcars,Southern Maryland Blue Crabs,Tyler Williams,2,SB,2,2,1
+624200,5,top,Hagerstown Flying Boxcars,Southern Maryland Blue Crabs,Tyler Williams,2,CS,3,1,0
+624258,2,top,Charleston Dirty Birds,High Point Rockers,Zach Daniels,3,CS,3,2,2
+624258,2,top,Charleston Dirty Birds,High Point Rockers,Zach Daniels,2,SB,2,2,3
+624258,3,top,Charleston Dirty Birds,High Point Rockers,Benjamin Blackwell,2,SB,0,1,1
+624258,8,bottom,High Point Rockers,Charleston Dirty Birds,Ben Aklinski,2,SB,0,1,2
+624258,8,bottom,High Point Rockers,Charleston Dirty Birds,Jack Conley,2,SB,1,1,2
+624259,1,top,Charleston Dirty Birds,High Point Rockers,Benjamin Blackwell,2,SB,0,2,2
+624259,1,bottom,High Point Rockers,Charleston Dirty Birds,Luis Gonzalez,2,SB,1,2,0
+624260,1,top,Charleston Dirty Birds,High Point Rockers,James Nelson,3,SB,1,1,2
+624260,2,top,Charleston Dirty Birds,High Point Rockers,Alsander Womack,2,SB,2,2,2
+624260,2,top,Charleston Dirty Birds,High Point Rockers,Demetrius Moorer,2,SB,1,1,3
+624260,4,bottom,High Point Rockers,Charleston Dirty Birds,D.J. Burt,2,SB,3,2,0
+624260,6,bottom,High Point Rockers,Charleston Dirty Birds,Carlos Amezquita,2,SB,1,1,1
+624260,6,bottom,High Point Rockers,Charleston Dirty Birds,Carlos Amezquita,3,SB,1,2,1
+624260,6,bottom,High Point Rockers,Charleston Dirty Birds,Isaiah Mirabal,2,CS,3,2,1
+624260,7,top,Charleston Dirty Birds,High Point Rockers,Ariel Pestano Jr.,2,SB,2,0,2
+624260,7,top,Charleston Dirty Birds,High Point Rockers,Ariel Pestano Jr.,3,SB,2,0,3
+624262,1,bottom,High Point Rockers,Gastonia Ghost Peppers,Luis Gonzalez,2,SB,1,1,0
+624262,3,top,Gastonia Ghost Peppers,High Point Rockers,Eric De La Rosa,2,SB,1,0,3
+624262,3,top,Gastonia Ghost Peppers,High Point Rockers,Eric De La Rosa,3,SB,3,1,3
+624262,8,top,Gastonia Ghost Peppers,High Point Rockers,Nate Scantlin,2,CS,1,1,2
+624262,8,bottom,High Point Rockers,Gastonia Ghost Peppers,Ben Aklinski,2,SB,1,0,0
+624263,3,top,Gastonia Ghost Peppers,High Point Rockers,Kevin Watson Jr.,2,SB,2,1,1
+624263,7,bottom,High Point Rockers,Gastonia Ghost Peppers,Max Viera,2,SB,1,2,1
+624263,8,top,Gastonia Ghost Peppers,High Point Rockers,Eric De La Rosa,2,SB,3,0,0
+624263,8,top,Gastonia Ghost Peppers,High Point Rockers,Eric De La Rosa,3,SB,1,1,1
+624263,8,bottom,High Point Rockers,Gastonia Ghost Peppers,Ben Aklinski,2,SB,1,0,1
+624324,1,top,Charleston Dirty Birds,Long Island Ducks,James Nelson,2,SB,1,2,3
+624324,2,top,Charleston Dirty Birds,Long Island Ducks,Alsander Womack,2,SB,0,2,2
+624324,2,bottom,Long Island Ducks,Charleston Dirty Birds,JC Encarnacion,2,SB,0,2,1
+624324,2,bottom,Long Island Ducks,Charleston Dirty Birds,JC Encarnacion,3,SB,0,1,2
+624324,8,bottom,Long Island Ducks,Charleston Dirty Birds,Cody Thomas,2,SB,2,2,2
+624325,3,top,Charleston Dirty Birds,Long Island Ducks,Joseph Rosa,3,CS,3,0,2
+624325,5,bottom,Long Island Ducks,Charleston Dirty Birds,Chris Roller,2,SB,1,0,2
+624325,6,bottom,Long Island Ducks,Charleston Dirty Birds,Ivan Castillo,2,SB,1,0,3
+624325,8,top,Charleston Dirty Birds,Long Island Ducks,Alsander Womack,2,SB,1,1,3
+624325,9,bottom,Long Island Ducks,Charleston Dirty Birds,Taylor Kohlwey,2,SB,2,1,2
+624327,1,top,Staten Island Ferry Hawks,Long Island Ducks,Mark Contreras,2,CS,1,0,2
+624327,1,bottom,Long Island Ducks,Staten Island Ferry Hawks,Chris Roller,2,SB,1,0,2
+624327,3,top,Staten Island Ferry Hawks,Long Island Ducks,Vaun Brown,2,SB,1,1,1
+624327,5,top,Staten Island Ferry Hawks,Long Island Ducks,Eddy Diaz,3,SB,1,1,2
+624328,1,bottom,Long Island Ducks,Staten Island Ferry Hawks,Ivan Castillo,2,SB,1,1,3
+624328,5,bottom,Long Island Ducks,Staten Island Ferry Hawks,Cody Thomas,2,SB,1,0,0
+624328,5,bottom,Long Island Ducks,Staten Island Ferry Hawks,Ed Johnson,2,SB,1,0,1
+624328,5,bottom,Long Island Ducks,Staten Island Ferry Hawks,Kole Kaler,2,CS,2,1,2
+624328,6,top,Staten Island Ferry Hawks,Long Island Ducks,Eddy Diaz,2,SB,1,0,2
+624387,2,bottom,Staten Island Ferry Hawks,York Revolution,Kolby Johnson,2,SB,2,2,1
+624387,3,top,York Revolution,Staten Island Ferry Hawks,Jeffrey Wehler,2,SB,1,0,3
+624387,5,bottom,Staten Island Ferry Hawks,York Revolution,Cristhian Rodriguez,2,SB,1,2,1
+624387,6,bottom,Staten Island Ferry Hawks,York Revolution,Brandon Martorano,2,SB,1,1,2
+624388,5,top,York Revolution,Staten Island Ferry Hawks,Bubba Alleyne,2,SB,3,1,1
+624388,8,bottom,Staten Island Ferry Hawks,York Revolution,Kolby Johnson,2,SB,3,0,1
+624390,1,bottom,Staten Island Ferry Hawks,Lancaster Stormers,Mark Contreras,2,SB,1,2,3
+624390,2,top,Lancaster Stormers,Staten Island Ferry Hawks,Andrew Semo,2,SB,1,1,2
+624390,2,top,Lancaster Stormers,Staten Island Ferry Hawks,Evan Alexander,3,CS,1,1,2
+624390,2,bottom,Staten Island Ferry Hawks,Lancaster Stormers,Eddy Diaz,3,SB,0,1,3
+624390,4,top,Lancaster Stormers,Staten Island Ferry Hawks,Nick Ward,2,SB,1,1,2
+624390,9,top,Lancaster Stormers,Staten Island Ferry Hawks,Nick Lucky,2,CS,2,1,1
+624391,3,top,Lancaster Stormers,Staten Island Ferry Hawks,Nick Lucky,2,SB,1,0,2
+624391,3,bottom,Staten Island Ferry Hawks,Lancaster Stormers,Eddy Diaz,2,SB,2,2,1
+624391,5,bottom,Staten Island Ferry Hawks,Lancaster Stormers,Mark Contreras,2,SB,1,0,1
+624391,5,bottom,Staten Island Ferry Hawks,Lancaster Stormers,Eddy Diaz,3,SB,1,0,1
+624391,6,top,Lancaster Stormers,Staten Island Ferry Hawks,Scott Kelly,2,SB,1,1,2
+624392,1,top,Lancaster Stormers,Staten Island Ferry Hawks,Joseph Carpenter,3,SB,1,0,3
+624392,5,bottom,Staten Island Ferry Hawks,Lancaster Stormers,Cristhian Rodriguez,2,SB,1,0,2
+624392,5,bottom,Staten Island Ferry Hawks,Lancaster Stormers,Vaun Brown,3,SB,1,0,2
+624454,1,top,Lexington Legends,Charleston Dirty Birds,Dylan Rock,2,SB,0,2,2
+624454,1,top,Lexington Legends,Charleston Dirty Birds,Xane Washington,2,CS,3,2,2
+624454,1,top,Lexington Legends,Charleston Dirty Birds,Xane Washington,3,SB,1,2,3
+624454,2,top,Lexington Legends,Charleston Dirty Birds,Brian Fuentes,2,SB,3,2,0
+624454,4,top,Lexington Legends,Charleston Dirty Birds,Ryan McCarthy,2,SB,0,1,2
+624454,4,top,Lexington Legends,Charleston Dirty Birds,Ryan McCarthy,3,SB,1,2,2
+624454,4,top,Lexington Legends,Charleston Dirty Birds,Andy Atwood,2,SB,1,1,3
+624454,6,top,Lexington Legends,Charleston Dirty Birds,Xane Washington,3,SB,2,2,2
+624454,6,bottom,Charleston Dirty Birds,Lexington Legends,Joseph Rosa,2,SB,2,0,2
+624455,2,top,Lexington Legends,Charleston Dirty Birds,Xane Washington,2,SB,2,0,1
+624455,2,top,Lexington Legends,Charleston Dirty Birds,Ryan McCarthy,3,SB,2,2,3
+624455,4,top,Lexington Legends,Charleston Dirty Birds,Xane Washington,2,SB,1,1,2
+624455,6,top,Lexington Legends,Charleston Dirty Birds,Ryan McCarthy,2,SB,1,2,2
+624455,7,top,Lexington Legends,Charleston Dirty Birds,Brady Whalen,2,SB,1,1,1
+624455,9,top,Lexington Legends,Charleston Dirty Birds,Ryan McCarthy,2,SB,3,1,2
+624456,1,top,Southern Maryland Blue Crabs,Charleston Dirty Birds,Jackson Loftin,2,SB,2,0,0
+624456,3,top,Southern Maryland Blue Crabs,Charleston Dirty Birds,Jackson Loftin,2,CS,0,1,1
+624456,5,top,Southern Maryland Blue Crabs,Charleston Dirty Birds,Jackson Loftin,3,SB,2,2,2
+624456,6,top,Southern Maryland Blue Crabs,Charleston Dirty Birds,Sam Dexter,3,CS,1,1,1
+624456,6,bottom,Charleston Dirty Birds,Southern Maryland Blue Crabs,Benjamin Blackwell,2,SB,1,1,2
+624456,7,bottom,Charleston Dirty Birds,Southern Maryland Blue Crabs,Alan Alonso,2,SB,1,1,2
+624457,1,bottom,Charleston Dirty Birds,Southern Maryland Blue Crabs,Alsander Womack,2,SB,1,2,1
+624457,1,bottom,Charleston Dirty Birds,Southern Maryland Blue Crabs,Alan Alonso,2,CS,0,2,2
+624457,2,top,Southern Maryland Blue Crabs,Charleston Dirty Birds,Giovanni Digiacomo,2,SB,1,2,1
+624457,3,top,Southern Maryland Blue Crabs,Charleston Dirty Birds,Jamari Baylor,2,SB,0,1,2
+624457,4,bottom,Charleston Dirty Birds,Southern Maryland Blue Crabs,Benjamin Blackwell,2,SB,2,1,3
 624515,1,bottom,York Revolution,High Point Rockers,Jeffrey Wehler,2,SB,0,2,3
-624571,3,bottom,Hagerstown Flying Boxcars,Lexington Legends,Tyler Williams,2,SB,0,2,3
-624571,6,top,Lexington Legends,Hagerstown Flying Boxcars,Brady Whalen,2,SB,1,0,1
-624571,6,top,Lexington Legends,Hagerstown Flying Boxcars,Dylan Rock,3,SB,1,0,1
-624571,6,top,Lexington Legends,Hagerstown Flying Boxcars,EJ Cumbo,2,CS,1,0,1
-624573,1,top,Lancaster Stormers,Hagerstown Flying Boxcars,Nick Ward,2,SB,1,2,2
-624573,1,bottom,Hagerstown Flying Boxcars,Lancaster Stormers,Tyler Williams,2,SB,3,2,0
-624573,1,bottom,Hagerstown Flying Boxcars,Lancaster Stormers,Osvaldo Abreu,2,SB,0,2,1
-624573,5,bottom,Hagerstown Flying Boxcars,Lancaster Stormers,Roidel Martinez,2,CS,1,0,1
-624573,7,top,Lancaster Stormers,Hagerstown Flying Boxcars,Scott Kelly,2,CS,1,2,1
-624574,2,top,Lancaster Stormers,Hagerstown Flying Boxcars,Joe Campagna,2,SB,3,2,2
-624574,6,bottom,Hagerstown Flying Boxcars,Lancaster Stormers,Gary Mattis,2,CS,1,2,1
-624574,8,top,Lancaster Stormers,Hagerstown Flying Boxcars,Nick Ward,2,SB,2,1,2
+624517,2,top,Long Island Ducks,York Revolution,JC Encarnacion,2,SB,0,2,2
+624517,4,top,Long Island Ducks,York Revolution,JC Encarnacion,2,CS,1,0,1
+624517,5,top,Long Island Ducks,York Revolution,River Town,2,SB,3,1,2
+624517,6,top,Long Island Ducks,York Revolution,Troy Viola,2,SB,3,2,2
+624517,8,top,Long Island Ducks,York Revolution,Troy Viola,2,SB,3,2,2
+624518,2,bottom,York Revolution,Long Island Ducks,Bubba Alleyne,2,SB,1,0,2
+624518,4,bottom,York Revolution,Long Island Ducks,Jeremy Arocho,2,SB,2,2,2
+624518,4,bottom,York Revolution,Long Island Ducks,Jeffrey Wehler,2,SB,0,1,3
+624518,5,bottom,York Revolution,Long Island Ducks,Shayne Fontana,2,SB,2,1,1
+624518,9,bottom,York Revolution,Long Island Ducks,Jeffrey Wehler,2,SB,3,2,3
+624518,11,top,Long Island Ducks,York Revolution,Ed Johnson,2,SB,1,1,2
+624519,4,bottom,York Revolution,Lancaster Stormers,Jalen Miller,2,SB,3,2,3
+624519,9,bottom,York Revolution,Lancaster Stormers,Shayne Fontana,2,SB,1,2,2
+624520,1,bottom,York Revolution,Lancaster Stormers,Jeremy Arocho,2,SB,1,0,0
+624520,1,bottom,York Revolution,Lancaster Stormers,Jalen Miller,2,CS,0,1,0
+624520,3,bottom,York Revolution,Lancaster Stormers,Jeremy Arocho,2,CS,2,1,1
+624520,6,bottom,York Revolution,Lancaster Stormers,Brandon Lewis,2,SB,3,2,0
+624520,6,bottom,York Revolution,Lancaster Stormers,Bubba Alleyne,2,CS,0,2,0
+624520,6,bottom,York Revolution,Lancaster Stormers,Jaylin Davis,2,SB,0,2,1
+624520,7,top,Lancaster Stormers,York Revolution,Yeison Coca,2,SB,1,0,2
+624520,7,top,Lancaster Stormers,York Revolution,Evan Alexander,3,SB,1,0,2
+624520,8,top,Lancaster Stormers,York Revolution,Joseph Carpenter,3,SB,3,2,3
 624575,1,top,Lancaster Stormers,Hagerstown Flying Boxcars,Yeison Coca,2,SB,0,1,2
 624575,3,top,Lancaster Stormers,Hagerstown Flying Boxcars,Nick Lucky,2,CS,0,1,2
 624575,4,top,Lancaster Stormers,Hagerstown Flying Boxcars,Evan Alexander,3,SB,0,1,3
 624575,6,top,Lancaster Stormers,Hagerstown Flying Boxcars,Evan Alexander,2,SB,0,2,2
-624636,1,top,Gastonia Ghost Peppers,Lexington Legends,Nate Scantlin,2,SB,0,1,0
-624636,2,bottom,Lexington Legends,Gastonia Ghost Peppers,Jerry Huntzinger,2,SB,1,2,1
-624636,5,bottom,Lexington Legends,Gastonia Ghost Peppers,Brady Whalen,2,SB,1,1,1
-624637,2,bottom,Lexington Legends,Gastonia Ghost Peppers,Xane Washington,2,SB,1,2,3
-624637,5,top,Gastonia Ghost Peppers,Lexington Legends,Kevin Watson Jr.,2,SB,2,1,3
-624637,6,bottom,Lexington Legends,Gastonia Ghost Peppers,Dylan Rock,2,SB,3,0,2
-624637,7,top,Gastonia Ghost Peppers,Lexington Legends,Jack Reinheimer,2,SB,0,1,2
-624637,7,bottom,Lexington Legends,Gastonia Ghost Peppers,Ryan McCarthy,2,SB,2,0,2
-624637,8,bottom,Lexington Legends,Gastonia Ghost Peppers,Andy Atwood,2,SB,2,2,3
+624576,1,top,York Revolution,Hagerstown Flying Boxcars,Jalen Miller,3,SB,2,1,2
+624576,7,top,York Revolution,Hagerstown Flying Boxcars,Shayne Fontana,2,SB,3,2,1
+624578,2,top,York Revolution,Hagerstown Flying Boxcars,Shayne Fontana,2,SB,1,0,2
+624578,2,top,York Revolution,Hagerstown Flying Boxcars,Ryan Higgins,2,CS,0,1,2
+624578,3,top,York Revolution,Hagerstown Flying Boxcars,Jeremy Arocho,2,CS,0,1,0
+624578,6,top,York Revolution,Hagerstown Flying Boxcars,Jeremy Arocho,2,SB,2,0,1
+624579,1,top,Gastonia Ghost Peppers,Hagerstown Flying Boxcars,Cole Roederer,2,SB,2,2,1
+624579,2,top,Gastonia Ghost Peppers,Hagerstown Flying Boxcars,Eric De La Rosa,2,SB,1,0,2
+624579,2,bottom,Hagerstown Flying Boxcars,Gastonia Ghost Peppers,Osvaldo Abreu,2,CS,3,2,1
+624579,3,bottom,Hagerstown Flying Boxcars,Gastonia Ghost Peppers,Tyler Williams,2,SB,2,2,3
+624579,5,bottom,Hagerstown Flying Boxcars,Gastonia Ghost Peppers,Aaron Takacs,2,CS,1,2,2
+624579,7,bottom,Hagerstown Flying Boxcars,Gastonia Ghost Peppers,Tyler Williams,2,SB,2,2,2
+624579,9,top,Gastonia Ghost Peppers,Hagerstown Flying Boxcars,Eric De La Rosa,2,SB,0,1,3
+624579,11,top,Gastonia Ghost Peppers,Hagerstown Flying Boxcars,Carter Aldrete,2,SB,5,2,2
+624580,1,top,Gastonia Ghost Peppers,Hagerstown Flying Boxcars,Nate Scantlin,2,CS,2,0,0
+624580,1,bottom,Hagerstown Flying Boxcars,Gastonia Ghost Peppers,Cary Arbolida,2,CS,3,2,2
+624580,3,top,Gastonia Ghost Peppers,Hagerstown Flying Boxcars,Nate Scantlin,2,CS,2,2,2
+624580,6,top,Gastonia Ghost Peppers,Hagerstown Flying Boxcars,Eric De La Rosa,2,SB,1,1,1
+624580,7,top,Gastonia Ghost Peppers,Hagerstown Flying Boxcars,Cole Roederer,2,SB,3,2,1
 624638,1,bottom,Lexington Legends,Gastonia Ghost Peppers,Brady Whalen,2,SB,2,2,3
 624638,2,top,Gastonia Ghost Peppers,Lexington Legends,Kevin Watson Jr.,2,SB,1,2,3
 624638,2,bottom,Lexington Legends,Gastonia Ghost Peppers,Ryan McCarthy,2,SB,2,2,1
 624638,6,bottom,Lexington Legends,Gastonia Ghost Peppers,Xane Washington,2,SB,0,1,2
 624638,6,bottom,Lexington Legends,Gastonia Ghost Peppers,Dylan Rock,3,SB,0,1,2
 624638,6,bottom,Lexington Legends,Gastonia Ghost Peppers,Brady Whalen,2,CS,0,2,2
-624704,5,top,Charleston Dirty Birds,Gastonia Ghost Peppers,Demetrius Moorer,2,CS,2,2,1
-624704,6,top,Charleston Dirty Birds,Gastonia Ghost Peppers,Zach Daniels,2,CS,0,1,0
-631197,3,bottom,Lancaster Stormers,Southern Maryland Blue Crabs,Evan Alexander,2,CS,1,2,2
-631197,6,top,Southern Maryland Blue Crabs,Lancaster Stormers,Brett Barrera,3,SB,3,1,0
-631197,6,top,Southern Maryland Blue Crabs,Lancaster Stormers,Giovanni Digiacomo,2,SB,1,0,1
+624639,5,top,Southern Maryland Blue Crabs,Lexington Legends,Pearce Howard,2,SB,1,1,1
+624640,4,bottom,Lexington Legends,Southern Maryland Blue Crabs,Brady Whalen,2,SB,2,2,2
+624640,4,bottom,Lexington Legends,Southern Maryland Blue Crabs,Andy Atwood,2,SB,0,1,2
+624640,5,top,Southern Maryland Blue Crabs,Lexington Legends,Sam Dexter,2,CS,1,1,2
+624640,5,bottom,Lexington Legends,Southern Maryland Blue Crabs,Xane Washington,2,SB,1,2,1
+624640,7,bottom,Lexington Legends,Southern Maryland Blue Crabs,Xane Washington,2,CS,2,0,1
+624640,8,bottom,Lexington Legends,Southern Maryland Blue Crabs,Ryan McCarthy,3,SB,1,2,2
+624641,2,bottom,Lexington Legends,Southern Maryland Blue Crabs,Garret Pike,2,SB,1,2,0
+624641,5,top,Southern Maryland Blue Crabs,Lexington Legends,Jackson Loftin,2,SB,1,2,2
+624641,6,top,Southern Maryland Blue Crabs,Lexington Legends,Giovanni Digiacomo,2,CS,1,2,2
+624641,7,bottom,Lexington Legends,Southern Maryland Blue Crabs,Ryan McCarthy,2,SB,2,1,1
+624641,7,bottom,Lexington Legends,Southern Maryland Blue Crabs,Garret Pike,2,SB,1,2,1
+624641,9,top,Southern Maryland Blue Crabs,Lexington Legends,Jackson Loftin,2,SB,1,0,3
+624642,1,top,High Point Rockers,Lexington Legends,Carlos Amezquita,2,SB,1,1,1
+624642,4,bottom,Lexington Legends,High Point Rockers,Ryan McCarthy,2,SB,1,0,1
+624642,5,bottom,Lexington Legends,High Point Rockers,Brian Fuentes,2,CS,1,2,1
+624643,1,bottom,Lexington Legends,High Point Rockers,EJ Cumbo,2,SB,3,0,0
+624643,1,bottom,Lexington Legends,High Point Rockers,Dylan Rock,3,SB,3,0,0
+624643,8,bottom,Lexington Legends,High Point Rockers,Jerry Huntzinger,3,SB,2,0,2
+624705,1,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Jack Reinheimer,2,SB,0,1,2
+624705,1,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Justin Wylie,2,SB,3,2,2
+624705,2,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Eric De La Rosa,3,SB,1,0,0
+624705,3,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Eric De La Rosa,2,SB,1,2,3
+624705,4,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Cole Roederer,2,SB,2,0,3
+624705,5,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Eric De La Rosa,2,SB,1,1,2
+624705,6,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Jack Reinheimer,2,SB,3,1,0
+624705,8,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Cole Roederer,2,SB,3,1,0
+624705,8,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Justin Wylie,2,SB,1,2,0
+624706,7,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Cole Roederer,2,SB,1,1,0
+624706,7,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Kevin Watson Jr.,2,SB,0,1,2
+624707,1,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Ethan Skender,2,SB,1,2,1
+624707,6,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Kevin Watson Jr.,2,SB,1,1,1
+624707,6,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Alan Alonso,2,SB,2,0,1
+624707,7,top,Staten Island Ferry Hawks,Gastonia Ghost Peppers,Kolby Johnson,2,SB,2,1,3
+624707,7,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Kevin Watson Jr.,2,SB,1,0,1
+624707,8,bottom,Gastonia Ghost Peppers,Staten Island Ferry Hawks,Justin Wylie,2,SB,3,2,3
+624708,5,top,Lexington Legends,Gastonia Ghost Peppers,Ryan McCarthy,2,SB,1,2,2
+624708,6,top,Lexington Legends,Gastonia Ghost Peppers,Xane Washington,2,SB,2,0,3
+624708,7,top,Lexington Legends,Gastonia Ghost Peppers,Andy Atwood,2,SB,2,0,2
+624708,7,bottom,Gastonia Ghost Peppers,Lexington Legends,Eric De La Rosa,2,SB,0,1,2
+624708,9,top,Lexington Legends,Gastonia Ghost Peppers,Paul Winland,2,SB,1,0,3
+624708,9,bottom,Gastonia Ghost Peppers,Lexington Legends,Kevin Watson Jr.,2,SB,1,0,0
+624708,10,top,Lexington Legends,Gastonia Ghost Peppers,Xane Washington,2,SB,0,1,2
+624708,10,bottom,Gastonia Ghost Peppers,Lexington Legends,Dalton Guthrie,2,SB,1,0,2
+624708,10,bottom,Gastonia Ghost Peppers,Lexington Legends,Justin Wylie,3,SB,1,0,2
+624709,2,top,Lexington Legends,Gastonia Ghost Peppers,Isaias Quiroz,2,CS,1,0,2
+624710,2,bottom,Gastonia Ghost Peppers,Lexington Legends,Kevin Watson Jr.,2,SB,1,0,2
+624710,3,bottom,Gastonia Ghost Peppers,Lexington Legends,Carter Aldrete,2,CS,3,2,2
+624710,6,top,Lexington Legends,Gastonia Ghost Peppers,Garret Pike,2,SB,1,0,1
+624710,6,top,Lexington Legends,Gastonia Ghost Peppers,Curtis Terry,2,SB,0,1,2
+624710,6,top,Lexington Legends,Gastonia Ghost Peppers,Brady Whalen,3,SB,0,1,2
+624710,8,bottom,Gastonia Ghost Peppers,Lexington Legends,Kevin Watson Jr.,2,SB,1,1,2
 631460,5,bottom,York Revolution,High Point Rockers,Jalen Miller,2,SB,1,2,2
+631481,1,bottom,Charleston Dirty Birds,Southern Maryland Blue Crabs,Alsander Womack,2,SB,1,2,2
+631481,4,bottom,Charleston Dirty Birds,Southern Maryland Blue Crabs,Zach Daniels,2,SB,0,1,0
+631481,4,bottom,Charleston Dirty Birds,Southern Maryland Blue Crabs,Alan Alonso,2,CS,0,1,1
+631481,6,bottom,Charleston Dirty Birds,Southern Maryland Blue Crabs,Zach Daniels,2,CS,1,1,1
