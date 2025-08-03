@@ -263,7 +263,9 @@ Papa.parse(DATA_CSV, {
       HorzBreak:      r.HorzBreak,
       SpeedDrop:      r.SpeedDrop,
       VertRelAngle:   r.VertRelAngle,
-      Direction:   r.Direction,
+      Extension:   r.Extension,
+      VertRelAngle:   r.VertRelAngle,
+      HorzRelAngle:   r.HorzRelAngle,
       // …only these fields, nothing more…
     });
   },
@@ -1472,7 +1474,8 @@ usageCard.innerHTML = `
           <th>Type</th><th>Count</th><th>vs RHB</th><th>vs LHB</th>
           <th>MaxVelo</th><th>MinVelo</th><th>AvgVelo</th>
           <th>MaxSpin</th><th>MinSpin</th><th>AvgSpin</th><th>Avg Horz</th><th>Avg IVB </th>
-        </tr>
+          <th>Avg VAA</th><th>Avg HAA</th><th>Avg Ext</th>
+          </tr>
       </thead>`;
 
     const types = [...new Set(arr.map(p => p.AutoPitchType || 'undefined'))];
@@ -1489,6 +1492,9 @@ usageCard.innerHTML = `
       const spins = subset.map(p => +p.SpinRate).filter(n => !isNaN(n));
       const horz = subset.map(p => +p.HorzBreak).filter(n => !isNaN(n));
       const ivb = subset.map(p => +p.InducedVertBreak).filter(n => !isNaN(n));
+      const vaa = subset.map(p => +p.VertApprAngle).filter(n => !isNaN(n));
+      const haa = subset.map(p => +p.HorzApprAngle).filter(n => !isNaN(n));
+      const ext = subset.map(p => +p.Extension).filter(n => !isNaN(n));
       const avg   = a => a.length ? (a.reduce((s,x) => s+x,0)/a.length).toFixed(1) : '–';
 
       return `
@@ -1505,6 +1511,9 @@ usageCard.innerHTML = `
           <td>${avg(spins)}</td>
           <td>${avg(horz)}</td>
           <td>${avg(ivb)}</td>
+          <td>${avg(vaa)}</td>
+          <td>${avg(haa)}</td>
+          <td>${avg(ext)}</td>
         </tr>`;
     }).join('');
 
