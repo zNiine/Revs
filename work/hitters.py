@@ -6,7 +6,7 @@ df.columns = df.columns.str.strip()
 
 # Filter for McAvene vs YOR batters
 filtered = df[
-    (df["Pitcher"] == "McAvene, Michael") &
+    (df["Pitcher"] == "Bremer, Noah") &
     (df["BatterTeam"] == "YOR")
 ].copy()
 
