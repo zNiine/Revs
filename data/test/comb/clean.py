@@ -24,7 +24,7 @@ cols_to_drop = [
     "CF_PositionAtReleaseX", "CF_PositionAtReleaseZ",
     "RF_PositionAtReleaseX", "RF_PositionAtReleaseZ",
     "HitTrajectoryXc0","HitTrajectoryXc1","HitTrajectoryXc2","HitTrajectoryXc3","HitTrajectoryXc4","HitTrajectoryXc5","HitTrajectoryXc6","HitTrajectoryXc7","HitTrajectoryXc8","HitTrajectoryYc0","HitTrajectoryYc1","HitTrajectoryYc2","HitTrajectoryYc3","HitTrajectoryYc4","HitTrajectoryYc5","HitTrajectoryYc6","HitTrajectoryYc7","HitTrajectoryYc8","HitTrajectoryZc0","HitTrajectoryZc1","HitTrajectoryZc2","HitTrajectoryZc3","HitTrajectoryZc4","HitTrajectoryZc5","HitTrajectoryZc6","HitTrajectoryZc7","HitTrajectoryZc8",
-
+    "pfxx","pfxz","x0","y0","z0","vx0","vy0","vz0","ax0","ay0","az0",
     "1B_Name", "1B_Id",
     "2B_Name", "2B_Id",
     "3B_Name", "3B_Id",
