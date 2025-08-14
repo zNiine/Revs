@@ -157,6 +157,23 @@
     function sanitize(str) {
       return str.replace(/\W+/g, '_');
     }
+
+
+     const USED_FIELDS = [
+    'PitcherTeam','Pitcher','PitcherThrows','BatterSide',
+    'Balls','Strikes','AutoPitchType',
+    'RelSpeed','SpinRate','InducedVertBreak','HorzBreak',
+    'Extension','RelHeight','SpinAxis',
+    'PlateLocSide','PlateLocHeight',
+    'GameID','Date','PAofInning','PitchofPA',
+    'PlayResult','KorBB','PitchCall','OutsOnPlay','RunsScore',
+    'ZoneTime'
+  ];
+    function pickUsed(row) {
+    const out = {};
+    for (const k of USED_FIELDS) if (k in row) out[k] = row[k];
+    return out;
+  }
     const PTYPE_COLORS = {
       'Four-Seam': '#000000',
       'Sinker':    '#FF69B4',
@@ -168,10 +185,23 @@
       'undefined':'#888888'
     };
     const allData = [];
+    
+  /*
+  
     Papa.parse('data.csv', {
       download: true, header: true, skipEmptyLines: true,
       complete: results => { allData.push(...results.data); initUI(); }
     });
+
+    */
+    Papa.parse('data.csv', {
+  download: true,
+  header: true,
+  skipEmptyLines: true,
+  worker: false,           // <- important
+  step: (res) => allData.push(pickUsed(res.data)),
+  complete: () => initUI()
+});
 
     const rosterMap = {}; // rosterMap["Last First"] = "12"  (for example)
 
@@ -202,7 +232,7 @@
     function initUI() {
       const teamFilter = document.getElementById('teamFilter'),
             generateBtn = document.getElementById('generateBtn');
-      const teams = [...new Set(allData.map(r => r.PitcherTeam))].sort();
+const teams = [...new Set(allData.filter(r => r.PitcherTeam === "SMD").map(r => r.PitcherTeam))].sort();
       teamFilter.innerHTML = '';
       teams.forEach(team => {
         const opt = document.createElement('option');
@@ -232,7 +262,7 @@
       const container = document.getElementById('reportContainer');
       container.innerHTML = '';
       let pitchers = [...new Set(
-        allData.filter(r => r.PitcherTeam === team).map(r => r.Pitcher)
+        allData.filter(r => r.PitcherTeam === "SMD").map(r => r.Pitcher)
       )];
 
         pitchers = pitchers.filter(name => !excludedPitchers.includes(name));
