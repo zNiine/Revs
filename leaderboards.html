@@ -1379,7 +1379,7 @@
       let evRows = filtered.filter(r =>
         r[columns.exitSpeed] &&
         r[columns.playResult] !== 'Undefined' &&
-        parseFloat(r[columns.angle]) >= -18
+        parseFloat(r[columns.angle]) >= -10
       );
       const evTeam   = document.getElementById('ev-team-filter').value;
       const evPlayer = document.getElementById('ev-player-filter').value;
