@@ -89,12 +89,12 @@ QUIRKY_COMBOS: List[Dict[str, Any]] = [
         "close": {"HR": 5, "SB": 5},
     },
     {
-        "name": "40HR_40SB",
+        "name": "20HR_40SB",
         "clauses": [
-            {"field": "HR", "op": "ge", "value": 40},
+            {"field": "HR", "op": "ge", "value": 20},
             {"field": "SB", "op": "ge", "value": 40},
         ],
-        "close": {"HR": 5, "SB": 5},
+        "close": {"HR": 9, "SB": 10},
     },
     {
         "name": "200H_100R",

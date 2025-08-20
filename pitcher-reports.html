@@ -232,7 +232,7 @@
     function initUI() {
       const teamFilter = document.getElementById('teamFilter'),
             generateBtn = document.getElementById('generateBtn');
-const teams = [...new Set(allData.filter(r => r.PitcherTeam === "SMD").map(r => r.PitcherTeam))].sort();
+const teams = [...new Set(allData.filter(r => r.PitcherTeam === "HAG_FLY").map(r => r.PitcherTeam))].sort();
       teamFilter.innerHTML = '';
       teams.forEach(team => {
         const opt = document.createElement('option');
@@ -262,7 +262,7 @@ const teams = [...new Set(allData.filter(r => r.PitcherTeam === "SMD").map(r => 
       const container = document.getElementById('reportContainer');
       container.innerHTML = '';
       let pitchers = [...new Set(
-        allData.filter(r => r.PitcherTeam === "SMD").map(r => r.Pitcher)
+        allData.filter(r => r.PitcherTeam === "HAG_FLY").map(r => r.Pitcher)
       )];
 
         pitchers = pitchers.filter(name => !excludedPitchers.includes(name));
