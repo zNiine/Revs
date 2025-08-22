@@ -21,7 +21,7 @@ cols_to_drop = [
     "3B_PositionAtReleaseX", "3B_PositionAtReleaseZ",
     "SS_PositionAtReleaseX", "SS_PositionAtReleaseZ",
     "PitchTrajectoryXc0","PitchTrajectoryXc1","PitchTrajectoryXc2","PitchTrajectoryYc0","PitchTrajectoryYc1","PitchTrajectoryYc2","PitchTrajectoryZc0","PitchTrajectoryZc1","PitchTrajectoryZc2",
-
+"UTCDate","UTCTime","LocalDateTime","UTCDateTime",
     "LF_PositionAtReleaseX", "LF_PositionAtReleaseZ",
     "CF_PositionAtReleaseX", "CF_PositionAtReleaseZ",
     "RF_PositionAtReleaseX", "RF_PositionAtReleaseZ",
