@@ -24,6 +24,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/fireba
 import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js';
 import { ref as dref } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js';
 
+console.log("1. Script start.");
+
 /*** REPLACE WITH YOUR PROJECT CONFIG ***/
 const firebaseConfig = {
     apiKey: "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
@@ -46,48 +48,63 @@ const lamp  = document.getElementById('lamp');
 const join  = document.getElementById('join');
 const hud   = document.getElementById('hud');
 
-function log(s){ hud.textContent = s; }
+function log(s){ hud.textContent = s; console.log(s); }
 
 /*** Stable scheduler (no audio playback) ***/
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)(); // clock only
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+console.log("2. AudioContext created.");
 
 /*** Torch setup ***/
 let stream=null, track=null, hasTorch=false;
 async function startTorch(){
+  console.log("3. startTorch() called.");
   try {
-    // Hidden camera stream keeps torch available on iOS Safari
     stream = await navigator.mediaDevices.getUserMedia({
       video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}, audio:false
     });
+    console.log("4. getUserMedia() succeeded.");
     track = stream.getVideoTracks()[0];
     const caps = track.getCapabilities?.() || {};
     hasTorch = !!caps.torch;
+    console.log(`5. Has torch capability: ${hasTorch}`);
 
-    // Keep camera "live" with a hidden video; required on iOS
     const v = document.createElement('video');
     v.style.display='none'; v.playsInline = true; v.muted = true; v.autoplay = true;
     v.srcObject = stream; document.body.appendChild(v);
-    try{ await v.play(); }catch{}
+    try{ await v.play(); console.log("6. Video playback started."); }catch(e){ console.log(`6. Video playback failed: ${e.message}`); }
   } catch(e) {
-    log(`Permissions error: ${e.message}`);
+    console.error(`4. getUserMedia() failed: ${e.message}`);
   }
 }
 async function setTorch(on){
+  console.log(`7. setTorch(${on}) called.`);
   if (track && hasTorch){
-    try { await track.applyConstraints({ advanced:[{ torch: !!on }] }); }
-    catch { hasTorch = false; }
+    try { 
+      await track.applyConstraints({ advanced:[{ torch: !!on }] }); 
+      console.log(`8. Torch state set to ${on}.`);
+    }
+    catch (e) { 
+      hasTorch = false; 
+      console.log(`8. Failed to apply torch constraint: ${e.message}`);
+    }
   }
 }
 
 /*** Screen strobe ***/
 function setScreen(on){
+  console.log(`9. setScreen(${on}) called.`);
   lamp.style.display = on ? 'block' : 'none';
   lamp.style.background = on ? '#fff' : '#000';
 }
-function pulse(on){ setScreen(on); setTorch(on); }
+function pulse(on){ 
+  console.log(`10. pulse(${on}) called.`);
+  setScreen(on); 
+  setTorch(on); 
+}
 
 /*** Firebase server-time sync ***/
 let serverOffsetMs = 0;
+console.log("11. Setting up Firebase server time listener.");
 onValue(dref(db, '.info/serverTimeOffset'), snap=>{
   serverOffsetMs = (snap.val()|0) || 0;
   log(`Δserver ≈ ${serverOffsetMs} ms`);
@@ -100,18 +117,18 @@ function serverMsToAudioTime(serverMs){
 function scheduleAt(serverMs, fn){
   const when = serverMsToAudioTime(serverMs);
   const dtMs = Math.max(0, (when - audioCtx.currentTime)*1000);
+  console.log(`12. Scheduling function to run in ${dtMs.toFixed(2)}ms.`);
   setTimeout(fn, dtMs);
 }
 
-/*** Beat grid helpers (PA drives the song; phones just follow timing) ***/
+/*** Run pattern pack from RTDB ***/
 function buildBeatMs(bpm, bars=64, tsTop=4){
   const beat = 60000/Math.max(40, Math.min(220, bpm));
   const total = (bars||64) * tsTop;
   return Array.from({length: total}, (_,i)=> Math.round(i*beat));
 }
-
-/*** Run pattern pack from RTDB ***/
 function runPatterns(cfg){
+  console.log("13. runPatterns() called.");
   const { t0, tempo, grid, patterns } = cfg;
   const beats = (grid?.mode === 'bpm')
     ? buildBeatMs(tempo?.bpm ?? 120, grid?.bars ?? 64, 4)
@@ -123,6 +140,7 @@ function runPatterns(cfg){
     const rate = Math.max(0.5, Math.min(8, hz));
     const period = 1000/rate, onMs = period*(duty??0.35);
     let t = startMs, end = startMs + totalMs;
+    console.log(`14. Strobe started. Duration: ${totalMs}ms, period: ${period.toFixed(2)}ms`);
     while (t < end){
       scheduleAt(t, ()=> pulse(true));
       scheduleAt(t + onMs, ()=> pulse(false));
@@ -131,12 +149,14 @@ function runPatterns(cfg){
   }
   function blast(startMs, lenBeats=1){
     const durMs = lenBeats*(60000/(tempo?.bpm ?? 120));
+    console.log(`15. Blast started. Duration: ${durMs.toFixed(2)}ms`);
     scheduleAt(startMs, ()=> pulse(true));
     scheduleAt(startMs + Math.min(120, durMs*0.6), ()=> pulse(false));
   }
 
   for (const p of (patterns||[])){
     const start = t0 + (p.atBeat ? (beats[p.atBeat-1]||0) : (p.atMs||0));
+    console.log(`16. Processing pattern type: ${p.type} at relative time: ${start - t0}ms`);
     if (p.type === 'strobe') strobe(start, p.hz||6, p.duty??0.35, p.lenBeats||8);
     if (p.type === 'blast')  blast(start, p.lenBeats||1);
   }
@@ -144,9 +164,13 @@ function runPatterns(cfg){
 
 /*** Subscribe to show doc and optional live cues ***/
 function watchShow(){
+  console.log("17. Setting up watchShow() listeners.");
   onValue(dref(db, `shows/${showId}`), (snap)=>{
-    const s = snap.val(); if (!s) return;
+    const s = snap.val(); 
+    if (!s) { console.log("18. No show data found."); return; }
+    console.log("18. New show data received.");
     if (s.t0 && s.t0 > serverNow()-200){
+      console.log(`19. t0 detected. Starting pattern run at ${new Date(s.t0)}.`);
       runPatterns({
         t0: s.t0,
         tempo: s.tempo || { bpm: 120 },
@@ -156,8 +180,10 @@ function watchShow(){
     }
   });
   onValue(dref(db, `shows/${showId}/liveTorch`), (snap)=>{
-    const v = snap.val(); if (!v) return;
+    const v = snap.val(); 
+    if (!v) { console.log("20. No liveTorch data."); return; }
     if (v.type === 'torch' && typeof v.at === 'number'){
+      console.log("21. Live torch command received.");
       const when = v.at + serverOffsetMs;
       scheduleAt(when, ()=> pulse(!!v.on));
     }
@@ -166,25 +192,37 @@ function watchShow(){
 
 /*** Minimal “no controls” join flow ***/
 async function joinOnce(){
-  try { await audioCtx.resume(); } catch {}
+  console.log("22. User tapped. Starting joinOnce().");
+  try { 
+    await audioCtx.resume(); 
+    console.log("23. AudioContext resumed.");
+  } catch (e) {
+    console.error(`23. Failed to resume AudioContext: ${e.message}`);
+  }
   
-  // This is the critical line: directly call startTorch
   await startTorch();
-
+  
   lamp.style.display = 'block';
+  console.log("24. Lamp (screen) layer enabled.");
+
   watchShow();
+  console.log("25. Firebase listeners are now active.");
+
   join.classList.add('hidden');
+  console.log("26. 'tap to join' overlay hidden.");
 }
 
-const once = (fn)=>{ let done=false; return (...a)=>{ if(!done){ done=true; fn(...a);} } };
+const once = (fn)=>{ let done=false; return (...a)=>{ if(!done){ done=true; fn(...a); console.log("27. Join function executed once.");} } };
 const doJoin = once(joinOnce);
 ['pointerdown','touchstart','keydown'].forEach(evt=>{
   window.addEventListener(evt, doJoin, {passive:true});
+  console.log(`28. Event listener added for '${evt}'.`);
 });
 
-document.addEventListener('visibilitychange', ()=>{ if (document.hidden) pulse(false); });
-window.addEventListener('pagehide', ()=>{ try{ track?.stop(); }catch{} });
+document.addEventListener('visibilitychange', ()=>{ if (document.hidden) { pulse(false); console.log("29. Tab hidden. Pulses stopped."); } });
+window.addEventListener('pagehide', ()=>{ try{ track?.stop(); console.log("30. Page hidden. Track stopped."); }catch{} });
 
+console.log("31. Final script initialization complete. Awaiting user tap.");
 </script>
 </body>
 </html>
