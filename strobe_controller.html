@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Light Show — Operator</title>
+<style>
+  :root { --bg:#0b0b0f; --card:#14141a; --fg:#fff; --muted:#9aa3b2; --accent:#69f; }
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto}
+  .wrap{max-width:920px;margin:24px auto;padding:0 16px;display:grid;gap:16px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+  h1{font-size:22px;margin:0 0 8px}
+  h2{font-size:16px;margin:0 0 10px;color:var(--muted)}
+  label{display:block;font-size:12px;color:var(--muted);margin:6px 0 4px}
+  input,select{width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a34;background:#0f0f14;color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  button{padding:12px;border:0;border-radius:12px;background:#2b3140;color:#fff;font-weight:600;cursor:pointer}
+  button.accent{background:var(--accent);color:#000}
+  button.warn{background:#f66;color:#000}
+  .stat{font:12px/1.2 system-ui;color:var(--muted)}
+  .flex{display:flex;gap:10px;align-items:center}
+  .stack{display:grid;gap:10px}
+  .kbd{background:#000;padding:2px 6px;border-radius:6px;border:1px solid #333;color:#aaa}
+</style>
+<body>
+<div class="wrap">
+  <div class="row">
+    <div class="card">
+      <h1>Operator Panel</h1>
+      <div class="stat" id="status">–</div>
+      <div class="stack" style="margin-top:8px">
+        <label>Show ID</label>
+        <input id="showId" value="sweet-caroline" />
+        <div class="grid">
+          <button id="loadShow">Load</button>
+          <button id="saveMeta">Save Meta</button>
+          <button id="resetShow" class="warn">Reset t0</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div class="stack">
+          <h2>Meta</h2>
+          <label>Title</label>
+          <input id="title" placeholder="Sweet Caroline">
+          <label>BPM</label>
+          <input id="bpm" type="number" min="40" max="220" value="126">
+          <label>Bars</label>
+          <input id="bars" type="number" min="1" max="256" value="64">
+        </div>
+        <div class="stack">
+          <h2>Audio</h2>
+          <label>Storage path</label>
+          <input id="audioPath" placeholder="audio/sweet-caroline-demo.mp3">
+          <label>Gain (dB)</label>
+          <input id="gainDb" type="number" value="-3">
+          <label>Lead-In (ms)</label>
+          <input id="leadIn" type="number" value="3000">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h1>Arm Start</h1>
+      <div class="stack">
+        <div class="grid">
+          <button id="arm3" class="accent">Start in 3s</button>
+          <button id="arm5" class="accent">Start in 5s</button>
+          <button id="armNextBar" class="accent">Start @ Next Bar</button>
+        </div>
+        <div class="grid">
+          <button id="stopNow" class="warn">Stop Now (torch/screen off)</button>
+          <button id="clearPatterns">Clear Patterns</button>
+          <button id="pushChorus">Load Chorus Preset</button>
+        </div>
+        <div class="stat">
+          Tips: Use <span class="kbd">Start @ Next Bar</span> while the PA track is rolling to lock the grid.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h1>Live Cues</h1>
+      <div class="grid">
+        <button id="blastNow">Blast now</button>
+        <button id="whiteOut4">Whiteout 1 beat</button>
+        <button id="strobe2s">Strobe 2s @ 8 Hz</button>
+      </div>
+      <div class="grid" style="margin-top:10px">
+        <button id="torchOn">Torch ON</button>
+        <button id="torchOff">Torch OFF</button>
+        <button id="screenBlack">Screen Black</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h1>Debug / Time</h1>
+      <div class="stat" id="timeInfo">–</div>
+      <div class="stat" id="currShow">–</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
+import { getDatabase, ref, get, set, update, onValue } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js';
+
+const firebaseConfig = {
+    apiKey: "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
+      authDomain: "revs-2c987.firebaseapp.com",
+      projectId: "revs-2c987",
+      storageBucket: "revs-2c987.appspot.com",
+      messagingSenderId: "181256684157",
+      appId: "1:181256684157:web:a9e1c5dfd767658e2ba714",
+      measurementId: "G-2050889X0C",
+      databaseURL: "https://revs-2c987-default-rtdb.firebaseio.com"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+// UI els
+const el = id => document.getElementById(id);
+const showId   = el('showId');
+const status   = el('status');
+const title    = el('title');
+const bpm      = el('bpm');
+const bars     = el('bars');
+const audioPath= el('audioPath');
+const gainDb   = el('gainDb');
+const leadIn   = el('leadIn');
+const timeInfo = el('timeInfo');
+const currShow = el('currShow');
+
+const offsetRef = ref(db, '.info/serverTimeOffset');
+let serverOffset = 0;
+onValue(offsetRef, snap => {
+  serverOffset = snap.val()|0;
+});
+const serverNow = () => Date.now() + serverOffset;
+
+// Load current show
+async function loadShow(){
+  const snap = await get(ref(db, `shows/${showId.value}`));
+  if (!snap.exists()) { status.textContent = 'No show doc yet; saving a new one…'; await saveMeta(); return; }
+  const s = snap.val();
+  title.value = s.title ?? '';
+  bpm.value   = s?.tempo?.bpm ?? 126;
+  bars.value  = s?.grid?.bars ?? 64;
+  audioPath.value = s?.audio?.storagePath ?? '';
+  gainDb.value    = s?.audio?.gainDb ?? -3;
+  leadIn.value    = s?.audio?.leadInMs ?? 3000;
+  renderShow(s);
+}
+
+function renderShow(s){
+  currShow.textContent = JSON.stringify({
+    t0: s.t0 || 0,
+    title: s.title,
+    bpm: s?.tempo?.bpm,
+    bars: s?.grid?.bars,
+    patterns: (s.patterns||[]).length
+  }, null, 2);
+}
+
+// Auto monitor show doc
+onValue(ref(db, `shows/${showId.value}`), snap=>{
+  if (snap.exists()) renderShow(snap.val());
+});
+
+// Save meta
+async function saveMeta(){
+  const id = showId.value;
+  const payload = {
+    title: title.value || 'Untitled',
+    audio: {
+      storagePath: audioPath.value || null,
+      gainDb: Number(gainDb.value||-3),
+      leadInMs: Number(leadIn.value||3000)
+    },
+    tempo: { bpm: Number(bpm.value||126), ts: "4/4" },
+    grid: { mode: "bpm", bars: Number(bars.value||64) }
+  };
+  await update(ref(db, `shows/${id}`), payload);
+  status.textContent = 'Meta saved.';
+}
+
+// Arm helpers
+async function setT0(ms){
+  await update(ref(db, `shows/${showId.value}`), { t0: ms });
+}
+async function resetT0(){
+  await update(ref(db, `shows/${showId.value}`), { t0: 0 });
+}
+
+// Align to next bar based on BPM grid
+function nextBarStartMs(now, bpmVal, barBeats=4){
+  const beatMs = 60000/Math.max(40, Math.min(220, bpmVal));
+  const barMs  = beatMs * barBeats;
+  // choose the next bar boundary + 1000ms safety
+  const n = Math.floor((now + 1000) / barMs) + 1;
+  return n*barMs;
+}
+
+// Patterns write
+async function setPatterns(arr){
+  await update(ref(db, `shows/${showId.value}`), { patterns: arr });
+  status.textContent = `Patterns: ${arr.length}`;
+}
+
+// Live cue message (stateless): the client in our page reacts to `torch` type too
+async function torchCommand(atMs, on){
+  await set(ref(db, `shows/${showId.value}/liveTorch`), { type:'torch', at: atMs, on: !!on, atClient: serverNow() });
+  // Optional: also mirror a pattern-like pulse into patterns if you want deterministic logs
+}
+
+// Quick presets
+function chorusPreset(bpmVal=Number(bpm.value||126)){
+  // Put the iconic three blasts on beats 25, 26, 27; and a short strobe leading in
+  return [
+    { atBeat: 21, type:'strobe', hz:8, duty:0.35, lenBeats: 4 }, // build-up
+    { atBeat: 25, type:'blast',  lenBeats: 1 },                  // bom
+    { atBeat: 26, type:'blast',  lenBeats: 1 },                  // bom
+    { atBeat: 27, type:'blast',  lenBeats: 1 },                  // bom
+    { atBeat: 28, type:'strobe', hz:6, duty:0.30, lenBeats: 4 }  // crowd sing
+  ];
+}
+
+// Bindings
+el('loadShow').onclick = loadShow;
+el('saveMeta').onclick = saveMeta;
+el('resetShow').onclick = async ()=>{ await resetT0(); status.textContent='t0 cleared'; };
+
+el('arm3').onclick = async ()=>{ await setT0(serverNow() + 3000); status.textContent='Armed in 3s'; };
+el('arm5').onclick = async ()=>{ await setT0(serverNow() + 5000); status.textContent='Armed in 5s'; };
+el('armNextBar').onclick = async ()=>{
+  const nowS = serverNow();
+  const barOffset = nextBarStartMs(nowS, Number(bpm.value||126));
+  await setT0(nowS - (nowS % 1) + barOffset); // absolute future bar boundary
+  status.textContent='Armed at next bar';
+};
+
+el('clearPatterns').onclick = async ()=>{ await setPatterns([]); };
+el('pushChorus').onclick = async ()=>{ await setPatterns(chorusPreset()); status.textContent='Chorus preset loaded'; };
+
+el('blastNow').onclick = async ()=>{
+  // immediate blast at server time now (clients schedule asap)
+  await setPatterns([{ atMs: 0, type: 'blast', lenBeats:1 }]); // minimal marker
+  await torchCommand(serverNow(), true);
+  setTimeout(()=>torchCommand(serverNow(), false), 120);
+};
+
+el('whiteOut4').onclick = async ()=>{
+  const at = serverNow();
+  await torchCommand(at, true);
+  setTimeout(()=>torchCommand(serverNow(), false), 480); // ~1 beat @ 126 bpm ~ 476ms
+};
+
+el('strobe2s').onclick = async ()=>{
+  const s = await get(ref(db, `shows/${showId.value}`));
+  const t0 = (s.val()?.t0)||serverNow();
+  // add a 2s 8Hz strobe starting "now" relative to t0
+  const rel = serverNow() - t0;
+  const patterns = (s.val()?.patterns)||[];
+  patterns.push({ atMs: Math.max(0, rel), type:'strobe', hz:8, duty:0.35, lenBeats: Math.round(2/(60000/Number(bpm.value||126))) });
+  await setPatterns(patterns);
+};
+
+el('torchOn').onclick  = ()=>torchCommand(serverNow(), true);
+el('torchOff').onclick = ()=>torchCommand(serverNow(), false);
+el('screenBlack').onclick = ()=>setPatterns([]);
+
+// Time ticker
+setInterval(()=>{
+  timeInfo.textContent = `Local: ${new Date().toLocaleTimeString()} | Server Δ≈${serverOffset}ms | ServerNow: ${new Date(serverNow()).toISOString()}`;
+}, 500);
+
+loadShow();
+</script>
+</body>
+</html>

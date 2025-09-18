@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Join the Light Show</title>
+<style>
+  html,body{margin:0;height:100%;background:#000}
+  /* Fullscreen lamp layer: we flip between black/white for screen strobe */
+  #lamp{position:fixed;inset:0;background:#000;display:none}
+  /* Minimal one-tap overlay (required only to unlock camera on iOS) */
+  #join{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+        font:600 18px system-ui,-apple-system,Segoe UI,Roboto;color:#fff;background:rgba(0,0,0,.75)}
+  #join.hidden{display:none}
+  #safe{position:fixed;bottom:10px;left:0;right:0;text-align:center;
+        font:12px system-ui;color:#aaa}
+  /* Tiny in-corner debug; comment out if you want zero UI at all */
+  #hud{position:fixed;top:8px;right:10px;color:#888;font:11px system-ui;white-space:pre;pointer-events:none}
+</style>
+<body>
+<div id="lamp"></div>
+<div id="join">tap anywhere to join<div id="safe">⚠️ flashing lights</div></div>
+<pre id="hud"></pre>
+
+<script type="module">
+/*** Firebase (v9+) ***/
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
+import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js';
+
+/*** REPLACE WITH YOUR PROJECT CONFIG ***/
+const firebaseConfig = {
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_APP.firebaseapp.com",
+  databaseURL: "https://YOUR_APP-default-rtdb.firebaseio.com",
+  projectId: "YOUR_APP",
+  storageBucket: "YOUR_APP.appspot.com",
+  messagingSenderId: "SENDER",
+  appId: "APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+const params = new URLSearchParams(location.search);
+const showId = params.get('showId') || 'sweet-caroline';
+
+const lamp  = document.getElementById('lamp');
+const join  = document.getElementById('join');
+const hud   = document.getElementById('hud');
+
+function log(s){ hud.textContent = s; }
+
+/*** Stable scheduler (no audio playback) ***/
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)(); // clock only
+
+/*** Torch setup ***/
+let stream=null, track=null, hasTorch=false;
+async function startTorch(){
+  // Hidden camera stream keeps torch available on iOS Safari
+  stream = await navigator.mediaDevices.getUserMedia({
+    video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}, audio:false
+  });
+  track = stream.getVideoTracks()[0];
+  const caps = track.getCapabilities?.() || {};
+  hasTorch = !!caps.torch;
+
+  // Keep camera "live" with a hidden video; required on iOS
+  const v = document.createElement('video');
+  v.style.display='none'; v.playsInline = true; v.muted = true; v.autoplay = true;
+  v.srcObject = stream; document.body.appendChild(v);
+  try{ await v.play(); }catch{}
+}
+async function setTorch(on){
+  if (track && hasTorch){
+    try { await track.applyConstraints({ advanced:[{ torch: !!on }] }); }
+    catch { hasTorch = false; }
+  }
+}
+
+/*** Screen strobe ***/
+function setScreen(on){
+  lamp.style.display = on ? 'block' : 'none';
+  lamp.style.background = on ? '#fff' : '#000';
+}
+function pulse(on){ setScreen(on); setTorch(on); }
+
+/*** Firebase server-time sync ***/
+import { ref as dref } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js';
+let serverOffsetMs = 0;
+onValue(dref(db, '.info/serverTimeOffset'), snap=>{
+  serverOffsetMs = (snap.val()|0) || 0;
+  log(`Δserver ≈ ${serverOffsetMs} ms`);
+});
+function serverNow(){ return Date.now() + serverOffsetMs; }
+function serverMsToAudioTime(serverMs){
+  const deltaSec = (serverMs - serverNow())/1000;
+  return audioCtx.currentTime + Math.max(0, deltaSec);
+}
+function scheduleAt(serverMs, fn){
+  const when = serverMsToAudioTime(serverMs);
+  const dtMs = Math.max(0, (when - audioCtx.currentTime)*1000);
+  setTimeout(fn, dtMs);
+}
+
+/*** Beat grid helpers (PA drives the song; phones just follow timing) ***/
+function buildBeatMs(bpm, bars=64, tsTop=4){
+  const beat = 60000/Math.max(40, Math.min(220, bpm));
+  const total = (bars||64) * tsTop;
+  return Array.from({length: total}, (_,i)=> Math.round(i*beat));
+}
+
+/*** Run pattern pack from RTDB ***/
+function runPatterns(cfg){
+  const { t0, tempo, grid, patterns } = cfg;
+  const beats = (grid?.mode === 'bpm')
+    ? buildBeatMs(tempo?.bpm ?? 120, grid?.bars ?? 64, 4)
+    : (grid?.cuesMs || []);
+
+  function strobe(startMs, hz=6, duty=0.35, lenBeats=8){
+    const beatMs = 60000/(tempo?.bpm ?? 120);
+    const totalMs = lenBeats*beatMs;
+    const rate = Math.max(0.5, Math.min(8, hz));        // clamp 0.5–8 Hz
+    const period = 1000/rate, onMs = period*(duty??0.35);
+    let t = startMs, end = startMs + totalMs;
+    while (t < end){
+      scheduleAt(t, ()=> pulse(true));
+      scheduleAt(t + onMs, ()=> pulse(false));
+      t += period;
+    }
+  }
+  function blast(startMs, lenBeats=1){
+    const durMs = lenBeats*(60000/(tempo?.bpm ?? 120));
+    scheduleAt(startMs, ()=> pulse(true));
+    scheduleAt(startMs + Math.min(120, durMs*0.6), ()=> pulse(false));
+  }
+
+  for (const p of (patterns||[])){
+    const start = t0 + (p.atBeat ? (beats[p.atBeat-1]||0) : (p.atMs||0));
+    if (p.type === 'strobe') strobe(start, p.hz||6, p.duty??0.35, p.lenBeats||8);
+    if (p.type === 'blast')  blast(start, p.lenBeats||1);
+  }
+}
+
+/*** Subscribe to show doc and optional live cues ***/
+function watchShow(){
+  onValue(dref(db, `shows/${showId}`), (snap)=>{
+    const s = snap.val(); if (!s) return;
+    // If a new t0 is set in the future: schedule run
+    if (s.t0 && s.t0 > serverNow()-200){
+      runPatterns({
+        t0: s.t0,
+        tempo: s.tempo || { bpm: 120 },
+        grid:  s.grid  || { mode:'bpm', bars:64 },
+        patterns: s.patterns || []
+      });
+    }
+  });
+  // One-shot live torch commands (optional)
+  onValue(dref(db, `shows/${showId}/liveTorch`), (snap)=>{
+    const v = snap.val(); if (!v) return;
+    if (v.type === 'torch' && typeof v.at === 'number'){
+      const when = v.at + serverOffsetMs;
+      scheduleAt(when, ()=> pulse(!!v.on));
+    }
+  });
+}
+
+/*** Minimal “no controls” join flow ***/
+async function joinOnce(){
+  // Single user gesture required by iOS to allow camera access
+  try { await audioCtx.resume(); } catch {}
+  await startTorch();                      // may fall back to screen-only if no torch
+  lamp.style.display = 'block';            // enable screen layer
+  watchShow();                             // start listening to Firebase
+  join.classList.add('hidden');            // remove overlay
+}
+
+// Any first pointer/touch joins; no visible buttons
+const once = (fn)=>{ let done=false; return (...a)=>{ if(!done){ done=true; fn(...a);} } };
+const doJoin = once(joinOnce);
+['pointerdown','touchstart','keydown'].forEach(evt=>{
+  window.addEventListener(evt, doJoin, {passive:true});
+});
+
+// Safety: turn off if tab hidden; free camera on exit
+document.addEventListener('visibilitychange', ()=>{ if (document.hidden) pulse(false); });
+window.addEventListener('pagehide', ()=>{ try{ track?.stop(); }catch{} });
+
+</script>
+</body>
+</html>
