@@ -7,11 +7,11 @@
   html,body{margin:0;height:100%;background:#000}
   #lamp{position:fixed;inset:0;background:#000;display:none}
   #join{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-        font:600 18px system-ui,-apple-system,Segoe UI,Roboto;color:#fff;background:rgba(0,0,0,.75)}
+        font:600 18px system-ui,-apple-system,Segoe UI,Roboto;color:#fff;background:rgba(0,0,0,.75);text-transform:uppercase;letter-spacing:.04em}
   #join.hidden{display:none}
   #safe{position:fixed;bottom:10px;left:0;right:0;text-align:center;
         font:12px system-ui;color:#aaa}
-  #hud{position:fixed;top:8px;right:10px;color:#888;font:11px system-ui;white-space:pre;pointer-events:none}
+  #hud{position:fixed;top:8px;right:10px;color:#8a8;font:11px system-ui;white-space:pre;pointer-events:none;max-width:70%;text-align:right}
 </style>
 <body>
 <div id="lamp"></div>
@@ -19,27 +19,36 @@
 <pre id="hud"></pre>
 
 <script type="module">
-/*** Firebase (v9+) ***/
+/* =========================
+   Firebase (v10.12.3, RTDB)
+   ========================= */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
 import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js';
-import { ref as dref } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js';
+// Optional Auth (anonymous). Enable only if your rules require auth != null:
+// import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js';
+// Optional App Check (reCAPTCHA v3) if RTDB App Check is ENFORCED:
+// import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app-check.js';
 
 console.log("1. Script start.");
 
 /*** REPLACE WITH YOUR PROJECT CONFIG ***/
 const firebaseConfig = {
-    apiKey: "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
-      authDomain: "revs-2c987.firebaseapp.com",
-      projectId: "revs-2c987",
-      storageBucket: "revs-2c987.appspot.com",
-      messagingSenderId: "181256684157",
-      appId: "1:181256684157:web:a9e1c5dfd767658e2ba714",
-      measurementId: "G-2050889X0C",
-      databaseURL: "https://revs-2c987-default-rtdb.firebaseio.com"
+  apiKey: "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
+  authDomain: "revs-2c987.firebaseapp.com",
+  projectId: "revs-2c987",
+  storageBucket: "revs-2c987.appspot.com",
+  messagingSenderId: "181256684157",
+  appId: "1:181256684157:web:a9e1c5dfd767658e2ba714",
+  measurementId: "G-2050889X0C",
+  databaseURL: "https://revs-2c987-default-rtdb.firebaseio.com"
 };
 
 const app = initializeApp(firebaseConfig);
+// If App Check is enforced, uncomment and set your site key:
+// initializeAppCheck(app, { provider: new ReCaptchaV3Provider("YOUR_RECAPTCHA_V3_SITE_KEY"), isTokenAutoRefreshEnabled: true });
+
 const db  = getDatabase(app);
+// const auth = getAuth(app);
 
 const params = new URLSearchParams(location.search);
 const showId = params.get('showId') || 'sweet-caroline';
@@ -48,67 +57,97 @@ const lamp  = document.getElementById('lamp');
 const join  = document.getElementById('join');
 const hud   = document.getElementById('hud');
 
-function log(s){ hud.textContent = s; console.log(s); }
+function banner(msg){
+  hud.textContent = (hud.textContent ? hud.textContent + '\n' : '') + msg;
+  console.log(msg);
+}
 
-/*** Stable scheduler (no audio playback) ***/
+/* ================
+   Audio scheduler
+   ================ */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 console.log("2. AudioContext created.");
 
-/*** Torch setup ***/
+/* ============
+   Torch setup
+   ============ */
 let stream=null, track=null, hasTorch=false;
-async function startTorch(){
-  console.log("3. startTorch() called.");
+
+async function safeStartTorch(){
+  console.log("3. safeStartTorch() called.");
+
+  if (!('mediaDevices' in navigator) || !navigator.mediaDevices.getUserMedia) {
+    console.warn("3.1 mediaDevices/getUserMedia not available. Skipping torch.");
+    return;
+  }
+
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}, audio:false
+      video:{ facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} },
+      audio:false
     });
     console.log("4. getUserMedia() succeeded.");
-    track = stream.getVideoTracks()[0];
-    const caps = track.getCapabilities?.() || {};
-    hasTorch = !!caps.torch;
-    console.log(`5. Has torch capability: ${hasTorch}`);
+  } catch (e) {
+    console.warn(`4. getUserMedia() failed: ${e?.name||''} ${e?.message||e}`);
+    banner(`camera: ${e?.name||'Error'} ${e?.message||''}`); // visibility for field debugging
+    return; // fall back to screen-only
+  }
 
+  track = stream.getVideoTracks()[0];
+  const caps = (track?.getCapabilities && track.getCapabilities()) || {};
+  hasTorch = !!caps.torch;
+  console.log(`5. Has torch capability: ${hasTorch}`);
+
+  // keep camera pipeline alive (some browsers require active playback)
+  try {
     const v = document.createElement('video');
     v.style.display='none'; v.playsInline = true; v.muted = true; v.autoplay = true;
     v.srcObject = stream; document.body.appendChild(v);
-    try{ await v.play(); console.log("6. Video playback started."); }catch(e){ console.log(`6. Video playback failed: ${e.message}`); }
-  } catch(e) {
-    console.error(`4. getUserMedia() failed: ${e.message}`);
-  }
-}
-async function setTorch(on){
-  console.log(`7. setTorch(${on}) called.`);
-  if (track && hasTorch){
-    try { 
-      await track.applyConstraints({ advanced:[{ torch: !!on }] }); 
-      console.log(`8. Torch state set to ${on}.`);
-    }
-    catch (e) { 
-      hasTorch = false; 
-      console.log(`8. Failed to apply torch constraint: ${e.message}`);
-    }
+    await v.play();
+    console.log("6. Video playback started.");
+  } catch (e) {
+    console.warn(`6. Video playback failed: ${e?.message||e}`);
   }
 }
 
-/*** Screen strobe ***/
+async function setTorch(on){
+  console.log(`7. setTorch(${on}) called.`);
+  if (!track || !hasTorch) return; // silently no-op
+  try {
+    await track.applyConstraints({ advanced:[{ torch: !!on }] });
+    console.log(`8. Torch state set to ${on}.`);
+  } catch (e) {
+    console.warn(`8. Failed to apply torch constraint: ${e?.name||''} ${e?.message||e}`);
+    hasTorch = false; // permanently fall back to screen-only
+    banner(`torch unsupported: ${e?.name||''}`);
+  }
+}
+
+/* ===============
+   Screen strobing
+   =============== */
 function setScreen(on){
-  console.log(`9. setScreen(${on}) called.`);
   lamp.style.display = on ? 'block' : 'none';
   lamp.style.background = on ? '#fff' : '#000';
 }
 function pulse(on){ 
-  console.log(`10. pulse(${on}) called.`);
   setScreen(on); 
   setTorch(on); 
 }
 
-/*** Firebase server-time sync ***/
+/* =========================
+   Firebase server-time sync
+   ========================= */
 let serverOffsetMs = 0;
-console.log("11. Setting up Firebase server time listener.");
-onValue(dref(db, '.info/serverTimeOffset'), snap=>{
+banner("11. Setting up Firebase server time listener.");
+onValue(ref(db, '.info/serverTimeOffset'), snap=>{
   serverOffsetMs = (snap.val()|0) || 0;
-  log(`Δserver ≈ ${serverOffsetMs} ms`);
+  banner(`Δserver ≈ ${serverOffsetMs} ms`);
+}, (err) => {
+  console.error("serverTimeOffset error:", err);
+  banner(`server offset err: ${err?.code||''}`);
 });
+
 function serverNow(){ return Date.now() + serverOffsetMs; }
 function serverMsToAudioTime(serverMs){
   const deltaSec = (serverMs - serverNow())/1000;
@@ -117,11 +156,12 @@ function serverMsToAudioTime(serverMs){
 function scheduleAt(serverMs, fn){
   const when = serverMsToAudioTime(serverMs);
   const dtMs = Math.max(0, (when - audioCtx.currentTime)*1000);
-  console.log(`12. Scheduling function to run in ${dtMs.toFixed(2)}ms.`);
   setTimeout(fn, dtMs);
 }
 
-/*** Run pattern pack from RTDB ***/
+/* ==============================
+   Pattern runner (bpm or cuesMs)
+   ============================== */
 function buildBeatMs(bpm, bars=64, tsTop=4){
   const beat = 60000/Math.max(40, Math.min(220, bpm));
   const total = (bars||64) * tsTop;
@@ -140,7 +180,7 @@ function runPatterns(cfg){
     const rate = Math.max(0.5, Math.min(8, hz));
     const period = 1000/rate, onMs = period*(duty??0.35);
     let t = startMs, end = startMs + totalMs;
-    console.log(`14. Strobe started. Duration: ${totalMs}ms, period: ${period.toFixed(2)}ms`);
+    console.log(`14. Strobe: total=${totalMs}ms period=${period.toFixed(2)}ms`);
     while (t < end){
       scheduleAt(t, ()=> pulse(true));
       scheduleAt(t + onMs, ()=> pulse(false));
@@ -149,28 +189,32 @@ function runPatterns(cfg){
   }
   function blast(startMs, lenBeats=1){
     const durMs = lenBeats*(60000/(tempo?.bpm ?? 120));
-    console.log(`15. Blast started. Duration: ${durMs.toFixed(2)}ms`);
+    console.log(`15. Blast: dur=${durMs.toFixed(0)}ms`);
     scheduleAt(startMs, ()=> pulse(true));
     scheduleAt(startMs + Math.min(120, durMs*0.6), ()=> pulse(false));
   }
 
   for (const p of (patterns||[])){
     const start = t0 + (p.atBeat ? (beats[p.atBeat-1]||0) : (p.atMs||0));
-    console.log(`16. Processing pattern type: ${p.type} at relative time: ${start - t0}ms`);
+    console.log(`16. pattern=${p.type} startOffset=${start - t0}ms`);
     if (p.type === 'strobe') strobe(start, p.hz||6, p.duty??0.35, p.lenBeats||8);
     if (p.type === 'blast')  blast(start, p.lenBeats||1);
   }
 }
 
-/*** Subscribe to show doc and optional live cues ***/
+/* ==========================================
+   Subscribe to show doc + optional live cues
+   ========================================== */
 function watchShow(){
   console.log("17. Setting up watchShow() listeners.");
-  onValue(dref(db, `shows/${showId}`), (snap)=>{
+
+  onValue(ref(db, `shows/${showId}`), (snap)=>{
     const s = snap.val(); 
     if (!s) { console.log("18. No show data found."); return; }
     console.log("18. New show data received.");
+
     if (s.t0 && s.t0 > serverNow()-200){
-      console.log(`19. t0 detected. Starting pattern run at ${new Date(s.t0)}.`);
+      console.log(`19. t0 detected. Starting at ${new Date(s.t0).toISOString()}.`);
       runPatterns({
         t0: s.t0,
         tempo: s.tempo || { bpm: 120 },
@@ -178,8 +222,12 @@ function watchShow(){
         patterns: s.patterns || []
       });
     }
+  }, (err)=>{
+    console.error("shows onValue error:", err?.code, err?.message);
+    banner(`shows err: ${err?.code||''}`);
   });
-  onValue(dref(db, `shows/${showId}/liveTorch`), (snap)=>{
+
+  onValue(ref(db, `shows/${showId}/liveTorch`), (snap)=>{
     const v = snap.val(); 
     if (!v) { console.log("20. No liveTorch data."); return; }
     if (v.type === 'torch' && typeof v.at === 'number'){
@@ -187,40 +235,82 @@ function watchShow(){
       const when = v.at + serverOffsetMs;
       scheduleAt(when, ()=> pulse(!!v.on));
     }
+  }, (err)=>{
+    console.error("liveTorch onValue error:", err?.code, err?.message);
+    banner(`liveTorch err: ${err?.code||''}`);
   });
 }
 
-/*** Minimal “no controls” join flow ***/
+/* =============================
+   Minimal “no controls” join UI
+   ============================= */
 async function joinOnce(){
   console.log("22. User tapped. Starting joinOnce().");
-  try { 
-    await audioCtx.resume(); 
-    console.log("23. AudioContext resumed.");
+
+  // Hide overlay immediately so UI responds even if perms fail
+  join.classList.add('hidden'); 
+  console.log("22.1 Overlay hidden early.");
+
+  try {
+    // Audio must be resumed by gesture; continue if it fails
+    try {
+      await audioCtx.resume();
+      console.log("23. AudioContext resumed.");
+    } catch (e) {
+      console.warn("23. AudioContext resume failed:", e?.message || e);
+      banner(`audio resume: ${e?.message||e}`);
+    }
+
+    // If your rules require auth != null, uncomment:
+    // try {
+    //   await signInAnonymously(auth);
+    //   console.log("24.1 Anonymous sign-in OK.");
+    // } catch (e) {
+    //   console.error("24.1 Anonymous sign-in failed:", e);
+    //   banner(`auth anon: ${e?.code||''}`);
+    // }
+
+    await safeStartTorch();
+
+    // Bring up screen layer regardless of torch outcome
+    lamp.style.display = 'block';
+    console.log("24. Lamp (screen) layer enabled.");
+
+    // Start listeners last
+    watchShow();
+    console.log("25. Firebase listeners are now active.");
+
   } catch (e) {
-    console.error(`23. Failed to resume AudioContext: ${e.message}`);
+    console.error("joinOnce fatal error:", e?.message || e);
+    banner(`join error: ${e?.message || e}`);
+  } finally {
+    console.log("26. joinOnce() finished (success or fail).");
   }
-  
-  await startTorch();
-  
-  lamp.style.display = 'block';
-  console.log("24. Lamp (screen) layer enabled.");
-
-  watchShow();
-  console.log("25. Firebase listeners are now active.");
-
-  join.classList.add('hidden');
-  console.log("26. 'tap to join' overlay hidden.");
 }
 
+// one-shot wrapper
 const once = (fn)=>{ let done=false; return (...a)=>{ if(!done){ done=true; fn(...a); console.log("27. Join function executed once.");} } };
 const doJoin = once(joinOnce);
+
+// gesture listeners
 ['pointerdown','touchstart','keydown'].forEach(evt=>{
   window.addEventListener(evt, doJoin, {passive:true});
   console.log(`28. Event listener added for '${evt}'.`);
 });
 
+// safety: stop pulses when hidden
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden) { pulse(false); console.log("29. Tab hidden. Pulses stopped."); } });
 window.addEventListener('pagehide', ()=>{ try{ track?.stop(); console.log("30. Page hidden. Track stopped."); }catch{} });
+
+// global error telemetry
+window.addEventListener('unhandledrejection', e=>{
+  console.error("Unhandled promise rejection:", e.reason);
+  banner(`unhandled: ${e?.reason?.message||e.reason}`);
+});
+window.addEventListener('error', e=>{
+  console.error("Window error:", e.message);
+  banner(`error: ${e.message}`);
+});
 
 console.log("31. Final script initialization complete. Awaiting user tap.");
 </script>
