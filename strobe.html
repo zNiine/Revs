@@ -19,15 +19,11 @@
 
 <script type="module">
 /* ===========================================
-   AUDIENCE CLIENT — v1.2 (with heavy logging)
+   AUDIENCE CLIENT — v1.3 (attach listeners at boot)
    =========================================== */
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
 import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js';
-// Optional (uncomment if your rules need it):
-// import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js';
-// Optional App Check (if enforced):
-// import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app-check.js';
 
 console.log("[A1] Script start.");
 
@@ -44,11 +40,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 console.log("[A2] Firebase app initialized.");
-// initializeAppCheck(app, { provider: new ReCaptchaV3Provider("YOUR_SITE_KEY"), isTokenAutoRefreshEnabled: true });
-
 const db  = getDatabase(app);
 console.log("[A3] RTDB handle created.");
-// const auth = getAuth(app);
 
 const params = new URLSearchParams(location.search);
 const showId = params.get('showId') || 'sweet-caroline';
@@ -68,6 +61,18 @@ function banner(msg){
    ================ */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 console.log("[A5] AudioContext created.");
+
+async function resumeAudioWithTimeout(ms=800){
+  console.log("[A5.1] resumeAudioWithTimeout(%d)", ms);
+  if (audioCtx.state === "running") { console.log("[A5.2] Audio already running"); return; }
+  let t;
+  await Promise.race([
+    audioCtx.resume(),
+    new Promise((_, reject)=>{ t=setTimeout(()=>reject(new Error("resume timeout")), ms); })
+  ]).then(()=>console.log("[A5.3] AudioContext resumed"))
+    .catch(e=>console.warn("[A5.3x] Audio resume issue:", e?.message||e))
+    .finally(()=> clearTimeout(t));
+}
 
 /* ============
    Torch setup
@@ -210,16 +215,18 @@ function runPatterns(cfg){
 /* ==========================================
    Subscribe to show doc + optional live cues
    ========================================== */
-function watchShow(){
-  console.log("[A22] watchShow() attach listeners.");
+function attachWatchersImmediately(){
+  console.log("[A22] attachWatchersImmediately(): attaching listeners NOW (pre-join).");
+
   onValue(ref(db, `shows/${showId}`), (snap)=>{
     const s = snap.val();
     console.log("[A23] shows value event. exists=%s", !!s);
     if (!s) return;
 
-    // CHANGE #1: run whenever t0 exists; scheduler handles past events.
+    // Always run if t0 exists; scheduler handles past/future
     if (s.t0){
-      console.log("[A24] t0 present -> runPatterns. t0=%s serverNow=%s", new Date(s.t0).toISOString(), new Date(serverNow()).toISOString());
+      console.log("[A24] t0 present -> runPatterns. t0=%s serverNow=%s",
+        new Date(s.t0).toISOString(), new Date(serverNow()).toISOString());
       runPatterns({
         t0: s.t0,
         tempo: s.tempo || { bpm: 120 },
@@ -241,7 +248,7 @@ function watchShow(){
 
     if (v.type === 'torch' && typeof v.at === 'number'){
       console.log("[A26] Live torch cue received:", v);
-      // CHANGE #2: scheduleAt expects server ms; DO NOT add serverOffset again.
+      // scheduleAt expects server ms; do not add offset again
       scheduleAt(v.at, ()=> pulse(!!v.on));
     } else {
       console.log("[A26b] liveTorch payload ignored:", v);
@@ -257,27 +264,15 @@ function watchShow(){
    ============================= */
 async function joinOnce(){
   console.log("[A27] User gesture -> joinOnce()");
-  // Hide overlay immediately so UI responds
   join.classList.add('hidden');
   console.log("[A27.1] Overlay hidden.");
 
   try {
-    try {
-      await audioCtx.resume();
-      console.log("[A28] AudioContext resumed.");
-    } catch (e) {
-      console.warn("[A28x] Audio resume failed:", e?.message);
-      banner(`audio: ${e?.message||'resume failed'}`);
-    }
-
+    await resumeAudioWithTimeout(800);
     await safeStartTorch();
-
     lamp.style.display = 'block';
     console.log("[A29] Lamp (screen) layer enabled.");
-
-    watchShow();
-    console.log("[A30] Firebase listeners active.");
-
+    // watchers already attached at boot
   } catch (e) {
     console.error("[A30x] joinOnce fatal:", e?.message||e);
     banner(`join error: ${e?.message||e}`);
@@ -286,13 +281,18 @@ async function joinOnce(){
   }
 }
 
+// one-shot wrapper
 const once = (fn)=>{ let done=false; return (...a)=>{ if(!done){ done=true; fn(...a); console.log("[A32] once-wrapper: executed.");} } };
 const doJoin = once(joinOnce);
 
+// gesture listeners
 ['pointerdown','touchstart','keydown'].forEach(evt=>{
   window.addEventListener(evt, doJoin, {passive:true});
   console.log("[A33] Added listener:", evt);
 });
+
+// attach watchers immediately (critical change)
+attachWatchersImmediately();
 
 document.addEventListener('visibilitychange', ()=>{ 
   if (document.hidden) { pulse(false); console.log("[A34] visibilitychange -> hidden. Pulses off."); } 
