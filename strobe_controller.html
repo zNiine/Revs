@@ -14,7 +14,7 @@
   label{display:block;font-size:12px;color:var(--muted);margin:6px 0 4px}
   input,select{width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a34;background:#0f0f14;color:#fff}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  button{padding:12px;border:0;border-radius:12px;background:#2b3140;color:#fff;font-weight:600;cursor:pointer}
+  button{padding:12px;border:0;border-radius:12px;background:#2b3140;color:#fff;font-weight:600;cursor:pointer; display: flex; align-items: center; justify-content: center; gap: 8px;}
   button.accent{background:var(--accent);color:#000}
   button.warn{background:#f66;color:#000}
   .stat{font:12px/1.2 system-ui;color:var(--muted)}
@@ -61,40 +61,27 @@
     </div>
 
     <div class="card">
-      <h1>Arm Start</h1>
+      <h1>Live Cues</h1>
       <div class="stack">
-        <div class="grid">
-          <button id="arm3" class="accent">Start in 3s</button>
-          <button id="arm5" class="accent">Start in 5s</button>
-          <button id="armNextBar" class="accent">Start @ Next Bar</button>
+        <button id="startSongNow" class="accent">Start Song Now</button>
+        <div class="stat" style="font-size: 1.25em; text-align: center; margin-top: 10px;">
+          Song Progress: <span id="songTimer">0s</span>
         </div>
         <div class="grid">
-          <button id="stopNow" class="warn">Stop Now (torch/screen off)</button>
-          <button id="clearPatterns">Clear Patterns</button>
-          <button id="pushChorus">Load Chorus Preset</button>
+          <button id="blastNow">Blast now</button>
+          <button id="whiteOut4">Whiteout 1 beat</button>
+          <button id="strobe2s">Strobe 2s @ 8 Hz</button>
         </div>
-        <div class="stat">
-          Tips: Use <span class="kbd">Start @ Next Bar</span> while the PA track is rolling to lock the grid.
+        <div class="grid">
+          <button id="torchOn">Torch ON</button>
+          <button id="torchOff">Torch OFF</button>
+          <button id="stopNow" class="warn">Stop Now</button>
         </div>
       </div>
     </div>
   </div>
 
   <div class="row">
-    <div class="card">
-      <h1>Live Cues</h1>
-      <div class="grid">
-        <button id="blastNow">Blast now</button>
-        <button id="whiteOut4">Whiteout 1 beat</button>
-        <button id="strobe2s">Strobe 2s @ 8 Hz</button>
-      </div>
-      <div class="grid" style="margin-top:10px">
-        <button id="torchOn">Torch ON</button>
-        <button id="torchOff">Torch OFF</button>
-        <button id="screenBlack">Screen Black</button>
-      </div>
-    </div>
-
     <div class="card">
       <h1>Debug / Time</h1>
       <div class="stat" id="timeInfo">–</div>
@@ -105,7 +92,7 @@
 
 <script type="module">
 /* ===========================================
-   OPERATOR — v1.2 (with heavy logging)
+   OPERATOR — v2.1 (prominent timer display)
    =========================================== */
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
@@ -129,7 +116,6 @@ console.log("[O2] Firebase app initialized.");
 const db  = getDatabase(app);
 console.log("[O3] RTDB handle created.");
 
-// UI els
 const el = id => document.getElementById(id);
 const showId   = el('showId');
 const status   = el('status');
@@ -142,18 +128,19 @@ const leadIn   = el('leadIn');
 const timeInfo = el('timeInfo');
 const currShow = el('currShow');
 
+const startSongBtn = el('startSongNow');
+const songTimer = el('songTimer');
+
+let timerInterval = null;
+
 console.log("[O4] DOM bound.");
 
 // Server time
 const offsetRef = ref(db, '.info/serverTimeOffset');
 let serverOffset = 0;
-onValue(offsetRef, snap => {
-  serverOffset = snap.val()|0;
-  // console.log("[O5] serverOffset =", serverOffset);
-});
+onValue(offsetRef, snap => { serverOffset = snap.val()|0; });
 const serverNow = () => Date.now() + serverOffset;
 
-// Helpers
 function sref(path){ return ref(db, path); }
 function logStatus(t){ status.textContent = t; console.log("[STATUS]", t); }
 
@@ -225,15 +212,6 @@ async function resetT0(){
   await update(sref(`shows/${id}`), { t0: 0 });
 }
 
-function nextBarStartMs(nowAbs, bpmVal, barBeats=4){
-  const beatMs = 60000/Math.max(40, Math.min(220, bpmVal));
-  const barMs  = beatMs * barBeats;
-  const n = Math.floor((nowAbs + 1000) / barMs) + 1;
-  const abs = n*barMs; // absolute UTC ms (epoch), aligned to bar grid
-  console.log("[O13] nextBarStartMs now=%d bpm=%d barMs=%d -> %d", nowAbs, bpmVal, barMs, abs);
-  return abs;
-}
-
 async function setPatterns(arr){
   const id = showId.value.trim();
   console.log("[O14] setPatterns len=%d", arr.length);
@@ -247,6 +225,9 @@ async function torchCommand(atMs, on){
   await set(sref(`shows/${id}/liveTorch`), { type:'torch', at: atMs, on: !!on, atClient: serverNow() });
 }
 
+// === LIGHT SHOW PATTERNS ===
+// This section contains pre-programmed sequences of light patterns.
+
 function chorusPreset(){
   console.log("[O16] chorusPreset()");
   return [
@@ -258,6 +239,117 @@ function chorusPreset(){
   ];
 }
 
+/**
+ * Generates a full light show pattern for "Sweet Caroline" (approx. 3:23).
+ * Uses a BPM of 126.
+ */
+function sweetCarolineFullShow() {
+  console.log("[O29] Generating full show patterns.");
+  const patterns = [];
+  const bpmVal = 126;
+
+  // Function to convert minutes:seconds to beats, rounded to 2 decimal places
+  const timeToBeat = (minutes, seconds) => Math.round(((minutes * 60) + seconds) * bpmVal / 60);
+
+  // Intro: 0:00 - 0:13 (build-up)
+  const introEndBeat = timeToBeat(0, 13);
+  // Slower, pulsing build-up
+  patterns.push({ atBeat: 0, type: 'strobe', hz: 1.5, duty: 0.5, lenBeats: 4 });
+  patterns.push({ atBeat: 4, type: 'strobe', hz: 2, duty: 0.5, lenBeats: 4 });
+  patterns.push({ atBeat: 8, type: 'strobe', hz: 4, duty: 0.5, lenBeats: 5 }); // Faster build up to verse
+  patterns.push({ atBeat: 13, type: 'blast', lenBeats: 0.5 }); // Punctuate the start of the verse
+
+  // Verse 1: 0:13 - 0:40 ("Where it began...")
+  const verse1StartBeat = timeToBeat(0, 13);
+  const verse1EndBeat = timeToBeat(0, 40);
+  // Rhythmic blasts that follow the acoustic guitar
+  for(let beat = verse1StartBeat; beat < verse1EndBeat; beat += 1) {
+    patterns.push({ atBeat: beat, type: 'blast', lenBeats: 0.1 });
+    if (beat % 4 === 0) { // On the downbeat of each bar
+      patterns.push({ atBeat: beat, type: 'torch', on: true, lenBeats: 0.25 });
+    }
+  }
+
+  // Chorus 1: 0:40 - 1:04 ("Sweet Caroline...")
+  const chorus1StartBeat = timeToBeat(0, 40);
+  const chorus1EndBeat = timeToBeat(1, 4);
+  // High energy strobes and blasts
+  for(let beat = chorus1StartBeat; beat < chorus1EndBeat; beat += 1) {
+      patterns.push({ atBeat: beat, type: 'blast', lenBeats: 0.1 });
+      patterns.push({ atBeat: beat + 0.5, type: 'strobe', hz: 10, duty: 0.5, lenBeats: 0.5 });
+  }
+
+  // Verse 2: 1:04 - 1:28 ("Hands, touching hands...")
+  const verse2StartBeat = timeToBeat(1, 4);
+  const verse2EndBeat = timeToBeat(1, 28);
+  // Different rhythmic pattern for the second verse
+  for(let beat = verse2StartBeat; beat < verse2EndBeat; beat += 2) {
+    patterns.push({ atBeat: beat, type: 'blast', lenBeats: 0.2 });
+    patterns.push({ atBeat: beat + 1, type: 'strobe', hz: 4, duty: 0.5, lenBeats: 0.5 });
+  }
+
+  // Chorus 2: 1:28 - 1:52 ("Sweet Caroline...")
+  const chorus2StartBeat = timeToBeat(1, 28);
+  const chorus2EndBeat = timeToBeat(1, 52);
+  // Same high energy as Chorus 1
+  for(let beat = chorus2StartBeat; beat < chorus2EndBeat; beat += 1) {
+      patterns.push({ atBeat: beat, type: 'blast', lenBeats: 0.1 });
+      patterns.push({ atBeat: beat + 0.5, type: 'strobe', hz: 10, duty: 0.5, lenBeats: 0.5 });
+  }
+
+  // Bridge: 1:52 - 2:20 ("Now I...")
+  const bridgeStartBeat = timeToBeat(1, 52);
+  const bridgeEndBeat = timeToBeat(2, 20);
+  // Escalating blasts to build tension
+  for(let beat = bridgeStartBeat; beat < bridgeEndBeat; beat += 4) {
+    patterns.push({ atBeat: beat, type: 'blast', lenBeats: 1 });
+  }
+  for(let beat = bridgeStartBeat + 1; beat < bridgeEndBeat; beat += 4) {
+    patterns.push({ atBeat: beat, type: 'strobe', hz: 8, duty: 0.5, lenBeats: 1 });
+  }
+  // Intense flash at the climax of the bridge
+  patterns.push({ atBeat: bridgeEndBeat - 2, type: 'strobe', hz: 16, duty: 0.75, lenBeats: 2 });
+  patterns.push({ atBeat: bridgeEndBeat, type: 'blast', lenBeats: 1 });
+
+  // Final Choruses / Outro: 2:20 - End
+  const finalChorusStartBeat = timeToBeat(2, 20);
+  const songEndBeat = timeToBeat(3, 23);
+  
+  // Repeating "bum bum bum" pattern with syncopated blasts
+  for (let i = 0; i < 6; i++) {
+    const startBeat = finalChorusStartBeat + (i * 12);
+    patterns.push({ atBeat: startBeat, type: 'blast', lenBeats: 0.5 });
+    patterns.push({ atBeat: startBeat + 2, type: 'strobe', hz: 12, duty: 0.5, lenBeats: 1.5 });
+    patterns.push({ atBeat: startBeat + 4, type: 'blast', lenBeats: 0.5 });
+    patterns.push({ atBeat: startBeat + 6, type: 'strobe', hz: 12, duty: 0.5, lenBeats: 1.5 });
+    patterns.push({ atBeat: startBeat + 8, type: 'blast', lenBeats: 0.5 });
+    patterns.push({ atBeat: startBeat + 10, type: 'strobe', hz: 12, duty: 0.5, lenBeats: 1.5 });
+  }
+
+  // "Good times never seemed so good" escalation
+  const goodTimesStartBeat = timeToBeat(2, 45);
+  const goodTimesEndBeat = timeToBeat(3, 5);
+  for (let beat = goodTimesStartBeat; beat < goodTimesEndBeat; beat += 0.5) {
+    patterns.push({ atBeat: beat, type: 'blast', lenBeats: 0.1 });
+  }
+  for (let beat = goodTimesEndBeat; beat < songEndBeat; beat += 0.25) {
+    patterns.push({ atBeat: beat, type: 'strobe', hz: 20, duty: 0.5, lenBeats: 0.25 });
+  }
+
+  // Final big blast
+  patterns.push({ atBeat: songEndBeat, type: 'blast', lenBeats: 1 });
+  patterns.push({ atBeat: songEndBeat + 1, type: 'torch', on: false, lenBeats: 0.1 });
+
+
+  return patterns;
+}
+
+async function pushFullShow(){
+  console.log("[O30] pushFullShow()");
+  await setPatterns(sweetCarolineFullShow());
+  logStatus('Full show loaded');
+}
+
 // Bindings
 document.getElementById('loadShow').onclick = loadShow;
 document.getElementById('saveMeta').onclick = saveMeta;
@@ -266,39 +358,45 @@ document.getElementById('resetShow').onclick = async ()=>{
   logStatus('t0 cleared');
 };
 
-document.getElementById('arm3').onclick = async ()=>{
-  const t = serverNow() + 3000;
-  console.log("[O17] arm3 -> t0=%d", t);
-  await setT0(t);
-  logStatus('Armed in 3s');
-};
-document.getElementById('arm5').onclick = async ()=>{
-  const t = serverNow() + 5000;
-  console.log("[O18] arm5 -> t0=%d", t);
-  await setT0(t);
-  logStatus('Armed in 5s');
-};
-document.getElementById('armNextBar').onclick = async ()=>{
-  const nowS = serverNow();
-  const barAbs = nextBarStartMs(nowS, Number(bpm.value||126));
-  console.log("[O19] armNextBar -> t0=%d", barAbs);
-  await setT0(barAbs);
-  logStatus('Armed at next bar');
+startSongBtn.onclick = async () => {
+  console.log("[O31] startSongNow() clicked");
+  startSongBtn.disabled = true;
+  let countdown = 3;
+  const originalText = startSongBtn.textContent;
+  const countdownInterval = setInterval(() => {
+    if (countdown > 0) {
+      startSongBtn.textContent = `${countdown}...`;
+      countdown--;
+    } else {
+      clearInterval(countdownInterval);
+      startSongBtn.textContent = originalText;
+      logStatus('Starting song…');
+      // The rest of the show start logic
+      pushFullShow().then(() => {
+        const t0 = serverNow();
+        setT0(t0);
+        // Start the song timer
+        timerInterval = setInterval(() => {
+          const elapsedSeconds = Math.round((serverNow() - t0) / 1000);
+          songTimer.textContent = `${elapsedSeconds}s`;
+        }, 1000);
+      });
+    }
+  }, 1000);
 };
 
-document.getElementById('clearPatterns').onclick = async ()=>{
-  console.log("[O20] clearPatterns()");
+document.getElementById('stopNow').onclick = async ()=>{
+  console.log("[O27] stopNow()");
+  clearInterval(timerInterval);
+  songTimer.textContent = '0s';
+  startSongBtn.disabled = false;
   await setPatterns([]);
-};
-document.getElementById('pushChorus').onclick = async ()=>{
-  console.log("[O21] pushChorus()");
-  await setPatterns(chorusPreset());
-  logStatus('Chorus preset loaded');
+  logStatus('Stopped');
 };
 
 document.getElementById('blastNow').onclick = async ()=>{
   console.log("[O22] blastNow()");
-  await setPatterns([{ atMs: 0, type: 'blast', lenBeats:1 }]); // marker
+  await setPatterns([{ atMs: 0, type: 'blast', lenBeats:1 }]); // marker for logs
   const at = serverNow();
   await torchCommand(at, true);
   setTimeout(()=>torchCommand(serverNow(), false), 120);
@@ -308,7 +406,7 @@ document.getElementById('whiteOut4').onclick = async ()=>{
   console.log("[O23] whiteOut4()");
   const at = serverNow();
   await torchCommand(at, true);
-  setTimeout(()=>torchCommand(serverNow(), false), 480); // ~1 beat around 126bpm
+  setTimeout(()=>torchCommand(serverNow(), false), 480);
 };
 
 document.getElementById('strobe2s').onclick = async ()=>{
@@ -327,10 +425,6 @@ document.getElementById('strobe2s').onclick = async ()=>{
 
 document.getElementById('torchOn').onclick  = ()=>{ console.log("[O25] torchOn()");  torchCommand(serverNow(), true); };
 document.getElementById('torchOff').onclick = ()=>{ console.log("[O26] torchOff()"); torchCommand(serverNow(), false); };
-document.getElementById('screenBlack').onclick = async ()=>{
-  console.log("[O27] screenBlack()");
-  await setPatterns([]);
-};
 
 // Time ticker
 setInterval(()=>{
