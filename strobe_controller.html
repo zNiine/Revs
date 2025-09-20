@@ -48,24 +48,15 @@
           <label>Bars</label>
           <input id="bars" type="number" min="1" max="256" value="64">
         </div>
-        <div class="stack">
-          <h2>Audio</h2>
-          <label>Storage path</label>
-          <input id="audioPath" placeholder="audio/sweet-caroline-demo.mp3">
-          <label>Gain (dB)</label>
-          <input id="gainDb" type="number" value="-3">
-          <label>Lead-In (ms)</label>
-          <input id="leadIn" type="number" value="3000">
-        </div>
       </div>
     </div>
 
     <div class="card">
       <h1>Live Cues</h1>
       <div class="stack">
-        <button id="startSongNow" class="accent">Start Song Now</button>
+        <button id="startSongNow" class="accent">Start Show</button>
         <div class="stat" style="font-size: 1.25em; text-align: center; margin-top: 10px;">
-          Song Progress: <span id="songTimer">0s</span>
+          Show Progress: <span id="songTimer">0s</span>
         </div>
         <div class="grid">
           <button id="blastNow">Blast now</button>
@@ -92,7 +83,7 @@
 
 <script type="module">
 /* ===========================================
-   OPERATOR — v2.1 (prominent timer display)
+   OPERATOR — v3.4 (Manual cueing without player)
    =========================================== */
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
@@ -122,9 +113,6 @@ const status   = el('status');
 const title    = el('title');
 const bpm      = el('bpm');
 const bars     = el('bars');
-const audioPath= el('audioPath');
-const gainDb   = el('gainDb');
-const leadIn   = el('leadIn');
 const timeInfo = el('timeInfo');
 const currShow = el('currShow');
 
@@ -158,9 +146,6 @@ async function loadShow(){
   title.value = s.title ?? '';
   bpm.value   = s?.tempo?.bpm ?? 126;
   bars.value  = s?.grid?.bars ?? 64;
-  audioPath.value = s?.audio?.storagePath ?? '';
-  gainDb.value    = s?.audio?.gainDb ?? -3;
-  leadIn.value    = s?.audio?.leadInMs ?? 3000;
   renderShow(s);
 }
 
@@ -188,11 +173,6 @@ async function saveMeta(){
   console.log("[O10] saveMeta(%s)", id);
   const payload = {
     title: title.value || 'Untitled',
-    audio: {
-      storagePath: audioPath.value || null,
-      gainDb: Number(gainDb.value||-3),
-      leadInMs: Number(leadIn.value||3000)
-    },
     tempo: { bpm: Number(bpm.value||126), ts: "4/4" },
     grid: { mode: "bpm", bars: Number(bars.value||64) }
   };
@@ -370,8 +350,8 @@ startSongBtn.onclick = async () => {
     } else {
       clearInterval(countdownInterval);
       startSongBtn.textContent = originalText;
-      logStatus('Starting song…');
-      // The rest of the show start logic
+      logStatus('Starting show…');
+      
       pushFullShow().then(() => {
         const t0 = serverNow();
         setT0(t0);
@@ -432,7 +412,9 @@ setInterval(()=>{
 }, 500);
 
 // Boot
-loadShow().then(()=>console.log("[O28] Initial loadShow() done."));
+document.addEventListener('DOMContentLoaded', () => {
+    loadShow().then(() => console.log("[O28] Initial loadShow() done."));
+});
 </script>
 </body>
 </html>
