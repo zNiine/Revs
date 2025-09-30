@@ -7,7 +7,7 @@ df.columns = df.columns.str.strip()
 
 # Filter for YOR batters
 filtered = df[
-    (df["BatterTeam"] == "YOR")
+    (df["BatterTeam"] == "HP")
 ].copy()
 
 # Check for the existence of 'UTCDateTime' before trying to sort
