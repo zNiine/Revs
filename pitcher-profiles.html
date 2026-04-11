@@ -13,97 +13,8 @@
     <script src="libs/plotly.min.js"></script>
     <script src="libs/papaparse.min.js"></script>
     <style>
-        /* (same styles as batter page) */
-        body {
-            display: flex;
-            flex-direction: column;
-            margin: 0;
-            font-family: Arial, sans-serif;
-        }
-
-
-        .modalOverlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.modalOverlay.show {
-  display: flex;
-}
-#modalContent {
-  position: relative;
-  width: 80vw;
-  height: 80vh;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-  overflow: hidden;
-}
-#modalClose {
-  position: absolute;
-  top: 8px; right: 12px;
-  font-size: 1.5rem;
-  cursor: pointer;
-  z-index: 1001;
-}
-
-/* mobile-first base: sidebar hidden, main full-width */
-.container {
-  flex-direction: column;
-}
-.sidebar {
-  display: none;
-}
-.main {
-  width: 100%;
-  padding: 0.5rem;
-}
-.card > div {
-  height: 300px; /* smaller height on phones */
-}
-
-/* medium+ screens: restore your two-column layout */
-@media (min-width: 768px) {
-  .container {
-    flex-direction: row;
-  }
-  .sidebar {
-    display: block;
-    width: 250px;
-  }
-  .main {
-    width: auto;
-    padding: 1rem;
-  }
-  .card > div {
-    height: 100%;  /* back to original height */
-  }
-}
-
-#animFrame {
-  width: 100%;
-  height: 100%;
-  border: none;
-}
-
-        header,
-        nav {
-            padding: 0.5rem 1rem;
-            background: #fafafa;
-            border-bottom: 1px solid #ddd;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-          #tooltip {
+        body { margin: 0; }
+        #tooltip {
             position: fixed;
             background: rgba(0,0,0,0.75);
             color: #fff;
@@ -138,54 +49,9 @@
             text-decoration: underline;
         }
 
-        #subMenu {
-            padding: 0.5rem 1rem;
-            background: #f0f0f0;
-            border-bottom: 1px solid #ddd;
-        }
-
-        #subMenu button {
-            margin-right: 0.5rem;
-            padding: 0.4rem 0.8rem;
-        }
-
-        #subMenu .sub-active {
-            background: #ddd;
-        }
-
-        .container {
-            display: flex;
-            flex: 1;
-        }
-
-        .sidebar {
-            width: 250px;
-            padding: 1rem;
-            background: #f7f7f7;
-            border-right: 1px solid #ddd;
-        }
-
-        .sidebar .filters {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .sidebar label {
-            font-size: 0.9rem;
-        }
-
-        .sidebar button {
-            margin-top: 1rem;
-            padding: 0.5rem;
-            cursor: pointer;
-        }
-
-        .main {
-            flex: 1;
-            padding: 1rem;
-            overflow: auto;
-        }
+        #subMenu button { background: none; border: none; padding: 0.5rem 1rem; cursor: pointer; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; }
+        #subMenu button:hover { color: var(--text); }
+        #subMenu button.sub-active { color: var(--accent); border-bottom-color: var(--accent); }
 
         /* Game Log Table Styling */
 #gameLogTable table {
@@ -215,7 +81,7 @@
 
 
           
-        #sprayCanvas { border: 1px solid #ccc; background: #e8f5e9; display: block; margin: 1rem auto; }
+        #sprayCanvas { border: 1px solid var(--border); background: var(--bg-elevated); display: block; margin: 1rem auto; border-radius: var(--radius); }
         #parkSelect2 { margin-bottom: 0.5rem; }
 
         #plateContainer {
@@ -272,7 +138,7 @@
     .card > div { width: 100%; height: 100%; }
 
         @media print {
-  header, nav, #subMenu, .sidebar, #paContainer { display: none !important; }
+  .app-header, .side-menu, .overlay, .filters-panel, #subMenu, #paContainer, #gameLogContainer { display: none !important; }
   body, html { margin:0; padding:0; }
   #usageContainer { display:block !important; width:100% !important; }
   .treeWrapper { display:block !important; width:100% !important; }
@@ -301,78 +167,69 @@
 </head>
 
 <body>
-
-    <header>
-        <div id="logo">ALPB</div>
-        <form id="search-form">
-      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off" />
-      <button type="submit" id="search-btn">Go</button>
+  <header class="app-header">
+    <a href="index.html" class="logo">ALPB</a>
+    <nav class="nav-desktop">
+      <a href="index.html">Home</a>
+      <a href="schedule.html">Standings</a>
+      <a href="games.html">Games</a>
+      <a href="leaderboards.html">Leaderboards</a>
+      <a href="park-factors.html">Park Factors</a>
+      <a href="fielding.html">Fielding</a>
+      <a href="stolen-bases.html">Base Running</a>
+      <a href="dong.html">Would it Dong?</a>
+    </nav>
+    <form id="search-form" class="nav-desktop header-search-form">
+      <input type="text" id="search" placeholder="Search…" list="suggestions" autocomplete="off" style="width:180px;padding:0.4rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);" />
+      <button type="submit" id="search-btn" class="btn btn-primary" style="margin-left:4px;">Go</button>
       <datalist id="suggestions"></datalist>
     </form>
-    </header>
-   <nav id="menu">
+    <div class="hamburger" id="hamburger-btn" aria-label="Menu"><span></span><span></span><span></span></div>
+  </header>
+  <div id="side-menu" class="side-menu">
+    <form id="search-form-mobile" style="margin-bottom:1rem;">
+      <input type="text" id="search-mobile" placeholder="Search…" list="suggestions-mobile" autocomplete="off" style="width:100%;padding:0.5rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);" />
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem;">Go</button>
+      <datalist id="suggestions-mobile"></datalist>
+    </form>
+    <nav>
       <ul>
         <li><a href="index.html">Home</a></li>
+        <li><a href="schedule.html">Standings</a></li>
+        <li><a href="games.html">Games</a></li>
         <li><a href="leaderboards.html">Leaderboards</a></li>
         <li><a href="park-factors.html">Park Factors</a></li>
-        <li><a href="fielding.html" class="active">Fielding</a></li>
+        <li><a href="fielding.html">Fielding</a></li>
+        <li><a href="stolen-bases.html">Base Running</a></li>
+        <li><a href="dong.html">Would it Dong?</a></li>
       </ul>
     </nav>
+  </div>
+  <div id="overlay" class="overlay"></div>
 
-    <!-- Sub-menu: toggle between the two profile panels -->
-    <div id="subMenu">
-        <button id="tabPA" class="sub-active">Plate Appearances</button>
-        <button id="tabGameLog">Game Log</button>
-
-        <button id="tabTree">Usage Tree</button>
-        <button id="printTree">Print</button>
-        
-
+  <main class="main-container">
+    <h1 class="page-title" id="playerName">Pitcher</h1>
+    <div class="filters-panel">
+      <div class="filters-grid">
+        <div><label for="startDate">Start</label><input type="date" id="startDate" onchange="applyFilters()" /></div>
+        <div><label for="endDate">End</label><input type="date" id="endDate" onchange="applyFilters()" /></div>
+        <div><label><input type="checkbox" id="showAllDates" onchange="applyFilters()" /> All dates</label></div>
+        <div><label for="sideFilter">Batter side</label><select id="sideFilter" onchange="applyFilters()"><option value="">All</option><option value="Left">Left</option><option value="Right">Right</option></select></div>
+        <div><label for="batterFilter">Batter</label><select id="batterFilter" onchange="onBatterChange()"><option value="">All</option></select></div>
+        <div><label for="pitchTypeFilter">Pitch type</label><select id="pitchTypeFilter" onchange="applyFilters()"><option value="">All</option></select></div>
+        <div><label for="atBatFilter" id="atBatLabel" style="display:none;">At Bat</label><select id="atBatFilter" onchange="applyFilters()" style="display:none;"><option value="">All</option></select></div>
+        <div><label>&nbsp;</label><button type="button" onclick="resetFilters()" class="btn btn-ghost">Reset</button></div>
+      </div>
     </div>
 
-    <div class="container">
-        <div class="sidebar">
-            <div class="filters">
-                <label for="startDate">Start Date</label>
-                <input type="date" id="startDate" onchange="applyFilters()" />
+    <nav id="subMenu" class="subnav">
+      <button type="button" id="tabPA" class="sub-active">Plate Appearances</button>
+      <button type="button" id="tabGameLog">Game Log</button>
+      <button type="button" id="tabTree">Usage Tree</button>
+      <button type="button" id="printTree">Print</button>
+    </nav>
 
-                <label for="endDate">End Date</label>
-                <input type="date" id="endDate" onchange="applyFilters()" />
-
-                <label>
-                    <input type="checkbox" id="showAllDates" onchange="applyFilters()" />
-                    Show All Dates
-                </label>
-
-                <label for="sideFilter">Batter Side</label>
-                <select id="sideFilter" onchange="applyFilters()">
-                    <option value="">All</option>
-                    <option value="Left">Left</option>
-                    <option value="Right">Right</option>
-                </select>
-
-                <label for="batterFilter">Batter</label>
-                <select id="batterFilter" onchange="onBatterChange()">
-                    <option value="">All</option>
-                </select>
-
-                <label for="pitchTypeFilter">Pitch Type</label>
-                <select id="pitchTypeFilter" onchange="applyFilters()">
-                    <option value="">All</option>
-                </select>
-
-                <label for="atBatFilter" id="atBatLabel" style="display:none;">At Bat</label>
-                <select id="atBatFilter" onchange="applyFilters()" style="display:none;">
-                    <option value="">All</option>
-                </select>
-
-                <button onclick="resetFilters()">Reset Filters</button>
-            </div>
-        </div>
-
-        <!-- Plate Appearances view -->
-        <div class="main" id="paContainer">
-            <h2 id="playerName"></h2>
+    <div id="paContainer">
 
             <div id="plateContainer">
                 <div id="plateChart"></div>
@@ -578,13 +435,12 @@
 
         </div>
 
-        <div class="main" id="gameLogContainer" style="display:none;">
-  <h2 id="gameLogTitle">Game Log</h2>
-  <div id="gameLogTable"></div>
+        <div id="gameLogContainer" style="display:none;">
+  <h2 id="gameLogTitle" class="page-title">Game Log</h2>
+  <div id="gameLogTable" class="table-wrap"></div>
 </div>
 
-        <!-- Usage Tree view -->
-        <div class="main" id="usageContainer" style="display:none;">
+        <div id="usageContainer" style="display:none;">
             <h2 id="playerNameTree"></h2>
             <div style="margin-bottom:1rem;">
                 <label for="treeSideFilter">Batter Side:</label>
@@ -619,12 +475,14 @@
        
     </div>
 
-    <div id="modalOverlay" class="modalOverlay">
-    <div id="modalContent">
-      <span id="modalClose">&times;</span>
-      <iframe id="animFrame" src="" allowfullscreen></iframe>
+    <div id="modalOverlay" class="modal-overlay">
+      <div class="modal-content">
+        <span id="modalClose" class="modal-close" aria-label="Close">&times;</span>
+        <iframe id="animFrame" src="" allowfullscreen></iframe>
+      </div>
     </div>
-  </div>
+
+  </main>
 
     <script>
         let allData = [], playerName = '';
@@ -2353,64 +2211,32 @@ function drawMovementProfile(data) {
             applyFilters();
         }
         function loadData() {
+  var player = (new URLSearchParams(location.search).get('player') || '').trim();
+  if (!player) {
+    document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">No pitcher specified. Use ?player=Name</p>');
+    return;
+  }
+  allData = [];
   Papa.parse('./data.csv', {
     download: true,
     header: true,
     skipEmptyLines: true,
-    transformHeader: header => {
-      // Only keep columns actually referenced in your dashboard scripts
-      const wanted = [
-  'Date',
-  'GameUID',
-  'GameID',
-  'PitchUID',
-  'PlayID',
-  'Pitcher',
-  'PitcherThrows',
-  'Batter',
-  'BatterSide',
-  'AutoPitchType',
-  'PlateLocSide',
-  'PlateLocHeight',
-  'HorzBreak',
-  'InducedVertBreak',
-  'Extension',
-  'SpinAxis',
-  'RelSpeed',
-  'SpinRate',
-  'TaggedHitType',
-  'Distance',
-  'Direction',
-  'PositionAt110X',
-  'PositionAt110Y',
-  'RunsScored',
-  'Balls',
-  'Strikes',
-  'PitchCall',
-  'KorBB',
-  'PlayResult',
-  'Angle',
-  'ExitSpeed',
-  'HomeNameFull',
-  'AwayNameFull',
-  'Inning',
-  'PAofInning'
-];
-      return wanted.includes(header) ? header : null;
+    step: function(results) {
+      var r = results.data;
+      if (r && r.Pitcher === player) allData.push(r);
     },
-    complete: res => {
-      // `res.data` now contains only the fields listed above
-      data = res.data;
-
-      // Convert the Date string into a real Date object
-      allData = data.map(r => ({
-        ...r,
-        Date: new Date(r.Date)
-      }));
-
+    complete: function() {
+      allData = allData.map(function(r) {
+        var d = r.Date;
+        return Object.assign({}, r, { Date: d ? new Date(d) : d });
+      });
+      data = allData;
       initDashboard();
       initSearchHandler();
       populateSuggestions();
+    },
+    error: function() {
+      document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">Failed to load data.csv.</p>');
     }
   });
 }
@@ -3616,6 +3442,22 @@ function populateSuggestions() {
         // Fallback: no match
         alert('No matching player or team found.');
       });
+      const mobileForm = document.getElementById('search-form-mobile');
+      if (mobileForm) {
+        mobileForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const q = (document.getElementById('search-mobile') && document.getElementById('search-mobile').value.trim()) || '';
+          const isUmp = data.some(r => r.Umpire === q);
+          if (isUmp) { window.location.href = 'ump-profiles.html?player=' + encodeURIComponent(q); return; }
+          const isPitcher = data.some(r => r.Pitcher === q);
+          if (isPitcher) { window.location.href = 'pitcher-profiles.html?player=' + encodeURIComponent(q); return; }
+          const isBatter = data.some(r => r.Batter === q);
+          if (isBatter) { window.location.href = 'batter-profiles.html?player=' + encodeURIComponent(q); return; }
+          const isTeam = data.some(r => r.HomeNameFull === q || r.AwayNameFull === q);
+          if (isTeam) { window.location.href = 'team-profiles.html?team=' + encodeURIComponent(q); return; }
+          alert('No matching player or team found.');
+        });
+      }
     }
 
 
@@ -3663,6 +3505,12 @@ function populateSuggestions() {
        
         
       });
+  </script>
+  <script>
+    (function(){ var h=document.getElementById('hamburger-btn'), s=document.getElementById('side-menu'), o=document.getElementById('overlay');
+      if(h&&s&&o){ h.addEventListener('click', function(){ s.classList.toggle('open'); h.classList.toggle('open'); o.classList.toggle('visible'); });
+      o.addEventListener('click', function(){ s.classList.remove('open'); h.classList.remove('open'); o.classList.remove('visible'); }); }
+    })();
   </script>
 </body>
 

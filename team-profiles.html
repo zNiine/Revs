@@ -3,54 +3,55 @@
 <head>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
-
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Team Profiles - Baseball Analytics</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #fff; font-family: Arial, sans-serif; }
-    header, nav { padding: 1rem 2rem; border-bottom: 1px solid #ddd; }
-    header { display: flex; justify-content: space-between; align-items: center; }
-    #logo { font-size: 1.5rem; font-weight: bold; }
-    main { padding: 2rem; }
-    .filter-container { margin-bottom: 1rem; }
-    .filter-container input { padding: 0.5rem; width: 200px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-    th, td { padding: 0.5rem; border: 1px solid #ccc; text-align: center; }
-    th { background: #f4f4f4; cursor: pointer; }
-    th.sort-asc::after { content: ' ▲'; }
-    th.sort-desc::after { content: ' ▼'; }
-    .section-title { margin-top: 2rem; font-size: 1.25rem; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Team Profile – ALPB</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <div id="logo">Team Profile</div>
+  <header class="app-header">
+    <a href="index.html" class="logo">ALPB</a>
+    <nav class="nav-desktop">
+      <a href="index.html">Home</a>
+      <a href="schedule.html">Standings</a>
+      <a href="games.html">Games</a>
+      <a href="leaderboards.html">Leaderboards</a>
+      <a href="park-factors.html">Park Factors</a>
+      <a href="fielding.html">Fielding</a>
+      <a href="stolen-bases.html">Base Running</a>
+      <a href="dong.html">Would it Dong?</a>
+    </nav>
+    <div class="hamburger" id="hamburger-btn" aria-label="Menu"><span></span><span></span><span></span></div>
   </header>
-  <nav>
-    <ul style="list-style:none; display:flex; gap:1rem; padding:1rem 2rem;">
-      <li><a href="index.html">Home</a></li>
-      <li><a href="leaderboards.html">Leaderboards</a></li>
-      <li><a href="park-factors.html">Park Factors</a></li>
-      <li><a href="#" class="active">Team Profiles</a></li>
-    </ul>
-  </nav>
+  <div id="side-menu" class="side-menu">
+    <nav>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="schedule.html">Standings</a></li>
+        <li><a href="games.html">Games</a></li>
+        <li><a href="leaderboards.html">Leaderboards</a></li>
+        <li><a href="park-factors.html">Park Factors</a></li>
+        <li><a href="fielding.html">Fielding</a></li>
+        <li><a href="stolen-bases.html">Base Running</a></li>
+        <li><a href="dong.html">Would it Dong?</a></li>
+      </ul>
+    </nav>
+  </div>
+  <div id="overlay" class="overlay"></div>
 
-  <main>
-    <h2 id="team-name"></h2>
-
-    <!-- Player Filter & Legends -->
-    <div class="filter-container">
-      <label for="player-filter">Filter by player: </label>
+  <main class="main-container">
+    <h1 class="page-title" id="team-name"></h1>
+    <div class="filters-panel">
+      <label for="player-filter">Filter by player</label>
       <input type="text" id="player-filter" placeholder="Enter player name" />
     </div>
-    <div class="weights-legend" style="margin-bottom:1rem; font-size:0.9rem;">
-      <strong>wOBA Weights:</strong> BB=0.69, HBP=0.72, 1B=0.88, 2B=1.24, 3B=1.56, HR=2.10, SF=0.73
-    </div>
-
-    <!-- Player Table -->
-    <table id="profile-table">
+    <p class="section-title" style="font-size:0.85rem; color:var(--text-muted); margin-top:0;">wOBA weights: BB=0.69, HBP=0.72, 1B=0.88, 2B=1.24, 3B=1.56, HR=2.10, SF=0.73</p>
+    <div class="card">
+      <div class="table-wrap">
+        <table id="profile-table">
       <thead>
         <tr>
           <th data-key="Player">Player</th>
@@ -65,10 +66,12 @@
       </thead>
       <tbody></tbody>
     </table>
-
-    <!-- Pitcher Section -->
-    <div class="section-title">Pitchers</div>
-    <table id="pitcher-table">
+      </div>
+    </div>
+    <h2 class="section-title">Pitchers</h2>
+    <div class="card">
+      <div class="table-wrap">
+        <table id="pitcher-table">
       <thead>
         <tr>
           <th data-key="Pitcher">Pitcher</th>
@@ -81,7 +84,16 @@
       </thead>
       <tbody></tbody>
     </table>
+      </div>
+    </div>
   </main>
+  <script>
+    (function(){
+      var h=document.getElementById('hamburger-btn'), s=document.getElementById('side-menu'), o=document.getElementById('overlay');
+      h.addEventListener('click', function(){ if(s.classList.contains('open')){ h.classList.remove('open'); s.classList.remove('open'); o.classList.remove('visible'); }else{ h.classList.add('open'); s.classList.add('open'); o.classList.add('visible'); } });
+      o.addEventListener('click', function(){ h.classList.remove('open'); s.classList.remove('open'); o.classList.remove('visible'); });
+    })();
+  </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
@@ -120,14 +132,24 @@
       });
     }
 
-    Papa.parse('./data.csv', {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: ({data}) => {
-        const team = getParam('team');
-        document.getElementById('team-name').textContent = team;
-
+    (function() {
+      var team = getParam('team');
+      if (!team) {
+        document.getElementById('team-name').textContent = 'No team specified';
+        return;
+      }
+      document.getElementById('team-name').textContent = team;
+      var data = [];
+      // Stream data.csv and keep only rows for this team (low memory)
+      Papa.parse('./data.csv', {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        step: function(results) {
+          var r = results.data;
+          if (r && (r.HomeNameFull === team || r.AwayNameFull === team)) data.push(r);
+        },
+        complete: function() {
         // determine team abbreviation
         const ref = data.find(r => r.HomeNameFull === team) ||
                     data.find(r => r.AwayNameFull === team);
@@ -262,8 +284,12 @@
         renderTable('pitcher-table', pitcherStats, [
           'Pitcher','MaxRelSpeed','AvgRelSpeed','AvgSpinRate','MostUsedPitch','Handedness'
         ]);
-      }
-    });
+        },
+        error: function() {
+          document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">Failed to load data.csv.</p>');
+        }
+      });
+    })();
   </script>
 </body>
 </html>

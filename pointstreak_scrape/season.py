@@ -3,8 +3,7 @@
 
 """
 Pointstreak ALPB team scraper
-- Scrapes season options from the dropdown
-- Filters to "ALPB- YEAR" seasons (excludes Playoffs/All-Star/Spring/Pre-Season/World Series)
+- Scrapes ALL seasons from the dropdown (regular, playoffs, preseason, all-star, etc.)
 - Visits each season's team list and extracts Division, Team, teamid, seasonid
 - Saves CSV: pointstreak_alpb_teams.csv
 """
@@ -22,8 +21,8 @@ from requests.adapters import HTTPAdapter
 
 BASE = "https://baseball.pointstreak.com"
 LEAGUE_ID = "174"
-# Any valid season page will contain the full dropdown; use current-year page as a seed.
-SEED_SEASON_ID = "34102"  # ALPB- 2025 (from your snippet); adjust if needed
+# Any valid season page will contain the full dropdown; use a current page as a seed.
+SEED_SEASON_ID = "34102"  # ALPB- 2025 (adjust if needed)
 
 OUT_CSV = "pointstreak_alpb_teams.csv"
 
@@ -33,21 +32,6 @@ HEADERS = {
                   "Chrome/124.0.0.0 Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
 }
-
-# Phrases to EXCLUDE from season text (case-insensitive)
-EXCLUDE_KEYWORDS = [
-    "playoffs",
-    "all star",
-    "all-star",
-    "spring training",
-    "pre-season",
-    "pre season",
-    "world series",
-]
-
-# Pattern examples we want to INCLUDE:
-# "ALPB- 2025", "ALPB- 2019", "ALPB - 2011" (tolerate spaces)
-ALPB_ALLOW_RE = re.compile(r"\bALPB\s*-\s*\d{4}\b", re.IGNORECASE)
 
 SEASON_ID_RE = re.compile(r"seasonid=(\d+)")
 TEAM_ID_RE = re.compile(r"teamid=(\d+)")
@@ -77,17 +61,16 @@ def fetch_html(session: requests.Session, url: str) -> BeautifulSoup:
 
 
 def should_include_season(label: str) -> bool:
-    txt = label.strip()
-    low = txt.lower()
-    if any(kw in low for kw in EXCLUDE_KEYWORDS):
-        return False
-    # must match ALPB - YYYY
-    return bool(ALPB_ALLOW_RE.search(txt))
+    """
+    Return True for all options that have a valid seasonid.
+    No filtering — includes Playoffs, Preseason, All-Star, etc.
+    """
+    return True
 
 
 def parse_seasons_from_dropdown(soup: BeautifulSoup) -> List[Tuple[str, str]]:
     """
-    Returns list of (season_text, season_id)
+    Returns list of (season_text, season_id) for every available season.
     """
     select = soup.find("select", id="redirectLeagueSeason")
     if not select:
@@ -100,7 +83,7 @@ def parse_seasons_from_dropdown(soup: BeautifulSoup) -> List[Tuple[str, str]]:
         m = SEASON_ID_RE.search(value)
         season_id = m.group(1) if m else None
         if not season_id:
-            # Some options may be "- All Seasons -" which lacks a seasonid
+            # Some options (e.g., "- All Seasons -") lack a seasonid
             continue
 
         if should_include_season(label):
@@ -131,7 +114,7 @@ def parse_teamlist_for_season(soup: BeautifulSoup, season_id: str, season_label:
             m_team = TEAM_ID_RE.search(href)
             team_id = m_team.group(1) if m_team else ""
 
-            # Sanity: prefer seasonid pulled from page href if present
+            # Prefer seasonid found in the link (if present)
             m_season = SEASON_ID_RE.search(href)
             href_season = m_season.group(1) if m_season else season_id
 
@@ -162,10 +145,10 @@ def main():
 
     seasons = parse_seasons_from_dropdown(seed_soup)
     if not seasons:
-        print("No seasons matched the ALPB filter. Exiting.", file=sys.stderr)
+        print("No seasons found in the dropdown. Exiting.", file=sys.stderr)
         sys.exit(2)
 
-    print(f"Found {len(seasons)} ALPB seasons to scrape.")
+    print(f"Found {len(seasons)} seasons to scrape (no filtering).")
     all_rows: List[Dict] = []
 
     for i, (season_label, season_id) in enumerate(seasons, 1):
@@ -200,7 +183,7 @@ def main():
     def season_sort_key(sid: str) -> int:
         try:
             return int(sid)
-        except:
+        except Exception:
             return -1
 
     final_rows.sort(key=lambda r: (-season_sort_key(r["season_id"]), r["division"], r["team"]))

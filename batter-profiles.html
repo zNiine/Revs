@@ -13,38 +13,8 @@
     <script src="libs/papaparse.min.js"></script>
     <style>
 
-              .modalOverlay {
-          display: none;
-          position: fixed;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.6);
-          align-items: center;
-          justify-content: center;
-          z-index: 10000;
-        }
-        .modalOverlay.show { display: flex; }
-        #modalContent {
-          background: #fff;
-          border-radius: 8px;
-          width: 80vw;
-          height: 80vh;
-          position: relative;
-          overflow: hidden;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-        }
-        #modalClose {
-          position: absolute; top: 8px; right: 12px;
-          font-size: 1.5rem; cursor: pointer; z-index: 1;
-        }
-        #animFrame {
-          width:100%; height:100%; border:none;
-        }
-        body {
-            display: flex;
-            flex-direction: column;
-            margin: 0;
-            font-family: Arial, sans-serif;
-        }
+              /* Modal uses .modal-overlay from style.css */
+        body { margin: 0; }
 
         #gameLogTable table {
   width:100%;
@@ -71,71 +41,7 @@
 }
 
 
-        header,
-        nav {
-            padding: 0.5rem 1rem;
-            background: #fafafa;
-            border-bottom: 1px solid #ddd;
-        }
-
-        header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        #logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-
-        nav#menu ul {
-            list-style: none;
-            display: flex;
-            gap: 1rem;
-            margin: 0;
-            padding: 0;
-        }
-
-        nav#menu a {
-            text-decoration: none;
-            color: #333;
-            font-weight: 500;
-        }
-
-        nav#menu a.active {
-            text-decoration: underline;
-        }
-
-        .container {
-            display: flex;
-            flex: 1;
-        }
-
-        .sidebar {
-            width: 250px;
-            padding: 1rem;
-            background: #f7f7f7;
-            border-right: 1px solid #ddd;
-        }
-
-        .sidebar .filters {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .sidebar label {
-            font-size: 0.9rem;
-        }
-
-        .sidebar button {
-            margin-top: 1rem;
-            padding: 0.5rem;
-            cursor: pointer;
-        }
-
-        #sprayCanvas { border: 1px solid #ccc; background: #e8f5e9; display: block; margin: 1rem auto; }
+        #sprayCanvas { border: 1px solid var(--border); background: var(--bg-elevated); display: block; margin: 1rem auto; border-radius: var(--radius); }
         #parkSelect2 { margin-bottom: 0.5rem; }
 
 
@@ -150,12 +56,6 @@
             display: none;
             z-index: 1000;
         }
-        .main {
-            flex: 1;
-            padding: 1rem;
-            overflow: auto;
-        }
-
         #plateContainer {
             display: flex;
             margin-bottom: 2rem;
@@ -188,168 +88,81 @@
             margin-top: 1rem;
         }
 
-        #battedBallTable th,
-        #battedBallTable td {
-            border: 1px solid #ccc;
-            padding: 0.4rem;
-            text-align: left;
-        }
-
-        #battedBallTable th {
-            background: #eee;
-        }
-
-        /* At-bat detail table styling */
-        #atBatPitchTable table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        #atBatPitchTable th,
-        #atBatPitchTable td {
-            border: 1px solid #ccc;
-            padding: 0.4rem;
-            text-align: left;
-        }
-
-        #atBatPitchTable th {
-            background: #eee;
-        }
-
-        #subMenu {
-  display: flex;
-  gap: 1rem;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-#subMenu button {
-  background: none;
-  border: none;
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-#subMenu button.sub-active {
-  border-bottom: 2px solid #0074D9;  /* highlight active tab */
-}
-
-.card {
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-}
-
-
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.2);
-  border-radius: 4px;
-}
-
-:root {
-  --gutter: 1rem;
-}
-.row { gap: var(--gutter); }
-.card { padding: calc(var(--gutter) / 2); }
-
-#subMenu button {
-  transition: background 0.2s;
-}
-#subMenu button:hover {
-  background: rgba(0, 116, 217, 0.1);
-}
-#gameLogTable tbody tr:hover {
-  background: #f0f8ff;
-}
-
-#subMenu {
-  position: sticky;
-  top: 0;
-  background: #fff;
-  z-index: 10;
-}
+        #subMenu { position: sticky; top: 0; z-index: 10; }
+        #subMenu button { background: none; border: none; padding: 0.5rem 1rem; cursor: pointer; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; }
+        #subMenu button:hover { color: var(--text); }
+        #subMenu button.sub-active { color: var(--accent); border-bottom-color: var(--accent); }
 
 
 
-         .row { display: flex; gap: 1rem; margin-bottom: 1rem; }
-    .col { flex: 1; }
-    .card { border: 1px solid #ddd; border-radius: 4px; padding: 0.75rem; background: #fff; }
+        .row { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
+        .col { flex: 1; min-width: 0; }
     /* Chart containers should fill card */
     .card > div { width: 100%; height: 100%; }
     </style>
 </head>
 
 <body>
-    <header>
-        <div id="logo">ALPB</div>
-        <form id="search-form">
-      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off" />
-      <button type="submit" id="search-btn">Go</button>
+  <header class="app-header">
+    <a href="index.html" class="logo">ALPB</a>
+    <nav class="nav-desktop">
+      <a href="index.html" class="active">Home</a>
+      <a href="schedule.html">Standings</a>
+      <a href="games.html">Games</a>
+      <a href="leaderboards.html">Leaderboards</a>
+      <a href="park-factors.html">Park Factors</a>
+      <a href="fielding.html">Fielding</a>
+      <a href="stolen-bases.html">Base Running</a>
+      <a href="dong.html">Would it Dong?</a>
+    </nav>
+    <form id="search-form" class="nav-desktop header-search-form">
+      <input type="text" id="search" placeholder="Search…" list="suggestions" autocomplete="off" style="width:180px;padding:0.4rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);" />
+      <button type="submit" id="search-btn" class="btn btn-primary" style="margin-left:4px;">Go</button>
       <datalist id="suggestions"></datalist>
     </form>
-    </header>
-    <nav id="menu">
-        <ul>
-            <li><a href="index.html" class="active">Home</a></li>
-                              <li><a href="games.html">Games</a></li>
-
-            <li><a href="leaderboards.html">Leaderboards</a></li>
-            <li><a href="park-factors.html">Park Factors</a></li>
- <li><a href="dong.html">Would it Dong?</a></li>        </ul>
+    <div class="hamburger" id="hamburger-btn" aria-label="Menu"><span></span><span></span><span></span></div>
+  </header>
+  <div id="side-menu" class="side-menu">
+    <form id="search-form-mobile" style="margin-bottom:1rem;">
+      <input type="text" id="search-mobile" placeholder="Search…" list="suggestions-mobile" autocomplete="off" style="width:100%;padding:0.5rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);" />
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem;">Go</button>
+      <datalist id="suggestions-mobile"></datalist>
+    </form>
+    <nav>
+      <ul>
+        <li><a href="index.html" class="active">Home</a></li>
+        <li><a href="schedule.html">Standings</a></li>
+        <li><a href="games.html">Games</a></li>
+        <li><a href="leaderboards.html">Leaderboards</a></li>
+        <li><a href="park-factors.html">Park Factors</a></li>
+        <li><a href="fielding.html">Fielding</a></li>
+        <li><a href="stolen-bases.html">Base Running</a></li>
+        <li><a href="dong.html">Would it Dong?</a></li>
+      </ul>
     </nav>
+  </div>
+  <div id="overlay" class="overlay"></div>
 
-    <div class="container">
-        <div class="sidebar">
-            <div class="filters">
-                <label for="startDate">Start Date</label>
-                <input type="date" id="startDate" onchange="applyFilters()" />
+  <main class="main-container">
+    <h1 class="page-title" id="playerName">Batter</h1>
+    <div class="filters-panel">
+      <div class="filters-grid">
+        <div><label for="startDate">Start</label><input type="date" id="startDate" onchange="applyFilters()" /></div>
+        <div><label for="endDate">End</label><input type="date" id="endDate" onchange="applyFilters()" /></div>
+        <div><label><input type="checkbox" id="showAllDates" onchange="applyFilters()" /> All dates</label></div>
+        <div><label for="handFilter">Pitcher</label><select id="handFilter" onchange="applyFilters()"><option value="">All</option><option value="Left">Left</option><option value="Right">Right</option></select></div>
+        <div><label for="pitcherFilter">Pitcher</label><select id="pitcherFilter" onchange="onPitcherChange()"><option value="">All</option></select></div>
+        <div><label for="pitchTypeFilter">Pitch type</label><select id="pitchTypeFilter" onchange="applyFilters()"><option value="">All</option></select></div>
+        <div><label for="atBatFilter" id="atBatLabel" style="display:none;">At Bat</label><select id="atBatFilter" onchange="applyFilters()" style="display:none;"><option value="">All</option></select></div>
+        <div><label>&nbsp;</label><button type="button" id="resetFilters" class="btn btn-ghost" onclick="resetFilters()">Reset</button></div>
+      </div>
+    </div>
 
-                <label for="endDate">End Date</label>
-                <input type="date" id="endDate" onchange="applyFilters()" />
-
-                <label><input type="checkbox" id="showAllDates" onchange="applyFilters()" /> Show All Dates</label>
-
-                <label for="handFilter">Pitcher Throw</label>
-                <select id="handFilter" onchange="applyFilters()">
-          <option value="">All</option>
-          <option value="Left">Left</option>
-          <option value="Right">Right</option>
-        </select>
-
-
-             
-
-                <label for="pitcherFilter">Pitcher</label>
-                <select id="pitcherFilter" onchange="onPitcherChange()">
-                    <option value="">All</option>
-                </select>
-
-                <label for="pitchTypeFilter">Pitch Type</label>
-                <select id="pitchTypeFilter" onchange="applyFilters()">
-                    <option value="">All</option>
-                </select>
-
-                <label for="atBatFilter" id="atBatLabel" style="display:none;">At Bat</label>
-                <select id="atBatFilter" onchange="applyFilters()" style="display:none;">
-                    <option value="">All</option>
-                </select>
-
-                <button id="resetFilters" onclick="resetFilters()">Reset Filters</button>
-            </div>
-        </div>
-
-       
-
-<div class="main" id="paContainer">
- <div id="subMenu">
-  <button id="tabPA" class="sub-active">Plate Appearances</button>
-  <button id="tabGameLog">Game Log</button>
-  <!-- …other tabs… -->
-</div>
-
-            <h2 id="playerName"></h2>
+    <div id="paContainer">
+ <nav id="subMenu" class="subnav">
+  <button type="button" id="tabPA" class="sub-active">Plate Appearances</button>
+  <button type="button" id="tabGameLog">Game Log</button>
+</nav>
 
             <div id="plateContainer">
                 <div id="plateChart"></div>
@@ -534,25 +347,23 @@
 </div>
 
     </div>
-<div id="gameLogContainer" class="main" style="display:none;">
-  <h2 id="gameLogTitle"></h2>
-   <div id="subMenu">
-  <button id="tabPA2" >Plate Appearances</button>
-  <button id="tabGameLog2" class="sub-active">Game Log</button>
-  <!-- …other tabs… -->
-</div>
-  <div id="gameLogTable"></div>
+<div id="gameLogContainer" style="display:none;">
+  <h2 id="gameLogTitle" class="page-title"></h2>
+  <nav class="subnav">
+  <button type="button" id="tabPA2">Plate Appearances</button>
+  <button type="button" id="tabGameLog2" class="sub-active">Game Log</button>
+</nav>
+  <div id="gameLogTable" class="table-wrap"></div>
 </div>
 
-    <div id="modalOverlay" class="modalOverlay">
-      <div id="modalContent">
-        <span id="modalClose">&times;</span>
+    <div id="modalOverlay" class="modal-overlay">
+      <div class="modal-content">
+        <span id="modalClose" class="modal-close" aria-label="Close">&times;</span>
         <iframe id="animFrame" src="" allowfullscreen></iframe>
       </div>
     </div>
 
-
-    </div>
+  </main>
 
     <script>
         let allData = [], playerName = '';
@@ -561,61 +372,32 @@
         function parseNum(s) { const n = parseFloat(s); return isNaN(n) ? null : n; }
 
         function loadData() {
+  var player = (new URLSearchParams(location.search).get('player') || '').trim();
+  if (!player) {
+    document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">No player specified. Use ?player=Name</p>');
+    return;
+  }
+  allData = [];
   Papa.parse('./data.csv', {
     download: true,
     header: true,
     skipEmptyLines: true,
-    transformHeader: header => {
-      // only keep the columns this page uses:
-      const wanted = [
-        'Date',
-        'Batter',
-        'Pitcher',
-        'PitcherThrows',
-        'AutoPitchType',
-        'PlateLocSide',
-        'PlateLocHeight',
-        'HorzBreak',
-        'InducedVertBreak',
-        'Extension',
-        'RelSide',
-        'RelHeight',
-        'SpinAxis',
-        'RelSpeed',
-        'SpinRate',
-        'TaggedHitType',
-        'ExitSpeed',
-        'Angle',
-        'Distance',
-        'Direction',
-        'PositionAt110X',
-        'PositionAt110Y',
-        'PlayResult',
-        'PitchCall',
-        'KorBB',
-        'Inning',
-        'PAofInning',
-        'PitchUID',
-        'PlayID',
-        'GameUID',
-        'HomeNameFull',
-        'AwayNameFull',
-        'Umpire',
-        'Balls',
-        'Strikes',
-        'HitSpinRate',
-        'HitSpinAxis',
-        'SpeedDrop'
-      ];
-      return wanted.includes(header) ? header : null;
+    step: function(results) {
+      var r = results.data;
+      if (r && r.Batter === player) allData.push(r);
     },
-    complete: res => {
-      // res.data now contains only those fields; convert Date→Date()
-      allData = res.data.map(r => ({ ...r, Date: new Date(r.Date) }));
+    complete: function() {
+      allData = allData.map(function(r) {
+        var d = r.Date;
+        return Object.assign({}, r, { Date: d ? new Date(d) : d });
+      });
       data = allData;
       initSearchHandler();
-      populateSuggestions();
+      populateSuggestions(null);
       initDashboard();
+    },
+    error: function() {
+      document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">Failed to load data.csv.</p>');
     }
   });
 }
@@ -2098,14 +1880,26 @@ function watchVideo(gameUID, pitchUID) {
 }
 
 
-        function populateSuggestions() {
-      const dl = document.getElementById('suggestions');
-      const batters = new Set(data.map(r => r.Batter));
-      const ump = new Set(data.map(r => r.Umpire));
-      const pitchers = new Set(data.map(r => r.Pitcher));
-      const teams = new Set(data.map(r => r.HomeNameFull).concat(data.map(r => r.AwayNameFull)));
-      [...batters, ...teams, ...pitchers, ...ump].sort().forEach(name => {
-        const opt = document.createElement('option');
+        function populateSuggestions(searchIndex) {
+      var dl = document.getElementById('suggestions');
+      if (!dl) return;
+      dl.innerHTML = '';
+      if (searchIndex && searchIndex.length) {
+        window.ALPB_SEARCH_INDEX = searchIndex;
+        searchIndex.forEach(function(item) {
+          var opt = document.createElement('option');
+          opt.value = item.type === 'pitcher' ? item.name + ' (Pitcher)' : item.type === 'umpire' ? item.name + ' (Umpire)' : item.name;
+          opt.dataset.url = item.url;
+          dl.appendChild(opt);
+        });
+        return;
+      }
+      var batters = new Set(data.map(function(r) { return r.Batter; }));
+      var ump = new Set(data.map(function(r) { return r.Umpire; }));
+      var pitchers = new Set(data.map(function(r) { return r.Pitcher; }));
+      var teams = new Set(data.map(function(r) { return r.HomeNameFull; }).concat(data.map(function(r) { return r.AwayNameFull; })));
+      [].concat.apply([], [batters, teams, pitchers, ump]).filter(Boolean).sort().forEach(function(name) {
+        var opt = document.createElement('option');
         opt.value = name;
         dl.appendChild(opt);
       });
@@ -2115,37 +1909,43 @@ function watchVideo(gameUID, pitchUID) {
     function initSearchHandler() {
       document.getElementById('search-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        const q = document.getElementById('search').value.trim();
-
-        const isUmp = data.some(r => r.Umpire === q);
-        if (isUmp) {
-          window.location.href = `ump-profiles.html?player=${encodeURIComponent(q)}`;
-          return;
+        var q = document.getElementById('search').value.trim();
+        if (window.ALPB_SEARCH_INDEX && window.ALPB_SEARCH_INDEX.length) {
+          var item = window.ALPB_SEARCH_INDEX.find(function(x) {
+            return x.name === q || x.name + ' (Pitcher)' === q || x.name + ' (Umpire)' === q;
+          });
+          if (item) { window.location.href = item.url; return; }
         }
-
-        const isPitcher = data.some(r => r.Pitcher === q);
-        if (isPitcher) {
-          window.location.href = `pitcher-profiles.html?player=${encodeURIComponent(q)}`;
-          return;
-        }
-
-        // Check if query matches a batter
-        const isBatter = data.some(r => r.Batter === q);
-        if (isBatter) {
-          window.location.href = `batter-profiles.html?player=${encodeURIComponent(q)}`;
-          return;
-        }
-
-        // Otherwise check if it matches a team
-        const isTeam = data.some(r => r.HomeNameFull === q || r.AwayNameFull === q);
-        if (isTeam) {
-          window.location.href = `team-profiles.html?team=${encodeURIComponent(q)}`;
-          return;
-        }
-
-        // Fallback: no match
+        var isUmp = data.some(function(r) { return r.Umpire === q; });
+        if (isUmp) { window.location.href = 'ump-profiles.html?player=' + encodeURIComponent(q); return; }
+        var isPitcher = data.some(function(r) { return r.Pitcher === q; });
+        if (isPitcher) { window.location.href = 'pitcher-profiles.html?player=' + encodeURIComponent(q); return; }
+        var isBatter = data.some(function(r) { return r.Batter === q; });
+        if (isBatter) { window.location.href = 'batter-profiles.html?player=' + encodeURIComponent(q); return; }
+        var isTeam = data.some(function(r) { return r.HomeNameFull === q || r.AwayNameFull === q; });
+        if (isTeam) { window.location.href = 'team-profiles.html?team=' + encodeURIComponent(q); return; }
         alert('No matching player or team found.');
       });
+      var mobileForm = document.getElementById('search-form-mobile');
+      if (mobileForm) {
+        mobileForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          var q = (document.getElementById('search-mobile') && document.getElementById('search-mobile').value.trim()) || '';
+          if (window.ALPB_SEARCH_INDEX && window.ALPB_SEARCH_INDEX.length) {
+            var item = window.ALPB_SEARCH_INDEX.find(function(x) { return x.name === q || x.name + ' (Pitcher)' === q || x.name + ' (Umpire)' === q; });
+            if (item) { window.location.href = item.url; return; }
+          }
+          var isUmp = data.some(function(r) { return r.Umpire === q; });
+          if (isUmp) { window.location.href = 'ump-profiles.html?player=' + encodeURIComponent(q); return; }
+          var isPitcher = data.some(function(r) { return r.Pitcher === q; });
+          if (isPitcher) { window.location.href = 'pitcher-profiles.html?player=' + encodeURIComponent(q); return; }
+          var isBatter = data.some(function(r) { return r.Batter === q; });
+          if (isBatter) { window.location.href = 'batter-profiles.html?player=' + encodeURIComponent(q); return; }
+          var isTeam = data.some(function(r) { return r.HomeNameFull === q || r.AwayNameFull === q; });
+          if (isTeam) { window.location.href = 'team-profiles.html?team=' + encodeURIComponent(q); return; }
+          alert('No matching player or team found.');
+        });
+      }
     }
 
 
@@ -2192,6 +1992,12 @@ function watchVideo(gameUID, pitchUID) {
   
        
       });
+  </script>
+  <script>
+    (function(){ var h=document.getElementById('hamburger-btn'), s=document.getElementById('side-menu'), o=document.getElementById('overlay');
+      if(h&&s&&o){ h.addEventListener('click', function(){ s.classList.toggle('open'); h.classList.toggle('open'); o.classList.toggle('visible'); });
+      o.addEventListener('click', function(){ s.classList.remove('open'); h.classList.remove('open'); o.classList.remove('visible'); }); }
+    })();
   </script>
 </body>
 
