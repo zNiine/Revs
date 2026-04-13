@@ -9,8 +9,8 @@
   <title>Game Dashboard</title>
   <link rel="stylesheet" href="style.css" />
   <style>
-    html, body { overflow-x: hidden; }
-    body { margin:0; padding:0; font-family:'Segoe UI',Arial,sans-serif; display:flex; flex-direction:column; height:100vh; background:#1A2332; }
+    html, body { overflow-x: auto; }
+    body { margin:0; padding:0; font-family:'Segoe UI',Arial,sans-serif; display:flex; flex-direction:column; min-height:100vh; background:#1A2332; }
     header { background:#222; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:.5em 1em; }
     header button { background:#fff; color:#000; border:none; padding:.3em .6em; cursor:pointer; border-radius:3px; font-size:1.2em; }
     header button:disabled { opacity:.4; cursor:default; }
@@ -24,6 +24,8 @@
       border:1px solid #e0e4ea;
       border-radius:8px;
       box-shadow:0 2px 6px rgba(0,0,0,0.07);
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
     }
     .card h2 { margin:0 0 .65em; font-size:1.15em; color:#347ac0; }
 
@@ -108,7 +110,7 @@
     .subBtn:hover:not(.active) { background:#cbd3dc; }
 
     .view { display: none; }
-    .view.active { display: block; }
+    .view.active { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .detail-view { overflow:auto; }
     #animOverlay.show { display: flex !important; }
     @media (max-width: 600px) { #menu ul { flex-direction: column; } #menu a { text-align: center; border-top:1px solid #444; } #menu a:first-child { border-top:none; } }
