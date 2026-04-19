@@ -218,6 +218,145 @@
       #validationTable td { padding: 0.4rem; border-bottom: 1px solid var(--border); color: var(--text); }
 
       /* Print is handled by a separate generated window — no @media print rules needed here */
+
+      /* ══════════════════════════════════════════════
+         MOBILE-FIRST RESPONSIVE OVERRIDES
+         ══════════════════════════════════════════════ */
+
+      /* ── Sub-nav: horizontally scrollable pill strip ── */
+      #subMenu {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 0;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 1rem;
+      }
+      #subMenu::-webkit-scrollbar { display: none; }
+      #subMenu button {
+        flex-shrink: 0;
+        padding: 0.7rem 1.1rem;
+        font-size: 0.82rem;
+        white-space: nowrap;
+      }
+
+      /* ── Filters: larger touch targets ── */
+      .filters-panel .filters-grid label { font-size: 0.78rem; }
+      .filters-panel select,
+      .filters-panel input[type="date"] {
+        min-height: 36px;
+        font-size: 0.85rem;
+      }
+
+      /* ── Filter row inline controls ── */
+      .filter-row { gap: 0.5rem; }
+      .filter-row select,
+      .filter-row input { min-height: 32px; }
+
+      /* ── All tables: horizontal scroll ── */
+      .dark-table-wrap,
+      #battedBallTable,
+      #gameLogTable,
+      #pitchStatsByCount,
+      #callRatesTable,
+      #atBatPitchTable {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      @media (max-width: 768px) {
+        /* ── Page title ── */
+        .page-title { font-size: 1.4rem !important; }
+
+        /* ── Section cards ── */
+        .section-card { padding: 1rem; margin-bottom: 1rem; }
+
+        /* ── Hero stats: 3 per row on mobile ── */
+        .hero-stats-bar { margin-bottom: 1rem; }
+        .hero-stat { min-width: 30%; padding: 0.75rem 0.5rem; }
+        .hero-stat-val { font-size: 1.3rem; }
+        .hero-stat-lbl { font-size: 0.62rem; }
+
+        /* ── Grids collapse at 768 too ── */
+        .two-col, .three-col { grid-template-columns: 1fr; gap: 1rem; }
+        .arsenal-grid { grid-template-columns: 1fr; gap: 1rem; }
+
+        /* ── League comparisons: 2-col grid on tablet ── */
+        .dist-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+        /* ── dist-cell: stack chart above text ── */
+        .dist-cell { flex-direction: column; align-items: stretch; gap: 0.4rem; }
+        .percentile-text { min-width: unset; font-size: 0.8rem; }
+
+        /* ── Movement canvas ── */
+        #movementChart { max-width: 100%; height: auto !important; }
+
+        /* ── Spray canvas ── */
+        #sprayCanvas { max-width: 100%; height: auto !important; }
+
+        /* ── Percentile bar rows: stack label / bar / value ── */
+        .pct-bar-row {
+          grid-template-columns: 1fr auto;
+          grid-template-rows: auto auto;
+          gap: 0.25rem 0.5rem;
+        }
+        .pct-bar-label { grid-column: 1; grid-row: 1; font-size: 0.78rem; }
+        .pct-bar-meta  { grid-column: 2; grid-row: 1; align-items: flex-end; }
+        .pct-bar-track { grid-column: 1 / -1; grid-row: 2; }
+        .pct-val { font-size: 0.82rem; }
+        .pct-raw { font-size: 0.7rem; }
+
+        /* ── Arsenal table: prevent tiny cols ── */
+        .arsenal-tbl { font-size: 0.78rem; }
+        .arsenal-tbl th, .arsenal-tbl td { padding: 0.4rem 0.5rem; }
+
+        /* ── Usage tree: stack on mobile ── */
+        .treeWrapper { flex-direction: column; gap: 0.75rem; }
+        #treeChart { width: 100% !important; height: 420px !important; }
+        #treeLegend { width: 100% !important; display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; padding: 0 !important; }
+        #validationTable { width: 100% !important; max-height: none !important; }
+
+        /* ── Contact metrics: evenly spaced row ── */
+        .contact-metrics-bar { justify-content: space-around; gap: 0.5rem; }
+        .contact-metric-val { font-size: 1.1rem; }
+
+        /* ── Plate container ── */
+        #plateContainer { flex-direction: column; }
+
+        /* ── Charts that are fixed height ── */
+        #sunburstChart, #usageOverTime { height: 320px !important; }
+        #spinAxisRose { height: 280px !important; }
+        #spinDistChart { height: 240px !important; }
+        #stuffGauge { height: 180px !important; }
+        #releasePointScatter, #spinBreakBoxplots, #zoneAccuracy { height: 240px !important; }
+        #runValueBar, #exitVelByPitch { height: 220px !important; }
+        #tunnelX, #tunnelY { height: 240px !important; }
+        #inningTrend { height: 220px !important; }
+        #locationHeatmap, #locationScatter { height: 240px !important; }
+        #veloDistChart, #exitDistChart, #chaseDistChart,
+        #whiffDistChart, #hhDistChart, #kDistChart { height: 160px !important; }
+
+        /* ── Stuff+ description ── */
+        .stuff-desc { font-size: 0.78rem; }
+      }
+
+      @media (max-width: 480px) {
+        /* ── Very small phones: single-col league comparisons ── */
+        .dist-grid { grid-template-columns: 1fr; }
+
+        /* ── Hero stats: 2 per row ── */
+        .hero-stat { min-width: 45%; }
+
+        /* ── Tighter section padding ── */
+        .section-card { padding: 0.75rem; }
+
+        /* ── Filter labels hidden to save space ── */
+        .filters-panel .filters-grid label > span { display: none; }
+
+        /* ── Sub-nav smaller text ── */
+        #subMenu button { font-size: 0.78rem; padding: 0.65rem 0.9rem; }
+      }
     </style>
 </head>
 
@@ -298,7 +437,7 @@
         <div class="arsenal-grid">
           <div>
             <div class="chart-label">Movement Profile</div>
-            <canvas id="movementChart" width="400" height="400"></canvas>
+            <canvas id="movementChart" width="400" height="400" style="max-width:100%;height:auto;"></canvas>
             <div id="movementLegend" class="movement-legend"></div>
           </div>
           <div>
@@ -432,7 +571,7 @@
         <div class="filter-row">
           <label>Show stats for: <select id="pitchTypeTableFilter"><option value="">All Types</option></select></label>
         </div>
-        <div id="pitchStatsByCount"></div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div id="pitchStatsByCount"></div></div>
       </div>
 
       <!-- VELOCITY TREND -->
@@ -512,7 +651,7 @@
     <div id="gameLogContainer" style="display:none;">
       <h2 id="gameLogTitle" class="page-title">Game Log</h2>
       <div class="section-card">
-        <div id="gameLogTable"></div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div id="gameLogTable"></div></div>
       </div>
     </div>
 
