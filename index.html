@@ -24,6 +24,18 @@
       <a href="fielding.html">Fielding</a>
       <a href="stolen-bases.html">Base Running</a>
       <a href="dong.html">Would it Dong?</a>
+      <div class="nav-dropdown">
+        <button class="nav-dropdown-btn">Other ▾</button>
+        <div class="nav-dropdown-menu">
+          <a href="https://zniine.github.io/Revs24/" target="_blank">2024</a>
+          <a href="https://zniine.github.io/Revs25/" target="_blank">2025</a>
+          <a href="https://alpb.turinglytics.com/" target="_blank">ALPB Stats</a>
+          <a href="https://Ump.turinglytics.com/" target="_blank">Umpire Reports</a>
+          <a href="https://alpb.turinglytics.com/live.html" target="_blank">Live</a>
+          <a href="https://play.turinglytics.com/" target="_blank">Play</a>
+          <div class="nav-dropdown-note">Use the same login</div>
+        </div>
+      </div>
     </nav>
     <form id="search-inline" class="nav-desktop header-search-form" onsubmit="event.preventDefault(); doSearch(document.getElementById('search-desktop-input')); return false;">
       <input type="text" id="search-desktop-input" placeholder="Search…" list="suggestions-desktop" autocomplete="off" style="width:180px;padding:0.4rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);" />
@@ -53,7 +65,18 @@
         <li><a href="fielding.html">Fielding</a></li>
         <li><a href="stolen-bases.html">Base Running</a></li>
         <li><a href="dong.html">Would it Dong?</a></li>
-        <li><a href="https://zniine.github.io/Revs24/index.html">2024</a></li>
+        <li class="side-dropdown">
+          <button class="side-dropdown-btn" onclick="this.parentElement.classList.toggle('open')">Other ▾</button>
+          <ul class="side-dropdown-list">
+            <li><a href="https://zniine.github.io/Revs24/" target="_blank">2024</a></li>
+            <li><a href="https://zniine.github.io/Revs25/" target="_blank">2025</a></li>
+            <li><a href="https://alpb.turinglytics.com/" target="_blank">ALPB Stats</a></li>
+            <li><a href="https://Ump.turinglytics.com/" target="_blank">Umpire Reports</a></li>
+            <li><a href="https://alpb.turinglytics.com/live.html" target="_blank">Live</a></li>
+            <li><a href="https://play.turinglytics.com/" target="_blank">Play</a></li>
+            <li class="side-dropdown-note">Use the same login</li>
+          </ul>
+        </li>
       </ul>
     </nav>
   </div>
