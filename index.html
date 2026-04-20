@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
 </head>
 <body>
 
@@ -26,7 +26,7 @@
       <a href="dong.html">Would it Dong?</a>
       <div class="nav-dropdown">
         <button class="nav-dropdown-btn">Other ▾</button>
-        <div class="nav-dropdown-menu">
+        <div class="nav-dropdown-menu" style="display:none">
           <a href="https://zniine.github.io/Revs24/" target="_blank">2024</a>
           <a href="https://zniine.github.io/Revs25/" target="_blank">2025</a>
           <a href="https://alpb.turinglytics.com/" target="_blank">ALPB Stats</a>
@@ -311,6 +311,14 @@
           e.preventDefault();
           doSearch(document.getElementById('search-desktop-input'));
         });
+      }
+
+      // Desktop "Other" dropdown hover
+      var navDropdown = document.querySelector('.nav-dropdown');
+      var navDropdownMenu = document.querySelector('.nav-dropdown-menu');
+      if (navDropdown && navDropdownMenu) {
+        navDropdown.addEventListener('mouseenter', function() { navDropdownMenu.style.display = 'block'; });
+        navDropdown.addEventListener('mouseleave', function() { navDropdownMenu.style.display = 'none'; });
       }
 
       var hamburger = document.getElementById('hamburger-btn');
