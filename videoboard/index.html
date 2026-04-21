@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Videoboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      position: relative;
+      width: 203px;
+      height: 336px;
+      margin: 0;
+      overflow: hidden;
+      background: #0a0a0c;
+      color: #f2f2f4;
+      font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
+      line-height: 1.2;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* --- panels --- */
+    #panel-lineup, #panel-scores {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      padding: 0 0 0 2px;
+      display: none;
+      flex-direction: column;
+    }
+    #panel-lineup.active, #panel-scores.active { display: flex; }
+
+    /* --- lineup --- */
+    .lineup-card {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .lineup-card__rows { flex: 1; min-height: 0; overflow: hidden; }
+    .lineup-row {
+      display: grid;
+      grid-template-columns: 1fr 72px;
+      align-items: center;
+      gap: 0 8px;
+      padding: 3px 0;
+    }
+    .lineup-row__name {
+      min-width: 0;
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      font-weight: 700;
+      font-size: 26px;
+      color: #F2B233;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .lineup-row__stat {
+      text-align: right;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      font-size: 22px;
+      color: #fff;
+    }
+    .lineup-row--current {
+      background: #F2B233;
+      border-radius: 2px;
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+    .lineup-row--current .lineup-row__name,
+    .lineup-row--current .lineup-row__stat {
+      color: #000;
+    }
+    .lineup-card__foot {
+      flex-shrink: 0; padding: 2px;
+      font-size: 11px; color: rgba(255, 200, 120, 0.85);
+    }
+    .lineup-card__foot:empty { display: none; }
+    .lineup-card--idle .lineup-card__rows {
+      display: flex; align-items: center; justify-content: center;
+      color: #F2B233;
+      font-weight: 700;
+      font-size: 13px;
+      text-align: center;
+    }
+    .lineup-placeholder {
+      display: flex; align-items: center; justify-content: center;
+      padding: 10px; text-align: center;
+      color: #F2B233;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    /* --- scores --- */
+    .scores-wrap {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column;
+    }
+    .game-block {
+      flex: 1;
+      display: flex; flex-direction: column;
+      justify-content: center;
+      padding: 6px 6px 4px 2px;
+    }
+    .game-block + .game-block {
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .game-block__team {
+      display: flex; align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+    .game-block__logo {
+      width: 44px; height: 44px; object-fit: contain; flex-shrink: 0;
+    }
+    .game-block__abbr {
+      flex: 1; font-size: 28px; font-weight: 800;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .game-block__score {
+      font-size: 40px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+    .game-block__inn {
+      text-align: right;
+      font-size: 22px; font-weight: 700;
+      color: #ffe066;
+      padding-top: 2px;
+    }
+    .scores-empty {
+      display: flex; align-items: center; justify-content: center;
+      flex: 1; color: rgba(255,255,255,0.3);
+      font-size: 14px; text-align: center; padding: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="panel-lineup"></div>
+  <div id="panel-scores"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
+      authDomain: "revs-2c987.firebaseapp.com",
+      projectId: "revs-2c987",
+      storageBucket: "revs-2c987.firebasestorage.app",
+      messagingSenderId: "181256684157",
+      appId: "1:181256684157:web:a9e1c5dfd767658e2ba714",
+      measurementId: "G-2050889X0C",
+      databaseURL: "https://revs-2c987-default-rtdb.firebaseio.com"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const SSE_BASE = "https://dev.sse.api.microservices.iscoresports.com/api/games";
+    const API_ORIGIN = "https://dev.api.microservices.iscoresports.com";
+    /** Used only when `iscore/seasonId` is missing in RTDB. */
+    const DEFAULT_SEASON_ID = "2636e099-2533-4f9f-8170-ce840e738dc2";
+    const LEAGUE_ID = "792203b0-b47c-4ad5-b9f4-776fd7efa294";
+
+    /** Second display: add ?slide=2 to the page URL. */
+    const SLIDE =
+      new URLSearchParams(location.search).get("slide") === "2" ? 2 : 1;
+
+    const settings = {
+      gameId: null,
+      seasonId: null,
+      mirror: false,
+      slide2GameId: null,
+    };
+
+    let lastAppliedSeasonId = null;
+
+    function effectiveSeasonId() {
+      const s = settings.seasonId;
+      if (s != null && String(s).trim() !== "") return String(s).trim();
+      return DEFAULT_SEASON_ID;
+    }
+
+    function effectiveGameId() {
+      const primary = settings.gameId;
+      if (settings.mirror) return primary;
+      if (SLIDE === 2) {
+        const s2 = settings.slide2GameId;
+        return s2 != null && String(s2).trim() !== "" ? String(s2).trim() : primary;
+      }
+      return primary;
+    }
+
+    const lineupEl = document.getElementById("panel-lineup");
+    const scoresEl = document.getElementById("panel-scores");
+
+    // --- panel control ---
+    let otsActive = false;
+    let selectedGameIds = [];
+    lineupEl.classList.add("active");
+
+    function showLineup() {
+      otsActive = false;
+      selectedGameIds = [];
+      scoresEl.classList.remove("active");
+      lineupEl.classList.add("active");
+    }
+
+    /** Fetches other live games, then shows two (Firebase `iscore/ots` = true only switches the panel). */
+    async function showOts() {
+      otsActive = true;
+      lineupEl.classList.remove("active");
+      scoresEl.classList.add("active");
+      startOotPolling();
+      await refreshOotScores();
+      const shuffled = [...ootGameOrder].sort(() => Math.random() - 0.5);
+      selectedGameIds = shuffled.slice(0, 2);
+      renderScoresPage();
+    }
+
+    // --- lineup state ---
+    let activeSource = null;
+    let currentGameId = null;
+
+    const cache = {
+      homeTeamId: null,
+      awayTeamId: null,
+      rosterByTeamId: Object.create(null),
+      seasonBattingByPlayerId: Object.create(null),
+      lastScore: null,
+      statusMessage: "",
+      rosterLoading: false,
+      hydratedTeamPairKey: null,
+      rosterBackoffKey: null,
+      rosterBackoffUntil: 0,
+    };
+
+    // --- out-of-town scores state ---
+    let ootGames = [];
+    const ootGameData = new Map();  // gameId -> display data
+    const ootSources = new Map();   // gameId -> EventSource
+    let ootGameOrder = [];
+
+    function buildOotGames() {
+      ootGames = ootGameOrder.map((id) => ootGameData.get(id)).filter(Boolean);
+      if (otsActive) renderScoresPage();
+    }
+
+    function openOotSSE(gameId, fallback) {
+      if (ootSources.has(gameId)) return;
+      const source = new EventSource(`${SSE_BASE}/${gameId}/latest-score/stream`);
+      ootSources.set(gameId, source);
+      source.onmessage = (e) => {
+        try {
+          const d = JSON.parse(e.data);
+          const away = d.teams?.AWAY;
+          const home = d.teams?.HOME;
+          const gs = d.gameStatus;
+          ootGameData.set(gameId, {
+            awayShort: away?.shortName || fallback.awayShort,
+            homeShort: home?.shortName || fallback.homeShort,
+            awayRuns: away?.runs ?? 0,
+            homeRuns: home?.runs ?? 0,
+            inning: gs?.currentInning ?? 1,
+            half: gs?.inningHalf ?? "TOP",
+          });
+          buildOotGames();
+        } catch (err) {
+          console.error("OOT SSE parse error:", gameId, err);
+        }
+      };
+      source.onerror = () => console.warn("OOT SSE error:", gameId);
+    }
+
+    // --- helpers ---
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function setStatus(msg) {
+      cache.statusMessage = msg || "";
+      renderLineup();
+    }
+
+    function inningHalfToLineupSide(half) {
+      return half === "TOP" ? "AWAY" : "HOME";
+    }
+
+    function slotPlayerId(entry) {
+      if (entry == null || typeof entry !== "object") return null;
+      const ap = entry.activeParticipant;
+      return (
+        entry.playerId ||
+        entry.participantId ||
+        entry.id ||
+        (ap && (ap.id || ap.guid)) ||
+        (entry.player && entry.player.guid) ||
+        null
+      );
+    }
+
+    function slotOrder(entry, index) {
+      if (entry == null || typeof entry !== "object") return index + 1;
+      const raw =
+        entry.lineupSpot ??
+        entry.battingOrder ??
+        entry.order ??
+        entry.position ??
+        entry.spot;
+      const n = Number(raw);
+      return Number.isFinite(n) && n > 0 ? n : index + 1;
+    }
+
+    function extractLineupArray(data, side) {
+      if (!data || !side) return [];
+      const buckets = [data.lineups, data.lineup, data.lineUps];
+      for (const b of buckets) {
+        if (!b) continue;
+        const arr = b[side];
+        if (Array.isArray(arr)) return arr;
+        // { teamId, lineup: { slots: [{slot, activeOccupantIndex, occupants}] } }
+        if (arr && arr.lineup && Array.isArray(arr.lineup.slots)) {
+          return arr.lineup.slots.map((s) => ({
+            order: s.slot,
+            playerId: s.occupants?.[s.activeOccupantIndex]?.playerId ?? null,
+          }));
+        }
+      }
+      const flat = data.lineupSlots || data.lineupsFlat;
+      if (Array.isArray(flat)) {
+        return flat.filter((row) => row && (row.side === side || row.teamSide === side));
+      }
+      return [];
+    }
+
+    function normalizeLineupSlots(raw) {
+      const mapped = raw.map((entry, i) => ({
+        order: slotOrder(entry, i),
+        playerId: slotPlayerId(entry),
+      }));
+      mapped.sort((a, b) => a.order - b.order);
+      return mapped;
+    }
+
+    function unwrapPlayersPayload(json) {
+      if (Array.isArray(json)) return json;
+      if (json && Array.isArray(json.players)) return json.players;
+      if (json && Array.isArray(json.roster)) return json.roster;
+      if (json && Array.isArray(json.items)) return json.items;
+      return [];
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url, { credentials: "omit" });
+      if (!res.ok) {
+        const err = new Error(`${res.status} ${res.statusText}`);
+        err.status = res.status;
+        throw err;
+      }
+      return res.json();
+    }
+
+    async function fetchTeamPlayers(teamGuid) {
+      const paths = [
+        `${API_ORIGIN}/api/public/teams/${teamGuid}/players`,
+        `${API_ORIGIN}/api/public/teams/${teamGuid}/roster`,
+        `${API_ORIGIN}/public/teams/${teamGuid}/players`,
+      ];
+      let lastErr;
+      for (const url of paths) {
+        try {
+          const json = await fetchJson(url);
+          return unwrapPlayersPayload(json);
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      throw lastErr || new Error("Failed to load roster");
+    }
+
+    async function fetchPlayerStatsTeam(teamGuid) {
+      const params = { teamId: teamGuid };
+      const sid = effectiveSeasonId();
+      if (sid) params.seasonId = sid;
+      const q = new URLSearchParams(params);
+      const json = await fetchJson(`${API_ORIGIN}/api/player-stats?${q}`);
+      return Array.isArray(json) ? json : [];
+    }
+
+    function rosterLastNameById(teamId, playerId) {
+      const list = cache.rosterByTeamId[teamId];
+      if (!list || !playerId) return null;
+      const p = list.find((x) => x && (x.guid === playerId || x.id === playerId));
+      if (!p) return null;
+      return p.lastName || p.last_name || (p.name && p.name.split(" ").pop()) || null;
+    }
+
+    /** Missing or bad numbers from iscore / API → 0 */
+    function numOr0(v) {
+      if (v == null || v === "") return 0;
+      const n = typeof v === "number" ? v : parseFloat(String(v).trim());
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    /**
+     * Game lines like batter.gameBatting / gameStatState H–AB (e.g. .H / .AB).
+     */
+    function hitsAbFromBattingShape(b) {
+      if (!b || typeof b !== "object") return { hits: 0, atBats: 0 };
+      return {
+        hits: numOr0(b.H ?? b.h ?? b.hits ?? b.Hits ?? b.gameHits),
+        atBats: numOr0(b.AB ?? b.ab ?? b.Ab ?? b.atBats ?? b.at_bats),
+      };
+    }
+
+    function getGameBatting(gameStatState, playerId) {
+      const players = gameStatState?.players;
+      const block = players?.[playerId];
+      if (!block) return { hits: 0, atBats: 0 };
+
+      const gameBlock =
+        block.gameBatting ??
+        block.game_batting ??
+        block.stats?.batting?.game ??
+        block.stats?.gameBatting;
+      if (gameBlock) return hitsAbFromBattingShape(gameBlock);
+
+      const overall = block.stats?.batting?.overall;
+      const b = overall ?? (block.batting && typeof block.batting === "object" ? block.batting : block);
+      return hitsAbFromBattingShape(b);
+    }
+
+    function readSeasonAverage(record) {
+      if (!record || typeof record !== "object") return null;
+
+      const candidates = [
+        record.battingAverage, record.avg, record.average,
+        record.AVG, record.overallBattingAverage, record.seasonBattingAverage,
+      ];
+      for (const c of candidates) {
+        if (c == null || c === "") continue;
+        const n = typeof c === "number" ? c : parseFloat(String(c).trim());
+        if (Number.isFinite(n)) return n;
+      }
+
+      const nested =
+        record.RATES || record.batting || record.offense || record.hitting ||
+        record.overall || record.season || record.stats || record.cumulative || record.totals;
+      if (nested && nested !== record) return readSeasonAverage(nested);
+
+      const gb =
+        record.gameBatting ??
+        record.game_batting ??
+        record.stats?.batting?.game ??
+        record.stats?.gameBatting;
+      if (gb && typeof gb === "object") {
+        const { hits, atBats } = hitsAbFromBattingShape(gb);
+        if (atBats > 0) return hits / atBats;
+        if (hits === 0 && atBats === 0) return 0;
+      }
+
+      const hits = numOr0(record.hits ?? record.H ?? record.h ?? record.Hits);
+      const ab = numOr0(record.atBats ?? record.ab ?? record.AB ?? record.Ab);
+      if (ab > 0) return hits / ab;
+      if (hits === 0 && ab === 0) return 0;
+      return null;
+    }
+
+    function indexSeasonStats(rows) {
+      for (const row of rows) {
+        const pid =
+          row.playerId ||
+          row.playerGuid ||
+          (row.player && (row.player.guid || row.player.id)) ||
+          row.guid;
+        if (!pid) continue;
+        const avg =
+          readSeasonAverage(row) ??
+          readSeasonAverage(row.stats) ??
+          readSeasonAverage(row.battingStats) ??
+          readSeasonAverage(row.batting);
+        if (avg != null) cache.seasonBattingByPlayerId[pid] = avg;
+      }
+    }
+
+    function formatAvg(n) {
+      if (!Number.isFinite(n)) return "—";
+      const s = n.toFixed(3);
+      return s.startsWith("0.") ? s.slice(1) : s;
+    }
+
+    function statCell(gameStatState, playerId) {
+      const { hits, atBats } = getGameBatting(gameStatState, playerId);
+      if (hits === 0 && atBats === 0) {
+        const avg = cache.seasonBattingByPlayerId[playerId];
+        if (avg != null) return formatAvg(avg);
+        return "—";
+      }
+      return `${hits}-${atBats}`;
+    }
+
+    async function hydrateTeamContext(homeId, awayId) {
+      if (!homeId || !awayId) return;
+      const key = `${homeId}|${awayId}|${effectiveSeasonId()}`;
+      if (cache.hydratedTeamPairKey === key) return;
+      if (cache.rosterBackoffKey === key && Date.now() < cache.rosterBackoffUntil) return;
+      cache.rosterLoading = true;
+      setStatus("Loading roster…");
+      try {
+        const [homePlayers, awayPlayers, homeStats, awayStats] = await Promise.all([
+          fetchTeamPlayers(homeId),
+          fetchTeamPlayers(awayId),
+          fetchPlayerStatsTeam(homeId),
+          fetchPlayerStatsTeam(awayId),
+        ]);
+        cache.rosterByTeamId[homeId] = homePlayers;
+        cache.rosterByTeamId[awayId] = awayPlayers;
+        cache.seasonBattingByPlayerId = Object.create(null);
+        indexSeasonStats(homeStats);
+        indexSeasonStats(awayStats);
+        cache.hydratedTeamPairKey = key;
+        cache.rosterBackoffKey = null;
+        cache.rosterBackoffUntil = 0;
+        setStatus("");
+      } catch (e) {
+        console.error(e);
+        cache.rosterBackoffKey = key;
+        cache.rosterBackoffUntil = Date.now() + 12000;
+        setStatus(e.message || "API error");
+      } finally {
+        cache.rosterLoading = false;
+        renderLineup();
+      }
+    }
+
+    function resetForNewGame() {
+      cache.homeTeamId = null;
+      cache.awayTeamId = null;
+      cache.rosterByTeamId = Object.create(null);
+      cache.seasonBattingByPlayerId = Object.create(null);
+      cache.lastScore = null;
+      cache.hydratedTeamPairKey = null;
+      cache.rosterBackoffKey = null;
+      cache.rosterBackoffUntil = 0;
+      setStatus("");
+    }
+
+    // --- lineup render ---
+    function renderLineup() {
+      const data = cache.lastScore;
+      const half = data && data.gameStatus && data.gameStatus.inningHalf;
+      const side = half === "TOP" || half === "BOTTOM" ? inningHalfToLineupSide(half) : null;
+      const teamBlock = side && data.teams && data.teams[side];
+      const teamId = teamBlock && teamBlock.id;
+
+      if (!data) {
+        lineupEl.innerHTML = `
+          <div class="lineup-card lineup-card--idle">
+            <div class="lineup-card__rows">Waiting for score…</div>
+          </div>`;
+        return;
+      }
+
+      if (!side) {
+        lineupEl.innerHTML = `
+          <div class="lineup-card lineup-card--idle">
+            <div class="lineup-card__rows">Unknown inning half.</div>
+          </div>`;
+        return;
+      }
+
+      const rawLineup = extractLineupArray(data, side);
+      const slots = normalizeLineupSlots(rawLineup).filter((s) => s.order <= 9);
+      const currentBatterId = data.batter && data.batter.playerId;
+
+      const rowsHtml = slots.length
+        ? slots.map((slot) => {
+            const isCurrent = slot.playerId && slot.playerId === currentBatterId;
+            const lastName = rosterLastNameById(teamId, slot.playerId) || "—";
+            const stat = statCell(data.gameStatState, slot.playerId);
+            const rowClass = isCurrent ? " lineup-row--current" : "";
+            return `
+              <div class="lineup-row${rowClass}">
+                <div class="lineup-row__name">${escapeHtml(lastName)}</div>
+                <div class="lineup-row__stat">${escapeHtml(stat)}</div>
+              </div>`;
+          }).join("")
+        : `<div class="lineup-placeholder">No lineup data.</div>`;
+
+      const footMsg = cache.statusMessage || (cache.rosterLoading ? "Loading roster…" : "");
+      lineupEl.innerHTML = `
+        <div class="lineup-card ${slots.length ? "" : "lineup-card--idle"}">
+          <div class="lineup-card__rows">${rowsHtml}</div>
+          ${footMsg ? `<div class="lineup-card__foot">${escapeHtml(footMsg)}</div>` : ""}
+        </div>`;
+    }
+
+    // --- scores render ---
+    function renderScoresPage() {
+      const pair = selectedGameIds.map((id) => ootGameData.get(id) || null);
+      if (!pair.length) {
+        scoresEl.innerHTML = `<div class="scores-wrap"><div class="scores-empty">No other games in progress</div></div>`;
+        return;
+      }
+      // always render 2 blocks to keep top/bottom split consistent
+      while (pair.length < 2) pair.push(null);
+      const blocks = pair.map((g) => {
+        if (!g) return `<div class="game-block"></div>`;
+        const halfLabel = g.half === "TOP" ? "Top" : "Bot";
+        return `
+          <div class="game-block">
+            <div class="game-block__team">
+              <img class="game-block__logo" src="logos/${escapeHtml(g.awayShort)}.png" onerror="this.style.visibility='hidden'">
+              <span class="game-block__abbr">${escapeHtml(g.awayShort)}</span>
+              <span class="game-block__score">${g.awayRuns}</span>
+            </div>
+            <div class="game-block__team">
+              <img class="game-block__logo" src="logos/${escapeHtml(g.homeShort)}.png" onerror="this.style.visibility='hidden'">
+              <span class="game-block__abbr">${escapeHtml(g.homeShort)}</span>
+              <span class="game-block__score">${g.homeRuns}</span>
+            </div>
+            <div class="game-block__inn">${halfLabel} ${g.inning}</div>
+          </div>`;
+      }).join("");
+      scoresEl.innerHTML = `<div class="scores-wrap">${blocks}</div>`;
+    }
+
+
+    // --- OOT fetch: manage persistent SSE connections ---
+    async function refreshOotScores() {
+      const now = new Date();
+      const from = new Date(now); from.setHours(0, 0, 0, 0);
+      const to = new Date(now); to.setHours(23, 59, 59, 999);
+      const q = new URLSearchParams({
+        leagueId: LEAGUE_ID,
+        gameStatusId: 2,
+        startDateFrom: from.toISOString(),
+        startDateTo: to.toISOString(),
+        take: 20,
+      });
+      let games;
+      try {
+        const json = await fetchJson(`${API_ORIGIN}/api/public/games?${q}`);
+        games = Array.isArray(json) ? json : [];
+      } catch (e) {
+        console.warn("Failed to fetch live games:", e.message);
+        return;
+      }
+
+      const liveOthers = games.filter((g) => g.gameGuid !== currentGameId).slice(0, 4);
+      const liveIds = new Set(liveOthers.map((g) => g.gameGuid));
+
+      // close SSEs for games no longer live
+      for (const [id, source] of ootSources) {
+        if (!liveIds.has(id)) {
+          source.close();
+          ootSources.delete(id);
+          ootGameData.delete(id);
+        }
+      }
+
+      // maintain stable order; open SSEs for new games
+      ootGameOrder = ootGameOrder.filter((id) => liveIds.has(id));
+      for (const g of liveOthers) {
+        if (!ootGameOrder.includes(g.gameGuid)) ootGameOrder.push(g.gameGuid);
+        openOotSSE(g.gameGuid, {
+          awayShort: g.awayTeam?.name?.slice(0, 3).toUpperCase() || "AWY",
+          homeShort: g.homeTeam?.name?.slice(0, 3).toUpperCase() || "HME",
+        });
+      }
+      buildOotGames();
+    }
+
+    let ootInterval = null;
+    function startOotPolling() {
+      if (ootInterval) return;
+      refreshOotScores();
+      ootInterval = setInterval(() => {
+        if (ootGames.length >= 4) { clearInterval(ootInterval); ootInterval = null; return; }
+        refreshOotScores();
+      }, 120000);
+    }
+
+    // --- main SSE ---
+    function onScoreUpdate(data) {
+      cache.lastScore = data;
+      const homeId = data.teams?.HOME?.id;
+      const awayId = data.teams?.AWAY?.id;
+      if (homeId && awayId) {
+        const changed = homeId !== cache.homeTeamId || awayId !== cache.awayTeamId;
+        if (changed) {
+          cache.homeTeamId = homeId;
+          cache.awayTeamId = awayId;
+          cache.hydratedTeamPairKey = null;
+          cache.rosterBackoffKey = null;
+          cache.rosterBackoffUntil = 0;
+        }
+        hydrateTeamContext(homeId, awayId);
+      }
+      renderLineup();
+    }
+
+    function connectSSE(gameId) {
+      if (gameId === currentGameId) return;
+      if (activeSource) { activeSource.close(); activeSource = null; }
+      currentGameId = gameId;
+      resetForNewGame();
+      renderLineup();
+
+      const source = new EventSource(`${SSE_BASE}/${gameId}/latest-score/stream`);
+      activeSource = source;
+      source.onmessage = (e) => {
+        try { onScoreUpdate(JSON.parse(e.data)); }
+        catch (err) { console.error("SSE parse error:", err); }
+      };
+      source.onerror = () => console.warn("SSE error, retrying…");
+    }
+
+    function applyIscoreSettings() {
+      const gid = effectiveGameId();
+      const seasonNow = effectiveSeasonId();
+
+      if (gid) {
+        if (gid !== currentGameId) {
+          connectSSE(gid);
+          startOotPolling();
+        }
+      } else {
+        if (currentGameId) {
+          currentGameId = null;
+          if (activeSource) { activeSource.close(); activeSource = null; }
+          resetForNewGame();
+          renderLineup();
+        }
+      }
+
+      if (seasonNow !== lastAppliedSeasonId) {
+        lastAppliedSeasonId = seasonNow;
+        cache.hydratedTeamPairKey = null;
+        const d = cache.lastScore;
+        const hid = d?.teams?.HOME?.id;
+        const aid = d?.teams?.AWAY?.id;
+        if (hid && aid) hydrateTeamContext(hid, aid);
+      }
+    }
+
+    const iscoreRef = ref(db, "iscore");
+    onValue(iscoreRef, (snapshot) => {
+      const v = snapshot.val() || {};
+      settings.gameId = v.gameId ?? null;
+      settings.seasonId = v.seasonId ?? null;
+      settings.mirror = v.mirror === true;
+      settings.slide2GameId = v.slide2GameId ?? null;
+      applyIscoreSettings();
+    });
+
+    const otsRef = ref(db, "iscore/ots");
+    onValue(otsRef, (snapshot) => {
+      if (snapshot.val() === true) {
+        void showOts();
+      } else {
+        showLineup();
+      }
+    });
+  </script>
+</body>
+</html>
