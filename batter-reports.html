@@ -167,6 +167,14 @@ h1 {
 .map h4 {
   margin: 0 0 8px;
   font-size: 1rem;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.map-obs {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--muted);
 }
 .canvas-wrap {
   position: relative;
@@ -178,16 +186,31 @@ canvas {
   border-radius: 8px;
   background: #0a0d14;
 }
-.meta {
-  margin-top: 6px;
-  font-size: 0.85rem;
-  color: #aab3c9;
-}
 .whiff {
   grid-column: 1 / span 1;
 }
 .spacer {
   visibility: hidden;
+}
+
+.hand-section {
+  margin-top: 14px;
+}
+.hand-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-bottom: 1px solid #2a2f3e;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+.hand-empty {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
+  padding: 6px 0 10px;
 }
 
 .page-break {
@@ -306,6 +329,24 @@ canvas {
   const AUTO_CSV_PATH  = "data.csv";
   const HIT_RESULTS = new Set(['Single','Double','Triple','HomeRun']);
 
+  // When non-empty: ignore team filter and show exactly these batters (cross-team)
+  const INCLUDE_BATTERS = [
+    "Ulrich, Evan",
+    "Rosengard, Ben",
+    "Smith, David",
+    "Battles, Jalen",
+    "Carpenter, Joseph",
+    "Flores, Marc",
+    "Kelly, Scott",
+    "Miller, Tyler",
+    "Lucky, Nick",
+    "Watson, Kevin",
+    "Thompson, Jake",
+    "Alexander, Sebastian",
+    "Robertson, Tyler",
+    "Arocho, Jeremy"
+  ];
+
   // Strike zone bounds (feet, TrackMan-style)
   const ZONE = { xMin:-0.83, xMax:0.83, yMin:1.5, yMax:3.5 };
 
@@ -317,7 +358,8 @@ canvas {
     pitchType: 'AutoPitchType',
     batter: 'Batter',
     batterTeam: 'BatterTeam',
-    playResult: 'PlayResult'
+    playResult: 'PlayResult',
+    pitcherThrows: 'PitcherThrows'
   };
 
   // Swing definition
@@ -405,7 +447,7 @@ canvas {
     buildAll(); // auto-build for HAG_FLY
   }
 
-  // ==== Build all batters for team ====
+  // ==== Build all batters ====
   function buildAll(){
     CANVAS_SIZE = parseInt(canvasSizeSelect.value, 10);
     const insideCols = Math.max(1, parseInt(insideColsInput.value, 10));
@@ -414,11 +456,9 @@ canvas {
     const padY = Math.max(0, parseInt(padYInput.value, 10));
     const minSamples = Math.max(1, parseInt(minSamplesInput.value, 10));
 
-    // Compute cell size from zone so zone aligns to cell edges
     const cellW = (ZONE.xMax - ZONE.xMin) / insideCols;
     const cellH = (ZONE.yMax - ZONE.yMin) / insideRows;
 
-    // Domain expands by whole cells around the zone
     const DOMAIN = {
       xMin: ZONE.xMin - padX * cellW,
       xMax: ZONE.xMax + padX * cellW,
@@ -426,26 +466,38 @@ canvas {
       yMax: ZONE.yMax + padY * cellH
     };
 
-    // Total grid dimensions
     const NX = insideCols + 2*padX;
     const NY = insideRows + 2*padY;
+    const gridInfo = {NX, NY, DOMAIN, insideCols, insideRows, padX, padY};
 
-    const team = PRESELECT_TEAM;
-    const teamRows = rows.filter(r => r[COLUMNS.batterTeam] === team);
-    if (!teamRows.length){
-      resultsEl.innerHTML = `<div>No rows found for team <b>${escapeHtml(team)}</b>.</div>`;
-      return;
+    // Decide which batters / rows to use
+    let targetBatters, byBatter;
+    if (INCLUDE_BATTERS.length > 0) {
+      const nameSet = new Set(INCLUDE_BATTERS);
+      const filtered = rows.filter(r => nameSet.has(r[COLUMNS.batter]));
+      byBatter = groupBy(filtered, r => r[COLUMNS.batter] || 'Unknown');
+      targetBatters = INCLUDE_BATTERS.filter(n => byBatter[n] && byBatter[n].length);
+    } else {
+      const team = PRESELECT_TEAM;
+      const teamRows = rows.filter(r => r[COLUMNS.batterTeam] === team);
+      if (!teamRows.length){
+        resultsEl.innerHTML = `<div>No rows found for team <b>${escapeHtml(team)}</b>.</div>`;
+        return;
+      }
+      byBatter = groupBy(teamRows, r => r[COLUMNS.batter] || 'Unknown');
+      targetBatters = battersByTeam.get(team) || [];
     }
 
-    const byBatter = groupBy(teamRows, r => r[COLUMNS.batter] || 'Unknown');
-
     resultsEl.innerHTML = '';
-    const batters = battersByTeam.get(team) || [];
-    for (const bName of batters){
+
+    for (const bName of targetBatters){
       const bRows = byBatter[bName] || [];
       if (!bRows.length) continue;
 
+      const teams = [...new Set(bRows.map(r => r[COLUMNS.batterTeam]).filter(Boolean))];
       const pitchTypes = Array.from(new Set(bRows.map(r => r[COLUMNS.pitchType]).filter(Boolean))).sort();
+      const lhpRows = bRows.filter(r => r[COLUMNS.pitcherThrows] === 'Left');
+      const rhpRows = bRows.filter(r => r[COLUMNS.pitcherThrows] === 'Right');
 
       const block = document.createElement('section');
       block.className = 'batter-block';
@@ -454,40 +506,66 @@ canvas {
       header.className = 'batter-header';
       header.innerHTML = `<div class="batter-name">${escapeHtml(bName)}</div>
                           <div style="display:flex;gap:8px;flex-wrap:wrap">
-                            <span class="badge">Team: ${escapeHtml(team)}</span>
-                            <span class="badge">Pitch types: ${pitchTypes.length}</span>
+                            <span class="badge">${escapeHtml(teams.join(' / '))}</span>
+                            <span class="badge">${bRows.length} pitches</span>
+                            <span class="badge">LHP: ${lhpRows.length}</span>
+                            <span class="badge">RHP: ${rhpRows.length}</span>
                           </div>`;
       block.appendChild(header);
 
-      const ptGrid = document.createElement('div');
-      ptGrid.className = 'pitchtype-grid';
+      appendHandSection(block, 'vs LHP', lhpRows, pitchTypes, gridInfo, minSamples, cellW, cellH);
+      appendHandSection(block, 'vs RHP', rhpRows, pitchTypes, gridInfo, minSamples, cellW, cellH);
 
-      let count = 0;
-      for (const pt of pitchTypes){
-        const ptRows = bRows.filter(r => r[COLUMNS.pitchType] === pt);
-        if (ptRows.length < minSamples) continue;
-
-        const agg = buildGrids(ptRows, NX, NY, DOMAIN, cellW, cellH);
-
-        const card = renderPitchTypeCard(pt, ptRows.length, {NX, NY, DOMAIN, insideCols, insideRows, padX, padY}, agg);
-        ptGrid.appendChild(card);
-        count++;
-
-        if (count % 4 === 0){
-          const br = document.createElement('div');
-          br.className = 'page-break';
-          ptGrid.appendChild(br);
-        }
-      }
-
-      if (ptGrid.querySelector('.pitchtype-card')){
-        block.appendChild(ptGrid);
+      if (block.querySelector('.pitchtype-card')){
         resultsEl.appendChild(block);
       }
     }
 
     if (!resultsEl.querySelector('.pitchtype-card')){
       resultsEl.innerHTML = `<div>No pitch types met the <b>min sample</b> threshold (${minSamples}).</div>`;
+    }
+  }
+
+  function appendHandSection(block, label, handRows, pitchTypes, gridInfo, minSamples, cellW, cellH){
+    const {NX, NY, DOMAIN} = gridInfo;
+    let count = 0;
+
+    const section = document.createElement('div');
+    section.className = 'hand-section';
+
+    const sectionLabel = document.createElement('div');
+    sectionLabel.className = 'hand-label';
+    sectionLabel.textContent = label;
+    section.appendChild(sectionLabel);
+
+    const ptGrid = document.createElement('div');
+    ptGrid.className = 'pitchtype-grid';
+
+    for (const pt of pitchTypes){
+      const ptRows = handRows.filter(r => r[COLUMNS.pitchType] === pt);
+      if (ptRows.length < minSamples) continue;
+
+      const agg = buildGrids(ptRows, NX, NY, DOMAIN, cellW, cellH);
+      const card = renderPitchTypeCard(pt, ptRows.length, gridInfo, agg);
+      ptGrid.appendChild(card);
+      count++;
+
+      if (count % 4 === 0){
+        const br = document.createElement('div');
+        br.className = 'page-break';
+        ptGrid.appendChild(br);
+      }
+    }
+
+    if (ptGrid.querySelector('.pitchtype-card')){
+      section.appendChild(ptGrid);
+      block.appendChild(section);
+    } else {
+      const none = document.createElement('div');
+      none.className = 'hand-empty';
+      none.textContent = `${label} — not enough data (min ${minSamples} samples per pitch type)`;
+      section.appendChild(none);
+      block.appendChild(section);
     }
   }
 
@@ -584,7 +662,7 @@ canvas {
     wrap.className = 'map';
 
     const h4 = document.createElement('h4');
-    h4.textContent = title;
+    h4.innerHTML = `${escapeHtml(title)} <span class="map-obs">obs: ${sum2D(countGridForMeta)}</span>`;
     wrap.appendChild(h4);
 
     const canvas = document.createElement('canvas');
@@ -593,12 +671,6 @@ canvas {
     cr.className = 'canvas-wrap';
     cr.appendChild(canvas);
     wrap.appendChild(cr);
-
-    // Only show obs (observations) under each map
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    meta.textContent = `obs: ${sum2D(countGridForMeta)}`;
-    wrap.appendChild(meta);
 
     drawHeatmap(canvas, valueGrid, 0, 1, gridInfo);
     return wrap;

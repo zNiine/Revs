@@ -59,7 +59,7 @@
     #controls button:disabled { opacity: .45; cursor: default; }
 
     /* ─── Page ──────────────────────────────────── */
-    @page { size: letter landscape; margin: .35in; }
+    @page { size: letter portrait; margin: .35in; }
 
     .page {
       background: #fff;
@@ -68,6 +68,9 @@
       padding: 22px 28px;
       margin-bottom: 28px;
       position: relative;
+      display: flex;
+      flex-direction: column;
+      height: 10.3in;
       page-break-after: always;
       overflow: hidden;
     }
@@ -76,6 +79,7 @@
 
     /* ─── Report Header ─────────────────────────── */
     .report-header {
+      flex-shrink: 0;
       text-align: center;
       padding-bottom: 8px;
       border-bottom: 2px solid #111827;
@@ -151,25 +155,21 @@
     /* ─── Usage Tree ────────────────────────────── */
     .usage-container {
       display: flex;
-      align-items: flex-end;
-      gap: 18px;
+      justify-content: center;
     }
     .usage-chart {
       width: 640px;
-      height: 590px;
+      height: 500px;
       position: relative;
       flex-shrink: 0;
     }
-    .stats-side {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      padding-bottom: 2px;
+    .sum-bottom {
+      position: absolute;
+      bottom: 22px;
+      left: 28px;
+      right: 28px;
     }
-    .stats-side table { margin-bottom: 0; font-size: 11px; }
-    .stats-side th { font-size: 9.5px; padding: 4px 7px; }
-    .stats-side td { padding: 4px 7px; }
+    .sum-bottom table { margin-bottom: 4px; }
 
 
     /* ─── Legend ────────────────────────────────── */
@@ -198,7 +198,9 @@
         box-shadow: none;
         margin: 0;
         padding: .28in .35in;
+        height: 10.3in;
       }
+      .sum-bottom { bottom: .28in; left: .35in; right: .35in; }
 
       th {
         background: #111827 !important;
@@ -238,7 +240,7 @@
       'PlateLocSide','PlateLocHeight',
       'GameID','Date','PAofInning','PitchofPA',
       'PlayResult','KorBB','PitchCall','OutsOnPlay','RunsScored',
-      'ZoneTime'
+      'SpeedDrop'
     ];
     function pickUsed(row) {
       const out = {};
@@ -379,7 +381,6 @@
       const pages = [
         ['UsageStats', () => renderUsageStatsPage(container, displayName, pitcher, side, rows, jerseyNum)],
         ['Runners',    () => renderRunnersPage   (container, displayName, pitcher, side, rows, jerseyNum)],
-        ['Summary',    () => renderSummaryPage   (container, displayName, pitcher, side, rows, jerseyNum)],
       ];
       pages.forEach(([name, fn]) => {
         try { fn(); }
@@ -402,20 +403,31 @@
       uDiv.className = 'usage-chart';
       usageCont.appendChild(uDiv);
 
-      const statsId = `stats_${sanitize(pitcher)}_${side}_usage`;
-      const statsSide = document.createElement('div');
-      statsSide.className = 'stats-side';
-      statsSide.innerHTML = `
-        <table>
-          <thead><tr><th>Type</th><th>#</th><th>Velo</th><th>Std</th></tr></thead>
-          <tbody id="${statsId}"></tbody>
-        </table>
-      `;
-      usageCont.appendChild(statsSide);
-
       pg.appendChild(usageCont);
       renderUsageTree(rows, uDiv.id);
-      renderStats(rows, statsId);
+
+      const sumBottom = document.createElement('div');
+      sumBottom.className = 'sum-bottom';
+
+      const sumId = `sum_${sanitize(pitcher)}_${side}_usage`;
+      const sumTable = document.createElement('table');
+      sumTable.id = sumId;
+      sumTable.innerHTML = `
+        <thead>
+          <tr>
+            <th>Type</th><th>#</th><th>%</th>
+            <th>Velo</th><th>Spin</th><th>IVB</th><th>HB</th>
+            <th>Ext</th><th>Zone%</th><th>Drop</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      sumBottom.appendChild(sumTable);
+      sumBottom.appendChild(document.createElement('p'));
+      sumBottom.lastChild.className = 'table-note';
+      sumBottom.lastChild.textContent = 'IVB = Induced Vertical Break  ·  HB = Horizontal Break  ·  Ext = Extension  ·  Zone% = % in strike zone  ·  Drop = avg speed drop (release → plate)';
+      pg.appendChild(sumBottom);
+      renderSummaryTable(rows, sumId);
     }
 
     function renderRunnersPage(container, displayName, pitcher, side, rows) {
@@ -439,20 +451,31 @@
       uDiv.className = 'usage-chart';
       usageCont.appendChild(uDiv);
 
-      const statsId = `stats_${sanitize(pitcher)}_${side}_runners`;
-      const statsSide = document.createElement('div');
-      statsSide.className = 'stats-side';
-      statsSide.innerHTML = `
-        <table>
-          <thead><tr><th>Type</th><th>#</th><th>Velo</th><th>Std</th></tr></thead>
-          <tbody id="${statsId}"></tbody>
-        </table>
-      `;
-      usageCont.appendChild(statsSide);
-
       pg.appendChild(usageCont);
       renderUsageTree(runnerRows, uDiv.id);
-      renderStats(runnerRows, statsId);
+
+      const sumBottom = document.createElement('div');
+      sumBottom.className = 'sum-bottom';
+
+      const sumId = `sum_${sanitize(pitcher)}_${side}_runners`;
+      const sumTable = document.createElement('table');
+      sumTable.id = sumId;
+      sumTable.innerHTML = `
+        <thead>
+          <tr>
+            <th>Type</th><th>#</th><th>%</th>
+            <th>Velo</th><th>Spin</th><th>IVB</th><th>HB</th>
+            <th>Ext</th><th>Zone%</th><th>Drop</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      sumBottom.appendChild(sumTable);
+      sumBottom.appendChild(document.createElement('p'));
+      sumBottom.lastChild.className = 'table-note';
+      sumBottom.lastChild.textContent = 'IVB = Induced Vertical Break  ·  HB = Horizontal Break  ·  Ext = Extension  ·  Zone% = % in strike zone  ·  Drop = avg speed drop (release → plate)';
+      pg.appendChild(sumBottom);
+      renderSummaryTable(runnerRows, sumId);
     }
 
     function renderSummaryPage(container, displayName, pitcher, side, rows, jerseyNum) {
@@ -468,7 +491,7 @@
           <tr>
             <th>Type</th><th>#</th><th>%</th>
             <th>Velo</th><th>Spin</th><th>IVB</th><th>HB</th>
-            <th>Ext</th><th>Zone T</th><th>Whiff%</th><th>Swing%</th>
+            <th>Ext</th><th>Zone%</th><th>Drop</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -478,7 +501,7 @@
 
       const note = document.createElement('p');
       note.className = 'table-note';
-      note.textContent = 'IVB = Induced Vertical Break  ·  HB = Horizontal Break  ·  Ext = Extension  ·  Zone T = Zone Time';
+      note.textContent = 'IVB = Induced Vertical Break  ·  HB = Horizontal Break  ·  Ext = Extension  ·  Zone% = % in strike zone  ·  Drop = avg speed drop (release → plate)';
       pg.appendChild(note);
     }
 
@@ -694,19 +717,18 @@
       const stats = {};
       rows.forEach(r => {
         const t = r.AutoPitchType || 'undefined';
-        if (!stats[t]) stats[t] = { count:0, sumV:0, sumS:0, sumIVB:0, sumH:0, sumE:0, sumZT:0, whiff:0, swing:0 };
+        if (!stats[t]) stats[t] = { count:0, sumV:0, sumS:0, sumIVB:0, sumH:0, sumE:0, inZone:0, sumDrop:0, dropCount:0 };
         const s = stats[t];
         s.count++;
-        const v  = parseFloat(r.RelSpeed);        if (!isNaN(v))  s.sumV   += v;
-        const sp = parseFloat(r.SpinRate);        if (!isNaN(sp)) s.sumS   += sp;
+        const v  = parseFloat(r.RelSpeed);         if (!isNaN(v))  s.sumV   += v;
+        const sp = parseFloat(r.SpinRate);         if (!isNaN(sp)) s.sumS   += sp;
         const iv = parseFloat(r.InducedVertBreak); if (!isNaN(iv)) s.sumIVB += iv;
         const ho = parseFloat(r.HorzBreak);        if (!isNaN(ho)) s.sumH   += ho;
         const ex = parseFloat(r.Extension);        if (!isNaN(ex)) s.sumE   += ex;
-        const zt = parseFloat(r.ZoneTime);         if (!isNaN(zt)) s.sumZT  += zt;
-        const pc = r.PitchCall || '';
-        const swing = pc.startsWith('StrikeSwing') || pc === 'InPlay';
-        if (swing && pc === 'StrikeSwinging') s.whiff++;
-        if (swing) s.swing++;
+        const px = parseFloat(r.PlateLocSide);
+        const py = parseFloat(r.PlateLocHeight);
+        if (!isNaN(px) && !isNaN(py) && px >= -0.83 && px <= 0.83 && py >= 1.5 && py <= 3.5) s.inZone++;
+        const sd = parseFloat(r.SpeedDrop);        if (!isNaN(sd)) { s.sumDrop += sd; s.dropCount++; }
       });
       const tbody = document.getElementById(tableId).querySelector('tbody');
       tbody.innerHTML = '';
@@ -725,9 +747,8 @@
             <td>${(s.sumIVB/s.count).toFixed(1)}</td>
             <td>${(s.sumH/s.count).toFixed(1)}</td>
             <td>${(s.sumE/s.count).toFixed(1)}</td>
-            <td>${(s.sumZT/s.count).toFixed(2)}</td>
-            <td>${(s.whiff/s.count*100).toFixed(1)}%</td>
-            <td>${(s.swing/s.count*100).toFixed(1)}%</td>
+            <td>${(s.inZone/s.count*100).toFixed(1)}%</td>
+            <td>${s.dropCount > 0 ? (s.sumDrop/s.dropCount).toFixed(1) : '—'}</td>
           `;
           tbody.appendChild(tr);
         });
