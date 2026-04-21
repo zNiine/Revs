@@ -3,91 +3,74 @@
 <head>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
-
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Umpire Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Umpire – ALPB</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="libs/plotly.min.js"></script>
   <script src="libs/papaparse.min.js"></script>
-  <style>
-    /* Global */
-    body { margin:0; font-family:'Segoe UI', Tahoma, sans-serif; background:#f0f2f5; color:#333; display:flex; flex-direction:column; height:100vh; }
-    a { color:#007bff; text-decoration:none; } a:hover { text-decoration:underline; }
-    /* Header & Nav */
-    header { display:flex; justify-content:space-between; align-items:center; padding:1rem 2rem; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
-    #logo { font-size:1.75rem; font-weight:bold; color:#007bff; }
-    form { display:flex; }
-    input[type=text] { padding:0.5rem 1rem; border:1px solid #ccc; border-radius:4px 0 0 4px; width:200px; }
-    button { padding:0.5rem 1rem; border:none; background:#007bff; color:#fff; cursor:pointer; border-radius:0 4px 4px 0; }
-    nav { background:#fff; padding:0.5rem 2rem; border-bottom:1px solid #e0e0e0; }
-    nav ul { list-style:none; display:flex; gap:1.5rem; margin:0; padding:0; }
-    nav a { font-weight:500; color:#555; } nav a.active, nav a:hover { color:#007bff; }
-    /* Layout */
-    .container { flex:1; display:grid; grid-template-columns:250px 1fr; overflow:hidden; }
-    .sidebar { background:#fff; padding:1.5rem; border-right:1px solid #e0e0e0; overflow-y:auto; }
-    .main { padding:2rem; overflow-y:auto; }
-    /* Filters */
-    .filters { display:flex; flex-direction:column; gap:1rem; }
-    .filters label { font-size:0.9rem; color:#555; }
-    .filters select, .filters button { padding:0.5rem; border:1px solid #ccc; border-radius:4px; background:#fafafa; font-size:0.9rem; }
-    .filters button { background:#e9ecef; }
-    /* Title */
-    #umpName { margin:0 0 1rem; font-size:2rem; color:#007bff; border-bottom:2px solid #e0e0e0; padding-bottom:0.5rem; }
-    /* Charts 2x2 */
-    .charts { display:grid; grid-template-columns:repeat(2,1fr); gap:2rem; grid-auto-rows:550px; }
-    .chart { background:#fff; border-radius:8px; padding:1rem; box-shadow:0 2px 4px rgba(0,0,0,0.05); display:flex; flex-direction:column; }
-    .chart h3 { margin:0 0 1rem; font-size:1.2rem; color:#333; }
-    .chart div, .chart .info { flex:1; }
-    .info { display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:1.1rem; }
-    /* Chart containers */
-    #plateView, #missHeatmap, #accuracyPie { width:100%; height:100%; }
-  </style>
 </head>
 <body>
-  <header>
-    <div id="logo">ALPB</div>
-    <form id="search-form">
-      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off">
-      <button type="submit">Go</button>
-      <datalist id="suggestions"></datalist>
-    </form>
+  <header class="app-header">
+    <a href="index.html" class="logo">ALPB</a>
+    <nav class="nav-desktop">
+      <a href="index.html">Home</a>
+      <a href="schedule.html">Standings</a>
+      <a href="games.html">Games</a>
+      <a href="leaderboards.html">Leaderboards</a>
+      <a href="park-factors.html">Park Factors</a>
+      <a href="fielding.html">Fielding</a>
+      <a href="stolen-bases.html">Base Running</a>
+      <a href="dong.html">Would it Dong?</a>
+    </nav>
+    <div class="hamburger" id="hamburger-btn" aria-label="Menu"><span></span><span></span><span></span></div>
   </header>
-  <nav>
-    <ul>
-      <li><a href="index.html">Home</a></li>
-      <li><a href="leaderboards.html">Leaderboards</a></li>
-      <li><a href="park-factors.html">Park Factors</a></li>
-      <li><a href="fielding.html">Fielding</a></li>
-            <li><a href="stolen-bases.html" >Base Running</a></li>
-    </ul>
-  </nav>
-  <div class="container">
-    <aside class="sidebar">
-      <div class="filters">
-        <label for="dateFilter">Date</label>
-        <select id="dateFilter" onchange="applyFilters()"><option value="">All Dates</option></select>
-        <label for="sideFilter">Batter Side</label>
-        <select id="sideFilter" onchange="applyFilters()"><option value="">All</option><option value="Left">Left</option><option value="Right">Right</option></select>
-        <label for="pitcherThrowFilter">Pitcher Throws</label>
-        <select id="pitcherThrowFilter" onchange="applyFilters()"><option value="">All</option><option value="Left">Left</option><option value="Right">Right</option></select>
-        <button onclick="resetFilters()">Reset Filters</button>
-      </div>
-    </aside>
-    <main class="main">
-      <h1 id="umpName">Umpire: </h1>
-      <div class="charts">
-        <div class="chart"><h3>Plate View: Called Strikes vs. Balls</h3><div id="plateView"></div></div>
-        <div class="chart"><h3>Miss Heatmap (False Calls)</h3><div id="missHeatmap"></div></div>
-        <div class="chart"><h3>Call Accuracy Breakdown</h3><div id="accuracyPie"></div></div>
-        <div class="chart"><h3>Umpire Rank &amp; Percentile</h3><div class="info" id="umpRankInfo"></div></div>
-      </div>
-    </main>
+  <div id="side-menu" class="side-menu">
+    <nav>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="schedule.html">Standings</a></li>
+        <li><a href="games.html">Games</a></li>
+        <li><a href="leaderboards.html">Leaderboards</a></li>
+        <li><a href="park-factors.html">Park Factors</a></li>
+        <li><a href="fielding.html">Fielding</a></li>
+        <li><a href="stolen-bases.html">Base Running</a></li>
+        <li><a href="dong.html">Would it Dong?</a></li>
+      </ul>
+    </nav>
   </div>
+  <div id="overlay" class="overlay"></div>
+
+  <main class="main-container">
+    <h1 class="page-title" id="umpName">Umpire</h1>
+    <div class="filters-panel">
+      <div class="filters-grid">
+        <div><label for="search">Search umpire</label><input type="text" id="search" placeholder="Type name…" list="suggestions" autocomplete="off" style="max-width:180px;" /></div>
+        <div><label>&nbsp;</label><button type="button" class="btn btn-primary" id="search-go">Go</button></div>
+        <div><label for="dateFilter">Date</label><select id="dateFilter" onchange="applyFilters()"><option value="">All Dates</option></select></div>
+        <div><label for="sideFilter">Batter side</label><select id="sideFilter" onchange="applyFilters()"><option value="">All</option><option value="Left">Left</option><option value="Right">Right</option></select></div>
+        <div><label for="pitcherThrowFilter">Pitcher throws</label><select id="pitcherThrowFilter" onchange="applyFilters()"><option value="">All</option><option value="Left">Left</option><option value="Right">Right</option></select></div>
+        <div><label>&nbsp;</label><button type="button" class="btn btn-ghost" onclick="resetFilters()">Reset</button></div>
+      </div>
+      <datalist id="suggestions"></datalist>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card"><h4>Plate view: strikes vs balls</h4><div id="plateView"></div></div>
+      <div class="chart-card"><h4>Miss heatmap (false calls)</h4><div id="missHeatmap"></div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card"><h4>Call accuracy</h4><div id="accuracyPie"></div></div>
+      <div class="chart-card"><h4>Rank &amp; percentile</h4><div id="umpRankInfo" style="display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:200px;font-size:1.1rem;"></div></div>
+    </div>
+  </main>
   <script>
     let allData = [], umpName = '';
     const xMin=-1.5,xMax=1.5,yMin=0,yMax=5;
-    const commonLayout={width:500,height:450,margin:{t:20,b:40,l:40,r:120},xaxis:{range:[xMin,xMax],fixedrange:true, autorange: 'reversed',title:'Horizontal Location (ft)'},yaxis:{range:[yMin,yMax],fixedrange:true,title:'Vertical Location (ft)'},shapes:[{type:'rect',xref:'x',yref:'y',x0:-0.708,x1:0.708,y0:1.5,y1:3.5,line:{color:'black',width:2}}]};
+    const darkLayout = { paper_bgcolor:'#1a2332', plot_bgcolor:'#1a2332', font:{color:'#e6edf3', family:'DM Sans, sans-serif'}, margin:{t:20,b:40,l:40,r:40} };
+    const commonLayout = Object.assign({ width: null, height: 350, xaxis: { range:[xMin,xMax], fixedrange:true, autorange:'reversed', title:'Horizontal (ft)', gridcolor:'#30363d' }, yaxis: { range:[yMin,yMax], fixedrange:true, title:'Vertical (ft)', gridcolor:'#30363d' }, shapes:[{type:'rect',xref:'x',yref:'y',x0:-0.708,x1:0.708,y0:1.5,y1:3.5,line:{color:'#8b9cad',width:2}}] }, darkLayout);
     function getParam(n){return new URLSearchParams(location.search).get(n)||'';}
     function inZone(r){const h=+r.PlateLocHeight,s=+r.PlateLocSide;return h>=1.5&&h<=3.5&&s>=-0.83&&s<=0.83;}
     function resetFilters(){['dateFilter','sideFilter','pitcherThrowFilter'].forEach(id=>document.getElementById(id).value='');applyFilters();}
@@ -103,8 +86,8 @@
     x: strikes.map(r => +r.PlateLocSide),
     y: strikes.map(r => +r.PlateLocHeight),
     mode: 'markers',
-    name: 'StrikeCalled',
-    marker: { color: '#e74c3c', size: 7 },
+    name: 'Strike',
+    marker: { color: '#f85149', size: 8 },
     type: 'scatter',
     customdata: strikes.map(r => r.PitchUID)    // <— stash UIDs here
   };
@@ -113,8 +96,8 @@
     x: balls.map(r => +r.PlateLocSide),
     y: balls.map(r => +r.PlateLocHeight),
     mode: 'markers',
-    name: 'BallCalled',
-    marker: { color: '#3498db', size: 7 },
+    name: 'Ball',
+    marker: { color: '#58a6ff', size: 8 },
     type: 'scatter',
     customdata: balls.map(r => r.PitchUID)      // <— and here
   };
@@ -134,10 +117,47 @@
       });
     });
 }
-function renderMissHeatmap(rows){const calls=rows.filter(r=>['StrikeCalled','BallCalled'].includes(r.PitchCall));const misses=calls.filter(r=>(r.PitchCall==='StrikeCalled')?!inZone(r):inZone(r));Plotly.newPlot('missHeatmap',[{x:misses.map(r=>+r.PlateLocSide),y:misses.map(r=>+r.PlateLocHeight),type:'histogram2d',nbinsx:40,nbinsy:20,colorscale:'Reds',colorbar:{title:'Count'}}],commonLayout);}    
-    function renderAccuracyPie(rows){const calls=rows.filter(r=>['StrikeCalled','BallCalled'].includes(r.PitchCall));let correct=0;calls.forEach(r=>{const strike=r.PitchCall==='StrikeCalled';if((strike&&inZone(r))||(!strike&&!inZone(r)))correct++;});const incorrect=calls.length-correct;Plotly.newPlot('accuracyPie',[{values:[correct,incorrect],labels:['Correct','Incorrect'],type:'pie',textinfo:'label+percent'}],{margin:{t:20,b:40,l:40,r:120}});}    
+function renderMissHeatmap(rows){const calls=rows.filter(r=>['StrikeCalled','BallCalled'].includes(r.PitchCall));const misses=calls.filter(r=>(r.PitchCall==='StrikeCalled')?!inZone(r):inZone(r));Plotly.newPlot('missHeatmap',[{x:misses.map(r=>+r.PlateLocSide),y:misses.map(r=>+r.PlateLocHeight),type:'histogram2d',nbinsx:40,nbinsy:20,colorscale:[[0,'#1a2332'],[0.5,'#f85149'],[1,'#ffcccc']],colorbar:{title:'Count',tickfont:{color:'#e6edf3'}}}],commonLayout);}    
+    function renderAccuracyPie(rows){const calls=rows.filter(r=>['StrikeCalled','BallCalled'].includes(r.PitchCall));let correct=0;calls.forEach(r=>{const strike=r.PitchCall==='StrikeCalled';if((strike&&inZone(r))||(!strike&&!inZone(r)))correct++;});const incorrect=calls.length-correct;Plotly.newPlot('accuracyPie',[{values:[correct,incorrect],labels:['Correct','Incorrect'],type:'pie',textinfo:'label+percent',marker:{colors:['#3fb950','#f85149']}}],{paper_bgcolor:'#1a2332',plot_bgcolor:'#1a2332',font:{color:'#e6edf3'},margin:{t:20,b:20,l:20,r:20},showlegend:true,legend:{font:{color:'#e6edf3'}}});}    
     function renderUmpRank(rows){const map={};allData.forEach(r=>{if(r.PitchCall!=='StrikeCalled'&&r.PitchCall!=='BallCalled')return;map[r.Umpire]=map[r.Umpire]||{total:0,correct:0};map[r.Umpire].total++;const strike=r.PitchCall==='StrikeCalled';if((inZone(r)&&strike)||(!inZone(r)&&!strike))map[r.Umpire].correct++;});const arr=Object.entries(map).map(([u,s])=>({name:u,accuracy:s.correct/s.total})).sort((a,b)=>b.accuracy-a.accuracy);const idx=arr.findIndex(x=>x.name===umpName)+1;const pct=((arr.length-idx)/(arr.length-1)*100).toFixed(0);document.getElementById('umpRankInfo').innerHTML=`<p><strong>Rank:</strong> ${idx} of ${arr.length}</p><p><strong>Percentile:</strong> Top ${pct}%</p>`;}    
-    document.addEventListener('DOMContentLoaded',()=>{Papa.parse('./data.csv',{download:true,header:true,skipEmptyLines:true,complete:res=>{allData=res.data.map(r=>({...r,Date:r.Date.split('T')[0]}));const dates=Array.from(new Set(allData.filter(r=>r.Umpire===getParam('player')).map(r=>r.Date))).sort();const df=document.getElementById('dateFilter');dates.forEach(d=>df.append(new Option(d)));const dl=document.getElementById('suggestions');new Set(allData.map(r=>r.Umpire)).forEach(n=>dl.append(new Option(n)));applyFilters();}});document.getElementById('search-form').addEventListener('submit',e=>{e.preventDefault();const q=document.getElementById('search').value.trim();if(allData.some(r=>r.Umpire===q))window.location.href=`ump-profiles.html?player=${encodeURIComponent(q)}`;else alert('No matching umpire found.');});});
+    document.addEventListener('DOMContentLoaded',function(){
+      var player = getParam('player');
+      if (!player) { document.getElementById('umpName').textContent = 'Umpire: (none)'; return; }
+      allData = [];
+      Papa.parse('./data.csv', {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        step: function(results) {
+          var r = results.data;
+          if (r && r.Umpire === player) allData.push(r);
+        },
+        complete: function() {
+          allData = allData.map(function(r){ return Object.assign({}, r, { Date: (r.Date||'').toString().split('T')[0] }); });
+          var dates = Array.from(new Set(allData.map(function(r){ return r.Date; }))).sort();
+          var df = document.getElementById('dateFilter');
+          df.innerHTML = '<option value="">All Dates</option>';
+          dates.forEach(function(d){ df.append(new Option(d)); });
+          var dl = document.getElementById('suggestions');
+          dl.innerHTML = '';
+          new Set(allData.map(function(r){ return r.Umpire; })).forEach(function(n){ dl.append(new Option(n)); });
+          applyFilters();
+        },
+        error: function() { document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">Failed to load data.csv.</p>'); }
+      });
+      });
+    document.getElementById('search-go').addEventListener('click', function(){
+      var q = document.getElementById('search').value.trim();
+      if (allData && allData.some(function(r){ return r.Umpire===q; })) window.location.href = 'ump-profiles.html?player=' + encodeURIComponent(q);
+      else if (q) alert('No matching umpire found.');
+    });
+  </script>
+  <script>
+    (function(){
+      var h=document.getElementById('hamburger-btn'), s=document.getElementById('side-menu'), o=document.getElementById('overlay');
+      h.addEventListener('click', function(){ if(s.classList.contains('open')){ h.classList.remove('open'); s.classList.remove('open'); o.classList.remove('visible'); }else{ h.classList.add('open'); s.classList.add('open'); o.classList.add('visible'); } });
+      o.addEventListener('click', function(){ h.classList.remove('open'); s.classList.remove('open'); o.classList.remove('visible'); });
+    })();
   </script>
  <script type="module">
   // Import the functions you need from the SDKs you need

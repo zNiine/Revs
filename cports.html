@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catcher Wrist Card Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+/* ===== RESET ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ===== SCREEN UI ===== */
+body { font-family: Arial, sans-serif; background: #111827; color: #e5e7eb; min-height: 100vh; }
+
+.top-bar {
+  background: #1f2937; border-bottom: 2px solid #dc2626;
+  padding: 10px 18px; position: sticky; top: 0; z-index: 200;
+  box-shadow: 0 2px 10px rgba(0,0,0,.6);
+}
+.top-bar h1 {
+  font-size: 14px; font-weight: 800; color: #dc2626;
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;
+}
+.ctrl-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ctrl-group { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #9ca3af; white-space: nowrap; }
+select {
+  background: #374151; color: #f9fafb; border: 1px solid #4b5563;
+  border-radius: 3px; padding: 3px 6px; font-size: 11px; min-width: 150px;
+}
+input[type="file"] { font-size: 11px; color: #9ca3af; }
+.btn {
+  padding: 4px 12px; border: none; border-radius: 3px; font-size: 11px;
+  font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: .4px;
+}
+.btn-red   { background: #dc2626; color: #fff; }
+.btn-red:hover   { background: #b91c1c; }
+.btn-blue  { background: #2563eb; color: #fff; }
+.btn-blue:hover  { background: #1d4ed8; }
+.btn-green { background: #16a34a; color: #fff; }
+.btn-green:hover { background: #15803d; }
+
+#statusBar {
+  font-size: 11px; color: #6b7280; padding: 4px 18px;
+  background: #111827; border-bottom: 1px solid #1f2937;
+}
+
+#preview {
+  padding: 20px; display: flex; flex-wrap: wrap;
+  gap: 20px; justify-content: center; min-height: 200px;
+}
+.empty-state {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 160px; color: #4b5563; font-size: 13px;
+}
+
+/* ===== WRIST CARD ===== */
+.wrist-card {
+  background: #fff; color: #000;
+  border: 1.5pt solid #000;
+  font-family: 'Arial Narrow', Arial, sans-serif;
+  break-inside: avoid; page-break-inside: avoid;
+  box-shadow: 0 3px 14px rgba(0,0,0,.45);
+  overflow: hidden;
+}
+.wrist-card.size-5x8 { width: 5.1in; }
+.wrist-card.size-4x6 { width: 4.0in; }
+
+/* --- header --- */
+.card-hdr {
+  background: #111; color: #fff;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 7px; border-bottom: 2pt solid #dc2626;
+}
+.hdr-left  { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.hdr-right { text-align: right; }
+
+.pitcher-nm {
+  font-size: 11.5pt; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.hand-badge {
+  font-size: 8pt; font-weight: 700; padding: 1px 5px;
+  border-radius: 2px; border: 1px solid #555;
+}
+.hand-badge.RHP { background: #1e3a5f; color: #7dd3fc; border-color: #2563eb; }
+.hand-badge.LHP { background: #4c1d1d; color: #fca5a5; border-color: #dc2626; }
+
+.arsenal-pills { display: flex; gap: 3px; flex-wrap: wrap; }
+.arsenal-pill {
+  font-size: 7pt; font-weight: 700; padding: 1px 4px;
+  background: #333; border: 1px solid #555; border-radius: 2px; color: #ddd;
+}
+.arsenal-pill small { color: #aaa; font-weight: 400; }
+
+.team-nm { font-size: 9.5pt; font-weight: 700; text-transform: uppercase; display: block; }
+.gen-dt  { font-size: 7pt; color: #888; display: block; }
+
+/* --- table --- */
+.card-tbl {
+  width: 100%; border-collapse: collapse; table-layout: fixed;
+}
+.card-tbl th {
+  background: #222; color: #fff;
+  font-size: 6pt; font-weight: 700;
+  padding: 1px 2px; text-align: center;
+  border: 0.5pt solid #555; letter-spacing: .2px;
+}
+.card-tbl th.th-name { text-align: left; padding-left: 3px; }
+.card-tbl td {
+  font-size: 6.5pt; padding: 1pt 2pt;
+  border: 0.5pt solid #ccc;
+  text-align: center; vertical-align: middle;
+  white-space: nowrap; overflow: hidden;
+}
+.card-tbl td.td-name {
+  text-align: left; padding-left: 4px;
+  font-weight: 600; overflow: hidden; text-overflow: ellipsis;
+}
+/* Zebra stripe in pairs so notes rows blend */
+.card-tbl tbody tr.data-row:nth-child(4n+1),
+.card-tbl tbody tr.data-row:nth-child(4n+2) { background: #f7f7f7; }
+
+/* column colours */
+.z-hot  { background: #fee2e2 !important; color: #991b1b; font-weight: 700; }
+.z-weak { background: #dbeafe !important; color: #1e3a8a; font-weight: 700; }
+.z-dmg  { background: #fef3c7 !important; color: #78350f; font-weight: 700; font-size: 7.5pt; }
+
+/* notes sub-row */
+.notes-row td {
+  font-size: 7pt; color: #555; font-style: italic;
+  background: #fafafa !important; border-top: 0 !important;
+  text-align: left; padding: 0pt 5pt 1.5pt 22pt;
+}
+
+/* --- legend --- */
+.card-legend {
+  font-size: 6.5pt; color: #666; border-top: 0.5pt solid #aaa;
+  padding: 3pt 6pt; background: #f5f5f5; line-height: 1.6;
+}
+
+/* --- column widths (% based, works for both sizes) --- */
+.c-num  { width: 3.5%; }
+.c-name { width: 23%; }
+.c-zone { width: 5.5%; }   /* x2 = 11% */
+.c-pitch { width: 7.5%; }  /* x4 = 30% */
+.c-pct  { width: 6%; }     /* x2 = 12% */
+.c-dmg  { width: 10.5%; }
+/* remaining ~9.5% distributed by table-layout:fixed */
+
+/* ===== PITCH STATS MINI-TABLE (catcher cards) ===== */
+.ps-wrap { border-bottom: 1pt solid #ccc; }
+.ps-label {
+  font-size: 6.5pt; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .4px; color: #fff; background: #333;
+  padding: 2px 6px;
+}
+.ps-tbl {
+  width: 100%; border-collapse: collapse;
+  font-family: 'Arial Narrow', Arial, sans-serif;
+}
+.ps-tbl th {
+  background: #444; color: #ddd;
+  font-size: 6pt; font-weight: 700;
+  padding: 1.5px 3px; text-align: center;
+  border: 0.5pt solid #666; letter-spacing: .2px;
+  white-space: nowrap;
+}
+.ps-tbl th.ps-th-type { text-align: left; padding-left: 4px; }
+.ps-tbl td {
+  font-size: 7pt; padding: 1.5px 3px;
+  border: 0.5pt solid #ddd; text-align: center;
+  white-space: nowrap;
+}
+.ps-tbl td.ps-type { text-align: left; padding-left: 4px; font-weight: 600; font-size: 6.5pt; }
+.ps-tbl .ps-sub td { background: #f5f5f5 !important; color: #555; }
+.ps-tbl .ps-sub td.ps-type { padding-left: 14px; font-weight: 400; font-style: italic; }
+.ps-tbl tbody tr:nth-child(odd):not(.ps-sub) { background: #f9f9f9; }
+.ps-hot  { background: #fee2e2 !important; color: #991b1b; font-weight: 700; }
+.ps-cold { background: #dbeafe !important; color: #1e3a8a; font-weight: 700; }
+
+/* per-batter pitch breakdown sub-table */
+.breakdown-row td {
+  padding: 0 3pt 3pt 3pt !important;
+  border-top: 0 !important; background: #fafafa;
+}
+.breakdown-tbl {
+  width: 100%; border-collapse: collapse;
+  font-family: 'Arial Narrow', Arial, sans-serif;
+}
+.breakdown-tbl th {
+  background: #555; color: #eee;
+  font-size: 5.5pt; font-weight: 700;
+  padding: 1px 2px; text-align: center;
+  border: 0.5pt solid #777; white-space: nowrap;
+}
+.breakdown-tbl th.bd-th-type { text-align: left; padding-left: 4px; }
+.breakdown-tbl td {
+  font-size: 6.5pt; padding: 0.5px 2px;
+  border: 0.5pt solid #e0e0e0; text-align: center; white-space: nowrap;
+}
+.breakdown-tbl td.bd-type { text-align: left; padding-left: 4px; font-weight: 600; }
+.breakdown-tbl tbody tr:nth-child(odd):not(.bd-sub) { background: #f4f4f4; }
+.breakdown-tbl .bd-sub td { background: #efefef !important; color: #666; }
+.breakdown-tbl .bd-sub td.bd-type { padding-left: 12px; font-weight: 400; font-style: italic; }
+
+/* ===== PITCH MATRIX (catcher card) ===== */
+.pm-tbl { table-layout: auto; min-width: 100%; }
+.pm-tbl thead th { position: sticky; top: 0; }
+
+.pm-group-hdr {
+  background: #1e293b; color: #f1f5f9;
+  font-size: 5.5pt; font-weight: 800; text-align: center;
+  padding: 1px 2px; border: 0.5pt solid #475569;
+  letter-spacing: .2px; text-transform: uppercase;
+  border-bottom: 1pt solid #dc2626;
+}
+.pm-stat-hdr {
+  background: #334155; color: #cbd5e1;
+  font-size: 4.5pt; font-weight: 700; text-align: center;
+  padding: 1px 2px; border: 0.5pt solid #475569;
+  white-space: nowrap;
+}
+.pm-name-hdr {
+  background: #1e293b; color: #f1f5f9;
+  font-size: 5.5pt; font-weight: 800; text-align: left;
+  padding: 2px 3px; border: 0.5pt solid #475569;
+  vertical-align: middle; white-space: nowrap;
+}
+.pm-name {
+  font-size: 6.5pt; font-weight: 700;
+  padding: 2px 3px; vertical-align: middle;
+  white-space: nowrap; border-right: 1.5pt solid #334155;
+  background: #fff;
+}
+.pm-fp { font-size: 5pt; color: #64748b; font-weight: 400; margin-top: 0; }
+.pm-cell {
+  font-size: 5.5pt; padding: 1px 2px; text-align: center;
+  border: 0.5pt solid #e2e8f0; vertical-align: middle;
+  white-space: nowrap;
+}
+.pm-none { color: #cbd5e1; text-align: center; font-size: 6pt; }
+.pm-row:nth-child(even) .pm-cell { background: #f8fafc; }
+.pm-row:nth-child(even) .pm-name { background: #f8fafc; }
+.pm-row:last-child .pm-cell, .pm-row:last-child .pm-name { border-bottom: none; }
+.pm-group-end { border-right: 2pt solid #334155 !important; }
+
+/* ===== PRINT ===== */
+@media print {
+  body { background: #fff; margin: 0; padding: 0; }
+  .top-bar, #statusBar { display: none !important; }
+  #preview {
+    padding: 0;
+    display: flex; flex-wrap: wrap;
+    gap: 0.12in; align-items: flex-start; align-content: flex-start;
+  }
+  .wrist-card {
+    box-shadow: none;
+    border: 1pt solid #000;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .card-tbl tbody tr:hover { background: unset; }
+  @page { size: landscape; margin: 0.2in; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>&#9918; Catcher Wrist Card Generator</h1>
+  <div class="ctrl-row">
+    <div class="ctrl-group">
+      <label>CSV:</label>
+      <input type="file" id="csvFile" accept=".csv">
+    </div>
+    <div class="ctrl-group">
+      <label>Team:</label>
+      <select id="teamSel"><option value="">-- Load CSV --</option></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Pitcher:</label>
+      <select id="pitcherSel"><option value="">-- Select Team --</option></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Size:</label>
+      <select id="cardSize">
+        <option value="5x8" selected>5x8 in</option>
+        <option value="4x6">4x6 in</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label><input type="checkbox" id="showNotes"> Notes</label>
+    </div>
+    <button class="btn btn-red"   id="genOne">Generate Card</button>
+    <button class="btn btn-blue"  id="genAll">All Pitchers</button>
+    <button class="btn btn-blue"  id="catcherCards">Catcher Cards</button>
+    <button class="btn btn-green" onclick="window.print()">Print / Download</button>
+  </div>
+</div>
+
+<div id="statusBar">Load a CSV file to begin.</div>
+<div id="preview"><div class="empty-state">Upload data.csv to get started.</div></div>
+
+<script>
+// ================================================================
+// CONSTANTS
+// ================================================================
+const ZONE_H_MIN   = 1.5;    // strike zone bottom (ft)
+const ZONE_H_MAX   = 3.5;    // strike zone top (ft)
+const ZONE_S_LIMIT = 0.83;   // half-plate width (ft)
+const Z_HT_LOW     = 2.17;   // below this = low bin
+const Z_HT_HIGH    = 2.83;   // above this = high bin
+
+const MIN = {
+  FIRST_PITCH  : 10,
+  ZONE_SWING   : 10,
+  CHASE        :  8,
+  STRIKE       :  8,
+  GB           :  6,
+  PUTAWAY      :  6,
+  DAMAGE_ZONE  :  5,
+  HOT_WEAK     :  5,
+  SPLIT_BATTER : 15,  // min rows vs same hand before falling back to overall
+};
+
+const ARSENAL_PCT   = 0.05;
+const ARSENAL_COUNT = 10;
+
+// ================================================================
+// CATCHER CARDS — ROSTER TO INCLUDE
+// ================================================================
+const INCLUDE_BATTERS = [
+  "Ulrich, Evan", "Rosengard, Ben", "Smith, David", "Battles, Jalen",
+  "Carpenter, Joseph", "Flores, Marc", "Kelly, Scott", "Miller, Tyler",
+  "Lucky, Nick", "Watson, Kevin", "Thompson, Jake", "Alexander, Sebastian",
+  "Robertson, Tyler", "Arocho, Jeremy"
+];
+
+// Aggregate pitch-type row stats for the pitch breakdown table
+function computeRowStats(tr, totalPitches) {
+  const pct  = tr.length / totalPitches;
+  const bip  = tr.filter(r => getS(r,'PitchCall').toLowerCase().replace(/[\s_-]/g,'').includes('inplay'));
+  const hitS = new Set(['single','double','triple','homerun']);
+  const hits = bip.filter(r => hitS.has(getS(r,'PlayResult').toLowerCase().replace(/\s/g,'')));
+  const avg  = bip.length >= 3 ? hits.length / bip.length : null;
+  const tb   = bip.reduce((s,r) => s + getOutcomeBases(getS(r,'PlayResult')), 0);
+  const slg  = bip.length >= 3 ? tb / bip.length : null;
+  const evR  = bip.filter(r => getN(r,'ExitSpeed') !== null);
+  const ev   = evR.length >= 3 ? evR.reduce((s,r)=>s+getN(r,'ExitSpeed'),0)/evR.length : null;
+  const laR  = bip.filter(r => getN(r,'Angle') !== null);
+  const la   = laR.length >= 3 ? laR.reduce((s,r)=>s+getN(r,'Angle'),0)/laR.length : null;
+  const swings   = tr.filter(r => isSwing(getS(r,'PitchCall')));
+  const swingPct = tr.length ? swings.length / tr.length : null;
+  const oz       = tr.filter(r => !isInZone(r));
+  const ozSw     = oz.filter(r => isSwing(getS(r,'PitchCall')));
+  const chasePct = oz.length >= 3 ? ozSw.length / oz.length : null;
+  const whiffs   = swings.filter(r => getS(r,'PitchCall').toLowerCase().replace(/[\s_-]/g,'').includes('swinging'));
+  const whiffPct = swings.length >= 3 ? whiffs.length / swings.length : null;
+  return { pct, avg, slg, ev, la, swingPct, chasePct, whiffPct };
+}
+
+function computePitchTypeStats(rows, minCount = 5) {
+  const total = rows.length;
+  if (!total) return [];
+  const byType = {};
+  for (const r of rows) {
+    const pt = normalizePitchType(r);
+    if (!pt) continue;
+    (byType[pt] = byType[pt] || []).push(r);
+  }
+  const result = [];
+  const sorted = Object.entries(byType)
+    .filter(([,tr]) => tr.length >= minCount)
+    .sort((a,b) => b[1].length - a[1].length);
+  for (const [type, tr] of sorted) {
+    result.push({ type, indent: 0, count: tr.length, ...computeRowStats(tr, total) });
+    if (type === 'FB') {
+      const bins = [
+        { label: '≤92',   subset: tr.filter(r => { const v=getN(r,'RelSpeed'); return v!==null&&v<=92; }) },
+        { label: '92-95', subset: tr.filter(r => { const v=getN(r,'RelSpeed'); return v!==null&&v>92&&v<=95; }) },
+        { label: '96+',   subset: tr.filter(r => { const v=getN(r,'RelSpeed'); return v!==null&&v>95; }) },
+      ];
+      for (const { label, subset } of bins) {
+        if (subset.length >= 3)
+          result.push({ type: `↳ FB ${label}`, indent: 1, count: subset.length, ...computeRowStats(subset, total) });
+      }
+    }
+  }
+  return result;
+}
+
+// Fuzzy batter name match: exact → case-insensitive → last name + first initial
+function resolveBatterName(allRows, includeName) {
+  const allNames = [...new Set(allRows.map(r => getS(r,'Batter')).filter(Boolean))];
+  if (allNames.includes(includeName)) return includeName;
+  const lower = includeName.toLowerCase();
+  const ci = allNames.find(n => n.toLowerCase() === lower);
+  if (ci) return ci;
+  const [incLast, incFirst = ''] = includeName.split(',').map(s => s.trim().toLowerCase());
+  const partial = allNames.find(n => {
+    const [nl, nf = ''] = n.split(',').map(s => s.trim().toLowerCase());
+    return nl === incLast && (nf[0] || '') === (incFirst[0] || '');
+  });
+  return partial || null;
+}
+
+function resolveNames(allRows) {
+  const map = {};
+  for (const name of INCLUDE_BATTERS) map[name] = resolveBatterName(allRows, name);
+  return map;
+}
+
+function teamFromRows(rows) {
+  const tMap = {};
+  for (const r of rows) { const t=getS(r,'BatterTeam'); if(t) tMap[t]=(tMap[t]||0)+1; }
+  return Object.entries(tMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'YORK';
+}
+
+// Pitch-matrix card (other pitches or all pitches)
+function buildCatcherCard(allRows, pitcherThrows, excludeTypes = [], includeTypes = null) {
+  const resolvedNames = resolveNames(allRows);
+  const resolved = Object.values(resolvedNames).filter(Boolean);
+  const handRows = allRows.filter(r => getS(r,'PitcherThrows') === pitcherThrows);
+  const includedRows = handRows.filter(r => resolved.includes(getS(r,'Batter')));
+  if (!includedRows.length) return null;
+
+  const batterTeam = teamFromRows(includedRows);
+  const pCounts = {}, pTotal = { n: 0 };
+  for (const r of includedRows) {
+    const pt = normalizePitchType(r); if (!pt) continue;
+    pCounts[pt] = (pCounts[pt]||0)+1; pTotal.n++;
+  }
+  const arsenal = (includeTypes
+    ? includeTypes.filter(type => pCounts[type]).map(type => ({ type, count: pCounts[type], pct: pCounts[type]/pTotal.n }))
+    : Object.entries(pCounts)
+        .filter(([type,c]) => c/pTotal.n >= ARSENAL_PCT && !excludeTypes.includes(type))
+        .sort((a,b) => b[1]-a[1])
+        .map(([type,count]) => ({ type, count, pct: count/pTotal.n })));
+
+  const hitters = INCLUDE_BATTERS.map((name, idx) => {
+    const csvName = resolvedNames[name];
+    const sr = csvName ? allRows.filter(r => getS(r,'Batter')===csvName && getS(r,'PitcherThrows')===pitcherThrows) : [];
+    const bsRow  = csvName ? allRows.find(r => getS(r,'Batter')===csvName && getS(r,'BatterSide')) : null;
+    const rawSide = bsRow ? getS(bsRow,'BatterSide') : 'Right';
+    const fpRaw  = computeFirstPitchSwingPct(sr);
+    const pitchMap = {};
+    for (const p of computePitchTypeStats(sr, 1)) {
+      if (p.indent === 0 && !excludeTypes.includes(p.type) && (!includeTypes || includeTypes.includes(p.type))) pitchMap[p.type] = p;
+    }
+    if (!Object.keys(pitchMap).length) return null;
+    return { name: csvName||name, rawSide, firstPitch: fmtPct(fpRaw), pitchMap };
+  }).filter(Boolean).sort((a,b) => a.name.localeCompare(b.name));
+
+  const title = excludeTypes.length ? 'OTHER PITCHES' : 'ALL PITCHES';
+  return { pitcherThrows, arsenal, hitters, batterTeam, title,
+    date: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) };
+}
+
+// Classic format card (H / W / K / STR / GB / 1% / C / D / Z%)
+function buildClassicCard(allRows, pitcherThrows) {
+  const resolvedNames = resolveNames(allRows);
+  const resolved = Object.values(resolvedNames).filter(Boolean);
+  const handRows = allRows.filter(r => getS(r,'PitcherThrows') === pitcherThrows);
+  const includedRows = handRows.filter(r => resolved.includes(getS(r,'Batter')));
+  if (!includedRows.length) return null;
+
+  const batterTeam = teamFromRows(includedRows);
+  const pCounts = {}, pTotal = { n: 0 };
+  for (const r of includedRows) {
+    const pt = normalizePitchType(r); if (!pt) continue;
+    pCounts[pt] = (pCounts[pt]||0)+1; pTotal.n++;
+  }
+  const arsenal = Object.entries(pCounts)
+    .filter(([,c]) => c/pTotal.n >= ARSENAL_PCT)
+    .sort((a,b) => b[1]-a[1])
+    .map(([type,count]) => ({ type, count, pct: count/pTotal.n }));
+
+  const hitters = INCLUDE_BATTERS.map((name, idx) => {
+    const csvName = resolvedNames[name];
+    const sr = csvName ? allRows.filter(r => getS(r,'Batter')===csvName && getS(r,'PitcherThrows')===pitcherThrows) : [];
+    const bsRow  = csvName ? allRows.find(r => getS(r,'Batter')===csvName && getS(r,'BatterSide')) : null;
+    const rawSide = bsRow ? getS(bsRow,'BatterSide') : 'Right';
+    const effSide = effectiveSide(rawSide, pitcherThrows);
+    const fpRaw  = computeFirstPitchSwingPct(sr);
+    const zsRaw  = computeZoneSwingPct(sr);
+    const h = {
+      num: idx+1, name: csvName||name, rawSide, effSide,
+      hot:     computeHotZone(sr, effSide)                   || '--',
+      weak:    computeWeakZone(sr, effSide)                  || '--',
+      putaway: computeBestPutawayPitch(sr, arsenal)          || '--',
+      strike:  computeBestStrikePitch(sr, arsenal)           || '--',
+      gb:      computeBestGroundBallPitch(sr, arsenal)       || '--',
+      chase:   computeBestChasePitch(sr, arsenal)            || '--',
+      damage:  computeDamagePitchZone(sr, effSide, arsenal)  || '--',
+      firstPitch: fmtPct(fpRaw), zonePct: fmtPct(zsRaw), _fp: fpRaw,
+    };
+    if (!sr.length) return null;
+    h.notes = generateNotes(h);
+    return h;
+  }).filter(Boolean).sort((a,b) => a.name.localeCompare(b.name));
+
+  return { pitcherThrows, arsenal, hitters, batterTeam,
+    date: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) };
+}
+
+function renderClassicCard(card, size, showNotes) {
+  const hand = card.pitcherThrows === 'Left' ? 'LHP' : 'RHP';
+  const pills = card.arsenal.map(a =>
+    `<span class="arsenal-pill">${escHtml(a.type)} <small>${Math.round(a.pct*100)}%</small></span>`
+  ).join('');
+
+  const tbody = card.hitters.map(h => {
+    const sc = h.rawSide==='Left'?'L':h.rawSide==='Right'?'R':h.rawSide==='Switch'?'S':'?';
+    const nm = h.name.length>17 ? h.name.slice(0,16)+'\u2026' : h.name;
+    const dataRow = `<tr class="data-row">
+      <td class="c-num">${h.num}</td>
+      <td class="td-name c-name">${escHtml(nm)}<sup>${sc}</sup></td>
+      <td class="c-zone z-hot">${h.hot}</td>
+      <td class="c-zone z-weak">${h.weak}</td>
+      <td class="c-pitch">${h.putaway}</td>
+      <td class="c-pitch">${h.strike}</td>
+      <td class="c-pitch">${h.gb}</td>
+      <td class="c-pct">${h.firstPitch}</td>
+      <td class="c-pitch">${h.chase}</td>
+      <td class="c-dmg z-dmg">${h.damage}</td>
+      <td class="c-pct">${h.zonePct}</td>
+    </tr>`;
+    const notesRow = showNotes && h.notes
+      ? `<tr class="notes-row"><td></td><td colspan="10">${escHtml(h.notes)}</td></tr>` : '';
+    return dataRow + notesRow;
+  }).join('');
+
+  return `<div class="wrist-card size-${size}">
+  <div class="card-hdr">
+    <div class="hdr-left">
+      <span class="pitcher-nm">${escHtml(card.batterTeam)}</span>
+      <span class="hand-badge ${hand}">vs ${hand}</span>
+      <div class="arsenal-pills">${pills}</div>
+    </div>
+    <div class="hdr-right">
+      <span class="team-nm">CATCHER CARD</span>
+      <span class="gen-dt">${escHtml(card.date)}</span>
+    </div>
+  </div>
+  <table class="card-tbl">
+    <colgroup>
+      <col class="c-num"><col class="c-name">
+      <col class="c-zone"><col class="c-zone">
+      <col class="c-pitch"><col class="c-pitch"><col class="c-pitch">
+      <col class="c-pct"><col class="c-pitch">
+      <col class="c-dmg"><col class="c-pct">
+    </colgroup>
+    <thead><tr>
+      <th class="c-num th-name">#</th>
+      <th class="c-name th-name">NAME</th>
+      <th class="c-zone">H</th><th class="c-zone">W</th>
+      <th class="c-pitch">K</th><th class="c-pitch">STR</th><th class="c-pitch">GB</th>
+      <th class="c-pct">1%</th><th class="c-pitch">C</th>
+      <th class="c-dmg">D</th><th class="c-pct">Z%</th>
+    </tr></thead>
+    <tbody>${tbody}</tbody>
+  </table>
+  <div class="card-legend">
+    <b>H</b>=Hot zone · <b>W</b>=Weak zone · <b>K</b>=Putaway · <b>STR</b>=Strike pitch ·
+    <b>GB</b>=Ground-ball · <b>1%</b>=1st-pitch swing% · <b>C</b>=Chase pitch ·
+    <b>D</b>=Danger combo · <b>Z%</b>=Zone swing%
+    &nbsp;|&nbsp; Zones: HI/HO MI/MO LI/LO &nbsp;|&nbsp; L/R/S=batter hand
+  </div>
+</div>`;
+}
+
+// Fastball velocity-tier card
+const FB_TIERS = [
+  { label: '< 93',   fn: r => { const v=getN(r,'RelSpeed'); return v!==null && v<93; } },
+  { label: '93–96',  fn: r => { const v=getN(r,'RelSpeed'); return v!==null && v>=93 && v<=96; } },
+  { label: '96+',    fn: r => { const v=getN(r,'RelSpeed'); return v!==null && v>96; } },
+];
+
+function buildFBCard(allRows, pitcherThrows) {
+  const resolvedNames = resolveNames(allRows);
+  const handRows = allRows.filter(r => getS(r,'PitcherThrows') === pitcherThrows);
+  const resolved = Object.values(resolvedNames).filter(Boolean);
+  const includedRows = handRows.filter(r => resolved.includes(getS(r,'Batter')));
+  if (!includedRows.length) return null;
+
+  const batterTeam = teamFromRows(includedRows);
+
+  const hitters = INCLUDE_BATTERS.map((name, idx) => {
+    const csvName = resolvedNames[name];
+    const allSr = csvName ? allRows.filter(r => getS(r,'Batter')===csvName && getS(r,'PitcherThrows')===pitcherThrows) : [];
+    const fbRows = allSr.filter(r => normalizePitchType(r) === 'FB');
+    const total = allSr.length || 1;
+    const bsRow  = csvName ? allRows.find(r => getS(r,'Batter')===csvName && getS(r,'BatterSide')) : null;
+    const rawSide = bsRow ? getS(bsRow,'BatterSide') : 'Right';
+    const fpRaw  = computeFirstPitchSwingPct(allSr);
+    const tierStats = FB_TIERS.map(t => {
+      const tr = fbRows.filter(t.fn);
+      return tr.length ? computeRowStats(tr, total) : null;
+    });
+    const hasData = tierStats.some(t => t !== null);
+    if (!hasData) return null;
+    return { name: csvName||name, rawSide, firstPitch: fmtPct(fpRaw), tierStats };
+  }).filter(Boolean).sort((a,b) => a.name.localeCompare(b.name));
+
+  return { pitcherThrows, hitters, batterTeam,
+    date: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) };
+}
+
+function renderFBCard(card, size) {
+  const hand = card.pitcherThrows === 'Left' ? 'LHP' : 'RHP';
+  const fmtAvg = v => v!==null ? (v>=1?'1.000':'.'+String(Math.round(v*1000)).padStart(3,'0')) : '--';
+  const fmtEV  = v => v!==null ? v.toFixed(1) : '--';
+  const fmtP   = v => v!==null ? Math.round(v*100)+'%' : '--';
+  const avgCls  = v => v===null?'':(v>=0.300?'ps-hot':v<=0.200?'ps-cold':'');
+  const whiffCls = v => v===null?'':(v>=0.30?'ps-cold':v<=0.10?'ps-hot':'');
+  const chaseCls = v => v===null?'':(v>=0.35?'ps-cold':v<=0.20?'ps-hot':'');
+  const N = 5; // stats per tier: SLG, EV, SW%, CH%, WH%
+
+  const groupHeaders = FB_TIERS.map((t, tIdx) => {
+    const isLast = tIdx === FB_TIERS.length - 1;
+    return `<th class="pm-group-hdr${isLast?'':' pm-group-end'}" colspan="${N}">${escHtml(t.label)}</th>`;
+  }).join('');
+  const subheadCells = FB_TIERS.map((t, tIdx) => {
+    const isLast = tIdx === FB_TIERS.length - 1;
+    return ['SLG','EV','SW%','CH%','WH%'].map((l, li) => {
+      const cls = (!isLast && li === 4) ? ' pm-group-end' : '';
+      return `<th class="pm-stat-hdr${cls}">${l}</th>`;
+    }).join('');
+  }).join('');
+
+  const tbody = card.hitters.map(h => {
+    const sc = h.rawSide==='Left'?'L':h.rawSide==='Right'?'R':h.rawSide==='Switch'?'S':'?';
+    const nm = h.name.split(',')[0].trim();
+    const cells = h.tierStats.map((p, tIdx) => {
+      const isLast = tIdx === FB_TIERS.length - 1;
+      if (!p) return `<td class="pm-cell pm-none${isLast?'':' pm-group-end'}" colspan="${N}">—</td>`;
+      return [
+        `<td class="pm-cell ${avgCls(p.slg)}">${fmtAvg(p.slg)}</td>`,
+        `<td class="pm-cell">${fmtEV(p.ev)}</td>`,
+        `<td class="pm-cell">${fmtP(p.swingPct)}</td>`,
+        `<td class="pm-cell ${chaseCls(p.chasePct)}">${fmtP(p.chasePct)}</td>`,
+        `<td class="pm-cell ${whiffCls(p.whiffPct)}${isLast?'':' pm-group-end'}">${fmtP(p.whiffPct)}</td>`,
+      ].join('');
+    }).join('');
+    return `<tr class="pm-row">
+      <td class="pm-name">${escHtml(nm)}<sup>${sc}</sup><div class="pm-fp">1%: ${h.firstPitch}</div></td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  return `<div class="wrist-card size-${size}">
+  <div class="card-hdr">
+    <div class="hdr-left">
+      <span class="pitcher-nm">${escHtml(card.batterTeam)}</span>
+      <span class="hand-badge ${hand}">vs ${hand} — FASTBALL</span>
+    </div>
+    <div class="hdr-right">
+      <span class="team-nm">CATCHER CARD</span>
+      <span class="gen-dt">${escHtml(card.date)}</span>
+    </div>
+  </div>
+  <div style="overflow-x:auto;"><table class="card-tbl pm-tbl">
+    <thead>
+      <tr><th class="pm-name-hdr" rowspan="2">BATTER</th>${groupHeaders}</tr>
+      <tr>${subheadCells}</tr>
+    </thead>
+    <tbody>${tbody}</tbody>
+  </table></div>
+  <div class="card-legend">
+    <b>SLG</b>=slugging on contact · <b>EV</b>=exit velo ·
+    <b>SW%</b>=swing% · <b>CH%</b>=chase% · <b>WH%</b>=whiff% · <b>1%</b>=1st-pitch swing%
+    &nbsp;|&nbsp; <span style="color:#991b1b;font-weight:700">■</span>=danger &nbsp;
+    <span style="color:#1e3a8a;font-weight:700">■</span>=pitcher-friendly
+  </div>
+</div>`;
+}
+
+function renderCatcherCard(card, size, showNotes) {
+  const hand = card.pitcherThrows === 'Left' ? 'LHP' : 'RHP';
+
+  // columns = pitch types sorted by usage (from arsenal)
+  const pitchCols = card.arsenal.map(a => a.type);
+
+  const fmtAvg = v => v!==null ? (v>=1?'1.000':'.'+String(Math.round(v*1000)).padStart(3,'0')) : '--';
+  const fmtEV  = v => v!==null ? v.toFixed(1) : '--';
+  const fmtLA  = v => v!==null ? (v>=0?'+':'')+v.toFixed(0)+'°' : '--';
+  const fmtP   = v => v!==null ? Math.round(v*100)+'%' : '--';
+
+  const avgCls   = v => v===null?'':(v>=0.300?'ps-hot':v<=0.200?'ps-cold':'');
+  const whiffCls = v => v===null?'':(v>=0.30?'ps-cold':v<=0.10?'ps-hot':'');
+  const chaseCls = v => v===null?'':(v>=0.35?'ps-cold':v<=0.20?'ps-hot':'');
+
+  // stat-label sub-header row (no AVG, no LA, no %)
+  const statLabels = ['SLG','EV','SW%','CH%','WH%'];
+  const subheadCells = pitchCols.map((pt, ptIdx) => {
+    const isLast = ptIdx === pitchCols.length - 1;
+    return statLabels.map((l, li) => {
+      const cls = (!isLast && li === statLabels.length - 1) ? ' pm-group-end' : '';
+      return `<th class="pm-stat-hdr${cls}">${l}</th>`;
+    }).join('');
+  }).join('');
+
+  const tbody = card.hitters.map(h => {
+    const sc = h.rawSide==='Left'?'L':h.rawSide==='Right'?'R':h.rawSide==='Switch'?'S':'?';
+    const nm = h.name.split(',')[0].trim(); // last name only to save space
+
+    const cells = pitchCols.map((pt, ptIdx) => {
+      const isLast = ptIdx === pitchCols.length - 1;
+      const p = h.pitchMap[pt];
+      if (!p) return `<td class="pm-cell pm-none${isLast?'':' pm-group-end'}" colspan="5">—</td>`;
+      return [
+        `<td class="pm-cell ${avgCls(p.slg)}">${fmtAvg(p.slg)}</td>`,
+        `<td class="pm-cell">${fmtEV(p.ev)}</td>`,
+        `<td class="pm-cell">${fmtP(p.swingPct)}</td>`,
+        `<td class="pm-cell ${chaseCls(p.chasePct)}">${fmtP(p.chasePct)}</td>`,
+        `<td class="pm-cell ${whiffCls(p.whiffPct)}${isLast?'':' pm-group-end'}">${fmtP(p.whiffPct)}</td>`,
+      ].join('');
+    }).join('');
+
+    return `<tr class="pm-row">
+      <td class="pm-name">${escHtml(nm)}<sup>${sc}</sup><div class="pm-fp">1%: ${h.firstPitch}</div></td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  // pitch-type group headers
+  const groupHeaders = pitchCols.map((pt, ptIdx) => {
+    const isLast = ptIdx === pitchCols.length - 1;
+    const a = card.arsenal.find(x => x.type === pt);
+    const pct = a ? ` <small style="opacity:.7">${Math.round(a.pct*100)}%</small>` : '';
+    return `<th class="pm-group-hdr${isLast?'':' pm-group-end'}" colspan="5">${escHtml(pt)}${pct}</th>`;
+  }).join('');
+
+  return `<div class="wrist-card size-${size}">
+  <div class="card-hdr">
+    <div class="hdr-left">
+      <span class="pitcher-nm">${escHtml(card.batterTeam)}</span>
+      <span class="hand-badge ${hand}">vs ${hand} — ${card.title||'PITCHES'}</span>
+    </div>
+    <div class="hdr-right">
+      <span class="team-nm">CATCHER CARD</span>
+      <span class="gen-dt">${escHtml(card.date)}</span>
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+  <table class="card-tbl pm-tbl">
+    <thead>
+      <tr>
+        <th class="pm-name-hdr" rowspan="2">BATTER</th>
+        ${groupHeaders}
+      </tr>
+      <tr>${subheadCells}</tr>
+    </thead>
+    <tbody>${tbody}</tbody>
+  </table>
+  </div>
+  <div class="card-legend">
+    <b>SLG</b>=slugging on contact · <b>EV</b>=exit velo ·
+    <b>SW%</b>=swing% · <b>CH%</b>=chase% · <b>WH%</b>=whiff% · <b>1%</b>=1st-pitch swing%
+    &nbsp;|&nbsp; <span style="color:#991b1b;font-weight:700">■</span>=danger &nbsp;
+    <span style="color:#1e3a8a;font-weight:700">■</span>=pitcher-friendly
+  </div>
+</div>`;
+}
+
+// TrackMan pitch names -> short display codes
+const PITCH_MAP = {
+  'four-seam fastball': 'FB', 'four-seam': 'FB', '4-seam fastball': 'FB',
+  '4-seam': 'FB', 'fastball': 'FB',
+  'sinker': 'SNK', 'two-seam fastball': 'SNK', 'two-seam': 'SNK',
+  '2-seam fastball': 'SNK', '2-seam': 'SNK',
+  'cutter': 'CT', 'cut fastball': 'CT',
+  'slider': 'SL',
+  'sweeper': 'SWP',
+  'slurve': 'SLV',
+  'curveball': 'CB', 'curve': 'CB', '12-6 curveball': 'CB', '12-6curve': 'CB',
+  'changeup': 'CH', 'change-up': 'CH', 'change': 'CH',
+  'splitter': 'SPL', 'split-finger': 'SPL',
+  'knuckleball': 'KN',
+  'screwball': 'SC',
+  'undefined': null, 'other': null, '': null,
+};
+
+// ================================================================
+// GLOBAL STATE
+// ================================================================
+let ALL_ROWS = [];
+
+// ================================================================
+// HELPERS
+// ================================================================
+const getS = (row, col, def = '') => {
+  const v = row[col];
+  return (v !== undefined && v !== null) ? String(v).trim() : def;
+};
+
+const getN = (row, col) => {
+  const v = parseFloat(row[col]);
+  return isNaN(v) ? null : v;
+};
+
+// Normalise pitch type to short code; TaggedPitchType preferred over AutoPitchType
+function normalizePitchType(row) {
+  const raw = getS(row, 'TaggedPitchType') || getS(row, 'AutoPitchType');
+  if (!raw) return null;
+  const key = raw.toLowerCase().replace(/[\s_]+/g, '-');
+  if (key in PITCH_MAP) return PITCH_MAP[key];
+  for (const [k, v] of Object.entries(PITCH_MAP)) {
+    if (!k || !v) continue;
+    if (key.includes(k) || k.includes(key.replace(/-/g, ''))) return v;
+  }
+  if (['undefined','other','none',''].includes(key)) return null;
+  return raw.length >= 2 ? raw.slice(0, 4).toUpperCase() : null;
+}
+
+// Swings: swinging strike, foul (all), in play
+function isSwing(pitchCall) {
+  const pc = (pitchCall || '').toLowerCase().replace(/[\s_-]/g, '');
+  return pc.includes('swinging') || pc.includes('foul') || pc.includes('inplay') || pc === 'swing';
+}
+
+// Strike results: called strike, swinging strike, foul, in play
+function isStrikeResult(pitchCall) {
+  const pc = (pitchCall || '').toLowerCase().replace(/[\s_-]/g, '');
+  return pc.includes('strikecalled') || pc.includes('calledstrike') ||
+         pc.includes('strikeswinging') || pc.includes('swinging') ||
+         pc.includes('foul') || pc.includes('inplay');
+}
+
+function isInZone(row) {
+  const h = getN(row, 'PlateLocHeight'), s = getN(row, 'PlateLocSide');
+  if (h === null || s === null) return false;
+  return h >= ZONE_H_MIN && h <= ZONE_H_MAX && Math.abs(s) <= ZONE_S_LIMIT;
+}
+
+// Zone from batter perspective: {L/M/H}{I/O}
+// TrackMan PlateLocSide is from the PITCHER's view: positive = pitcher's right = 3B side.
+// RHH stands on 3B side → inside = positive PlateLocSide.
+// LHH stands on 1B side → inside = negative PlateLocSide.
+function getZoneCode(row, batterSide) {
+  const h = getN(row, 'PlateLocHeight'), s = getN(row, 'PlateLocSide');
+  if (h === null || s === null) return null;
+  const hBin   = h < Z_HT_LOW ? 'L' : h > Z_HT_HIGH ? 'H' : 'M';
+  const inside = (batterSide === 'Right' || batterSide === 'R') ? s > 0 : s < 0;
+  return hBin + (inside ? 'I' : 'O');
+}
+
+// Switch hitters bat opposite the pitcher's arm
+function effectiveSide(batterSide, pitcherThrows) {
+  if (batterSide === 'Switch' || batterSide === 'S' || batterSide === 'B') {
+    return pitcherThrows === 'Right' ? 'Left' : 'Right';
+  }
+  return batterSide;
+}
+
+function getOutcomeBases(playResult) {
+  const r = (playResult || '').toLowerCase().replace(/[\s_]/g, '');
+  if (r === 'single')  return 1;
+  if (r === 'double')  return 2;
+  if (r === 'triple')  return 3;
+  if (r === 'homerun') return 4;
+  return 0;
+}
+
+// Composite damage score combining hard-hit rate, avg EV, and extra-base power
+function damageScore(rows) {
+  const balls = rows.filter(r => { const e = getN(r, 'ExitSpeed'); return e !== null && e > 0; });
+  if (!balls.length) return 0;
+  const hhRate = balls.filter(r => getN(r, 'ExitSpeed') >= 95).length / balls.length;
+  const avgEV  = balls.reduce((s, r) => s + getN(r, 'ExitSpeed'), 0) / balls.length;
+  const avgB   = rows.reduce((s, r) => s + getOutcomeBases(getS(r, 'PlayResult')), 0) / rows.length;
+  return hhRate * 40 + avgEV * 0.3 + avgB * 25;
+}
+
+const fmtPct = v => v !== null ? Math.round(v * 100) + '%' : '--';
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ================================================================
+// PITCHER ARSENAL
+// ================================================================
+function getPitcherArsenal(rows, pitcherName) {
+  const pr = rows.filter(r => getS(r, 'Pitcher') === pitcherName);
+  const counts = {};
+  let total = 0;
+  for (const row of pr) {
+    const pt = normalizePitchType(row);
+    if (!pt) continue;
+    counts[pt] = (counts[pt] || 0) + 1;
+    total++;
+  }
+  if (!total) return [];
+  return Object.entries(counts)
+    .filter(([, c]) => c >= ARSENAL_COUNT || c / total >= ARSENAL_PCT)
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, count]) => ({ type, count, pct: count / total }));
+}
+
+// ================================================================
+// SPLIT FILTER
+// Returns batter rows vs same-handedness pitchers; falls back to overall
+// ================================================================
+function filterRowsForHitterSplit(rows, batterName, pitcherThrows) {
+  const split = rows.filter(r =>
+    getS(r, 'Batter') === batterName && getS(r, 'PitcherThrows') === pitcherThrows
+  );
+  if (split.length >= MIN.SPLIT_BATTER) return { rows: split, isSplit: true };
+  return { rows: rows.filter(r => getS(r, 'Batter') === batterName), isSplit: false };
+}
+
+// ================================================================
+// BEST-FROM-ARSENAL
+// Groups rows by pitch type, scores each, restricts to pitcher's arsenal
+// ================================================================
+function bestFromArsenal(rows, arsenal, scoreFn, minCount) {
+  if (!arsenal || !arsenal.length) return null;
+  const aSet = new Set(arsenal.map(a => a.type));
+  const byType = {};
+  for (const row of rows) {
+    const pt = normalizePitchType(row);
+    if (!pt || !aSet.has(pt)) continue;
+    (byType[pt] = byType[pt] || []).push(row);
+  }
+  let best = null, bestSc = -Infinity;
+  for (const [pt, tr] of Object.entries(byType)) {
+    if (tr.length < minCount) continue;
+    const sc = scoreFn(tr);
+    if (sc > bestSc) { bestSc = sc; best = pt; }
+  }
+  return best;
+}
+
+// ================================================================
+// METRIC COMPUTATIONS
+// ================================================================
+
+function computeFirstPitchSwingPct(rows) {
+  const fp = rows.filter(r => getN(r, 'PitchofPA') === 1 || getS(r, 'PitchofPA') === '1');
+  if (fp.length < MIN.FIRST_PITCH) return null;
+  return fp.filter(r => isSwing(getS(r, 'PitchCall'))).length / fp.length;
+}
+
+function computeZoneSwingPct(rows) {
+  const iz = rows.filter(r => isInZone(r));
+  if (iz.length < MIN.ZONE_SWING) return null;
+  return iz.filter(r => isSwing(getS(r, 'PitchCall'))).length / iz.length;
+}
+
+function computeBestChasePitch(rows, arsenal) {
+  const oz = rows.filter(r => !isInZone(r));
+  return bestFromArsenal(oz, arsenal,
+    tr => tr.filter(r => isSwing(getS(r, 'PitchCall'))).length / tr.length,
+    MIN.CHASE);
+}
+
+function computeBestStrikePitch(rows, arsenal) {
+  return bestFromArsenal(rows, arsenal,
+    tr => tr.filter(r => isStrikeResult(getS(r, 'PitchCall'))).length / tr.length,
+    MIN.STRIKE);
+}
+
+function computeBestGroundBallPitch(rows, arsenal) {
+  const bip = rows.filter(r => {
+    const ht = getS(r, 'TaggedHitType').toLowerCase();
+    return ht && ht !== 'undefined';
+  });
+  return bestFromArsenal(bip, arsenal,
+    tr => tr.filter(r => {
+      const ht = getS(r, 'TaggedHitType').toLowerCase();
+      return ht.includes('ground') || ht === 'gb';
+    }).length / tr.length,
+    MIN.GB);
+}
+
+// Two-strike putaway: putawayScore = whiffRate*0.7 + koEndRate*0.3
+function computeBestPutawayPitch(rows, arsenal) {
+  const ts = rows.filter(r => getN(r, 'Strikes') === 2);
+  return bestFromArsenal(ts, arsenal,
+    tr => {
+      const whiffs = tr.filter(r => {
+        const pc = getS(r, 'PitchCall').toLowerCase().replace(/[\s_-]/g, '');
+        return pc.includes('swinging') || pc.includes('strikeswinging');
+      }).length;
+      const kos = tr.filter(r => {
+        const kb = getS(r, 'KorBB').toLowerCase().replace(/[\s_()]/g, '');
+        return kb === 'strikeout' || kb.startsWith('strikeout') || kb === 'k' || kb === 'ko';
+      }).length;
+      return (whiffs / tr.length) * 0.7 + (kos / tr.length) * 0.3;
+    },
+    MIN.PUTAWAY);
+}
+
+function computeHotZone(rows, batterSide) {
+  const byZone = {};
+  for (const r of rows) {
+    const z = getZoneCode(r, batterSide);
+    if (!z) continue;
+    (byZone[z] = byZone[z] || []).push(r);
+  }
+  let best = null, bestSc = -Infinity;
+  for (const [z, zr] of Object.entries(byZone)) {
+    if (zr.length < MIN.HOT_WEAK) continue;
+    const sc = damageScore(zr);
+    if (sc > bestSc) { bestSc = sc; best = z; }
+  }
+  return best;
+}
+
+function computeWeakZone(rows, batterSide) {
+  const byZone = {};
+  for (const r of rows) {
+    const z = getZoneCode(r, batterSide);
+    if (!z) continue;
+    (byZone[z] = byZone[z] || []).push(r);
+  }
+  let worst = null, worstSc = Infinity;
+  for (const [z, zr] of Object.entries(byZone)) {
+    if (zr.length < MIN.HOT_WEAK) continue;
+    const swings = zr.filter(r => isSwing(getS(r, 'PitchCall'))).length;
+    const whiffs = zr.filter(r => {
+      const pc = getS(r, 'PitchCall').toLowerCase().replace(/[\s_-]/g, '');
+      return pc.includes('swinging');
+    }).length;
+    const whiffRate = swings > 0 ? whiffs / swings : 0;
+    // Weak = low damage + high whiff (pitcher-friendly)
+    const sc = damageScore(zr) - whiffRate * 40;
+    if (sc < worstSc) { worstSc = sc; worst = z; }
+  }
+  return worst;
+}
+
+// Most dangerous pitch+zone combo — prefer arsenal pitches, fallback to any
+function computeDamagePitchZone(rows, batterSide, arsenal) {
+  const aSet = arsenal ? new Set(arsenal.map(a => a.type)) : null;
+  const byCombo = {};
+  for (const r of rows) {
+    const pt = normalizePitchType(r);
+    if (!pt) continue;
+    const z = getZoneCode(r, batterSide);
+    if (!z) continue;
+    const key = `${pt}-${z}`;
+    (byCombo[key] = byCombo[key] || []).push(r);
+  }
+  let best = null, bestSc = -Infinity;
+  let fallback = null, fallbackSc = -Infinity;
+  for (const [combo, cr] of Object.entries(byCombo)) {
+    if (cr.length < MIN.DAMAGE_ZONE) continue;
+    const sc  = damageScore(cr);
+    const pt  = combo.split('-')[0];
+    if (aSet && aSet.has(pt)) {
+      if (sc > bestSc) { bestSc = sc; best = combo; }
+    }
+    if (sc > fallbackSc) { fallbackSc = sc; fallback = combo; }
+  }
+  return best || fallback;
+}
+
+// ================================================================
+// AUTO NOTES (bonus line per hitter)
+// ================================================================
+function generateNotes(h) {
+  const parts = [];
+  if (h._fp !== null && h._fp >= 0.42) parts.push('Agg 1st');
+  if (h._fp !== null && h._fp <= 0.12) parts.push('Takes 1st');
+  if (h.chase   !== '--') parts.push('Chase ' + h.chase);
+  if (h.putaway !== '--') parts.push('K: '    + h.putaway);
+  if (h.damage  !== '--') parts.push('Avoid ' + h.damage);
+  return parts.slice(0, 4).join(' · ');
+}
+
+// ================================================================
+// BUILD CARD DATA FOR ONE PITCHER
+// ================================================================
+function buildCardForPitcher(allRows, pitcherName) {
+  const pr = allRows.filter(r => getS(r, 'Pitcher') === pitcherName);
+  if (!pr.length) return null;
+
+  const pitcherThrows = getS(pr[0], 'PitcherThrows') || 'Right';
+  const pitcherTeam   = getS(pr[0], 'PitcherTeam')   || '—';
+  const arsenal       = getPitcherArsenal(allRows, pitcherName);
+
+  // Collect all unique batters faced; sort by appearances desc (approximates lineup order)
+  const bMap = {};
+  for (const r of pr) {
+    const b = getS(r, 'Batter');
+    if (b) bMap[b] = (bMap[b] || 0) + 1;
+  }
+  const batterNames = Object.keys(bMap).sort((a, b) => a.localeCompare(b));
+
+  const hitters = batterNames.slice(0, 14).map((name, idx) => {
+    const { rows: sr, isSplit } = filterRowsForHitterSplit(allRows, name, pitcherThrows);
+
+    const bsRow   = sr.find(r => getS(r, 'BatterSide'));
+    const rawSide = bsRow ? getS(bsRow, 'BatterSide') : 'Right';
+    const effSide = effectiveSide(rawSide, pitcherThrows);
+
+    const fpRaw   = computeFirstPitchSwingPct(sr);
+    const zsRaw   = computeZoneSwingPct(sr);
+    const putaway = computeBestPutawayPitch(sr, arsenal)    || '--';
+    const strike  = computeBestStrikePitch(sr, arsenal)     || '--';
+    const gb      = computeBestGroundBallPitch(sr, arsenal) || '--';
+    const chase   = computeBestChasePitch(sr, arsenal)      || '--';
+    const hot     = computeHotZone(sr, effSide)             || '--';
+    const weak    = computeWeakZone(sr, effSide)            || '--';
+    const damage  = computeDamagePitchZone(sr, effSide, arsenal) || '--';
+
+    const h = {
+      num: idx + 1, name, rawSide, effSide, isSplit,
+      hot, weak, putaway, strike, gb, chase, damage,
+      firstPitch: fmtPct(fpRaw),
+      zonePct:    fmtPct(zsRaw),
+      _fp: fpRaw,
+    };
+    h.notes = generateNotes(h);
+    return h;
+  });
+
+  return {
+    pitcherName, pitcherThrows, pitcherTeam, arsenal, hitters,
+    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+  };
+}
+
+// ================================================================
+// RENDER ONE CARD
+// ================================================================
+function renderCard(card, size, showNotes) {
+  const hand  = card.pitcherThrows === 'Left' ? 'LHP' : 'RHP';
+  const pills = card.arsenal.map(a =>
+    `<span class="arsenal-pill">${escHtml(a.type)} <small>${Math.round(a.pct * 100)}%</small></span>`
+  ).join('');
+
+  const tbody = card.hitters.map(h => {
+    const sc       = h.rawSide === 'Left' ? 'L' : h.rawSide === 'Right' ? 'R'
+                   : h.rawSide === 'Switch' ? 'S' : '?';
+    const fallMark = h.isSplit ? '' : '<sup title="overall data">*</sup>';
+    const nameDisp = h.name.length > 17 ? h.name.slice(0, 16) + '\u2026' : h.name;
+
+    const dataRow = `<tr class="data-row">
+      <td class="c-num">${h.num}</td>
+      <td class="td-name c-name">${escHtml(nameDisp)}<sup>${sc}</sup>${fallMark}</td>
+      <td class="c-zone z-hot">${h.hot}</td>
+      <td class="c-zone z-weak">${h.weak}</td>
+      <td class="c-pitch">${h.putaway}</td>
+      <td class="c-pitch">${h.strike}</td>
+      <td class="c-pitch">${h.gb}</td>
+      <td class="c-pct">${h.firstPitch}</td>
+      <td class="c-pitch">${h.chase}</td>
+      <td class="c-dmg z-dmg">${h.damage}</td>
+      <td class="c-pct">${h.zonePct}</td>
+    </tr>`;
+
+    const notesRow = showNotes && h.notes
+      ? `<tr class="notes-row"><td></td><td colspan="10">${escHtml(h.notes)}</td></tr>`
+      : '';
+
+    return dataRow + notesRow;
+  }).join('');
+
+  return `<div class="wrist-card size-${size}">
+  <div class="card-hdr">
+    <div class="hdr-left">
+      <span class="pitcher-nm">${escHtml(card.pitcherName)}</span>
+      <span class="hand-badge ${hand}">${hand}</span>
+      <div class="arsenal-pills">${pills}</div>
+    </div>
+    <div class="hdr-right">
+      <span class="team-nm">${escHtml(card.pitcherTeam)}</span>
+      <span class="gen-dt">${escHtml(card.date)}</span>
+    </div>
+  </div>
+  <table class="card-tbl">
+    <colgroup>
+      <col class="c-num"><col class="c-name">
+      <col class="c-zone"><col class="c-zone">
+      <col class="c-pitch"><col class="c-pitch"><col class="c-pitch">
+      <col class="c-pct"><col class="c-pitch">
+      <col class="c-dmg"><col class="c-pct">
+    </colgroup>
+    <thead><tr>
+      <th class="c-num th-name">#</th>
+      <th class="c-name th-name">NAME</th>
+      <th class="c-zone">H</th>
+      <th class="c-zone">W</th>
+      <th class="c-pitch">K</th>
+      <th class="c-pitch">STR</th>
+      <th class="c-pitch">GB</th>
+      <th class="c-pct">1%</th>
+      <th class="c-pitch">C</th>
+      <th class="c-dmg">D</th>
+      <th class="c-pct">Z%</th>
+    </tr></thead>
+    <tbody>${tbody}</tbody>
+  </table>
+  <div class="card-legend">
+    <b>H</b>=Hot zone &nbsp;
+    <b>W</b>=Weak zone &nbsp;
+    <b>K</b>=Putaway pitch &nbsp;
+    <b>STR</b>=Strike pitch &nbsp;
+    <b>GB</b>=Ground-ball pitch &nbsp;
+    <b>1%</b>=1st-pitch swing% &nbsp;
+    <b>C</b>=Chase pitch &nbsp;
+    <b>D</b>=Damage combo to avoid &nbsp;
+    <b>Z%</b>=Zone swing%
+    &nbsp;|&nbsp; Zones: HI/HO MI/MO LI/LO (height + batter-side perspective)
+    &nbsp;|&nbsp; L/R/S = batter hand &nbsp; *=overall data (thin split sample)
+  </div>
+</div>`;
+}
+
+function renderAllCards(cards, size, showNotes) {
+  return cards.map(c => renderCard(c, size, showNotes)).join('\n');
+}
+
+// ================================================================
+// CSV PARSING
+// ================================================================
+function parseCSV(text) {
+  const result = Papa.parse(text, {
+    header: true, skipEmptyLines: true,
+    dynamicTyping: false,
+    transformHeader: h => h.trim(),
+  });
+  return result.data || [];
+}
+
+// ================================================================
+// UI
+// ================================================================
+function setStatus(msg) {
+  document.getElementById('statusBar').textContent = msg;
+}
+
+function populateTeams() {
+  const sel   = document.getElementById('teamSel');
+  const teams = [...new Set(ALL_ROWS.map(r => getS(r, 'PitcherTeam')).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">-- Select Team --</option>' +
+    teams.map(t => `<option>${escHtml(t)}</option>`).join('');
+  document.getElementById('pitcherSel').innerHTML = '<option value="">-- Select Team --</option>';
+}
+
+function populatePitchers(team) {
+  const sel      = document.getElementById('pitcherSel');
+  const pitchers = [...new Set(
+    ALL_ROWS.filter(r => getS(r, 'PitcherTeam') === team)
+            .map(r => getS(r, 'Pitcher')).filter(Boolean)
+  )].sort();
+  sel.innerHTML = '<option value="">-- Select Pitcher --</option>' +
+    pitchers.map(p => `<option>${escHtml(p)}</option>`).join('');
+}
+
+const getCardSize  = () => document.getElementById('cardSize').value;
+const getShowNotes = () => document.getElementById('showNotes').checked;
+
+// Auto-load data.csv on startup, select YOR, generate all pitcher cards
+const AUTO_TEAM = 'YOR';
+
+function loadCSVText(text) {
+  ALL_ROWS = parseCSV(text);
+  const pitcherCount = new Set(ALL_ROWS.map(r => getS(r, 'Pitcher')).filter(Boolean)).size;
+  setStatus(`Loaded ${ALL_ROWS.length.toLocaleString()} pitches | ${pitcherCount} pitchers.`);
+  populateTeams();
+}
+
+function autoGenerate(team) {
+  const teamSel = document.getElementById('teamSel');
+  if (teamSel.querySelector(`option[value="${team}"]`) ||
+      [...teamSel.options].some(o => o.value === team)) {
+    teamSel.value = team;
+  } else {
+    // fallback: pick first available team
+    teamSel.selectedIndex = 1;
+  }
+  populatePitchers(teamSel.value);
+  document.getElementById('genAll').click();
+}
+
+// File picker fallback (drag-and-drop or manual override)
+document.getElementById('csvFile').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  setStatus('Loading...');
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      loadCSVText(ev.target.result);
+      autoGenerate(AUTO_TEAM);
+    } catch (err) {
+      setStatus('Error parsing CSV: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
+});
+
+// Auto-fetch data.csv from same directory on page load
+window.addEventListener('DOMContentLoaded', () => {
+  setStatus('Loading data.csv...');
+  fetch('data.csv')
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.text();
+    })
+    .then(text => {
+      loadCSVText(text);
+      autoGenerate(AUTO_TEAM);
+    })
+    .catch(err => {
+      setStatus(`Could not auto-load data.csv (${err.message}) — use the file picker above.`);
+    });
+});
+
+document.getElementById('teamSel').addEventListener('change', e => {
+  populatePitchers(e.target.value);
+});
+
+// Catcher Cards — LHP + RHP for INCLUDE_BATTERS roster
+document.getElementById('catcherCards').addEventListener('click', () => {
+  if (!ALL_ROWS.length) { setStatus('Load a CSV file first.'); return; }
+  const size      = getCardSize();
+  const showNotes = getShowNotes();
+  setStatus('Building catcher cards…');
+  setTimeout(() => {
+    try {
+      const html = [];
+      // Cards 1 & 2: classic H/W/K/STR/GB/1%/C/D/Z%
+      for (const hand of ['Left','Right']) {
+        const c = buildClassicCard(ALL_ROWS, hand);
+        if (c) html.push(renderClassicCard(c, size, showNotes));
+      }
+      // Cards 3 & 4: fastball velocity tiers
+      for (const hand of ['Left','Right']) {
+        const c = buildFBCard(ALL_ROWS, hand);
+        if (c) html.push(renderFBCard(c, size));
+      }
+      // Cards 5 & 6: SL / CH / CB only
+      for (const hand of ['Left','Right']) {
+        const c = buildCatcherCard(ALL_ROWS, hand, [], ['SL','CH','CB']);
+        if (c) html.push(renderCatcherCard(c, size, showNotes));
+      }
+      if (!html.length) { setStatus('No data found for included batters.'); return; }
+      document.getElementById('preview').innerHTML = html.join('\n');
+      setStatus(`6 catcher cards ready — Classic LHP/RHP · Fastball LHP/RHP · Other Pitches LHP/RHP`);
+    } catch (err) {
+      setStatus('Error: ' + err.message);
+      console.error(err);
+    }
+  }, 0);
+});
+
+// Single pitcher card
+document.getElementById('genOne').addEventListener('click', () => {
+  const pitcher = document.getElementById('pitcherSel').value;
+  if (!pitcher) { setStatus('Select a pitcher first.'); return; }
+  setStatus('Building card...');
+  setTimeout(() => {
+    try {
+      const card = buildCardForPitcher(ALL_ROWS, pitcher);
+      if (!card) { setStatus('No data found for ' + pitcher); return; }
+      document.getElementById('preview').innerHTML =
+        renderCard(card, getCardSize(), getShowNotes());
+      setStatus(
+        `Card ready: ${pitcher} | ${card.hitters.length} hitters | Arsenal: ${card.arsenal.map(a => a.type).join(' / ')}`
+      );
+    } catch (err) {
+      setStatus('Error: ' + err.message);
+      console.error(err);
+    }
+  }, 0);
+});
+
+// All pitchers on selected team — one card per pitcher, separated for printing/cutting
+document.getElementById('genAll').addEventListener('click', () => {
+  const team = document.getElementById('teamSel').value;
+  if (!team) { setStatus('Select a team first.'); return; }
+  const pitchers = [...new Set(
+    ALL_ROWS.filter(r => getS(r, 'PitcherTeam') === team)
+            .map(r => getS(r, 'Pitcher')).filter(Boolean)
+  )].sort();
+  if (!pitchers.length) { setStatus('No pitchers found for ' + team); return; }
+  setStatus(`Building ${pitchers.length} cards...`);
+  setTimeout(() => {
+    try {
+      const cards = pitchers.map(p => buildCardForPitcher(ALL_ROWS, p)).filter(Boolean);
+      document.getElementById('preview').innerHTML =
+        renderAllCards(cards, getCardSize(), getShowNotes());
+      setStatus(`${cards.length} cards ready for ${team}. Each card prints on its own page — click Print / Download.`);
+    } catch (err) {
+      setStatus('Error: ' + err.message);
+      console.error(err);
+    }
+  }, 0);
+});
+</script>
+</body>
+</html>

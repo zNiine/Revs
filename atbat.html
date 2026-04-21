@@ -113,7 +113,7 @@ th, td {
     <label>Batting Team:
       <select id="battingTeam"><option>Loading…</option></select>
     </label>
-    <label>Pitching Team:
+    <label id="pitchingTeamLabel">Pitching Team:
       <select id="pitchingTeam"><option>Loading…</option></select>
     </label>
     <button id="renderBtn">Go</button>
@@ -135,6 +135,33 @@ th, td {
     'Splitter':  '#00FFFF',
     'undefined':'#888888'
   };
+
+  // ── Custom matchup lists ──────────────────────────────────────────────────
+  // Populate these to use the "Custom" dropdown option.
+  const customBatters = [
+    // e.g. 'Smith, John',
+    'Otosaka, Tomo',
+    'Lewis, Brandon',
+    'Bates, Austin',
+    'Blackwell, Benjamin'
+  ];
+  const customPitchers = [
+      "Smith, Adam",
+  "Alexy, AJ",
+  "Garbrick, Alex",
+  "Sullivan, Billy",
+  "Patten, Cole",
+  "Bollman, Jason",
+  "Needles, Justin",
+  "Albright, Luke",
+  "McCollough, Luke",
+  "Stil, Matt",
+  "Bremer, Noah",
+  "Diehl, Phillip",
+  "Martinez, Quinton",
+  "Voacolo, Ronnie",
+  ];
+  // ─────────────────────────────────────────────────────────────────────────
 
   let gamePitches = [], paList = [];
 
@@ -161,7 +188,6 @@ const excludePlayers = new Set([
   'Quintana, Franky',
   'Colon, Rabel',
   'Walker, Mason',
-  'Connell, Justin',
   'Tovalin, Osvaldo',
   'Richards, Jairus',
   'Otosaka, Tomo',
@@ -209,18 +235,24 @@ function buildPAList(){
           pitTeams = [...new Set(gamePitches.map(r=>r.PitcherTeam))].sort();
     const batSel = document.getElementById('battingTeam'),
           pitSel = document.getElementById('pitchingTeam');
-    batSel.innerHTML = batTeams.map(t=>`<option>${t}</option>`).join('');
+    batSel.innerHTML = batTeams.map(t=>`<option>${t}</option>`).join('') +
+                       `<option value="__custom__">Custom</option>`;
     pitSel.innerHTML = pitTeams.map(t=>`<option>${t}</option>`).join('');
+    batSel.addEventListener('change', () => {
+      document.getElementById('pitchingTeamLabel').style.display =
+        batSel.value === '__custom__' ? 'none' : '';
+    });
   }
 
 
   document.getElementById('renderBtn').addEventListener('click', () => {
-  const batVal = document.getElementById('battingTeam').value;
-  const pitVal = document.getElementById('pitchingTeam').value;
-  if (batVal && pitVal && batVal !== 'Loading…' && pitVal !== 'Loading…') {
-    renderReports();
-  }
-});
+    const batVal = document.getElementById('battingTeam').value;
+    const pitVal = document.getElementById('pitchingTeam').value;
+    const isCustom = batVal === '__custom__';
+    if (batVal && batVal !== 'Loading…' && (isCustom || (pitVal && pitVal !== 'Loading…'))) {
+      renderReports();
+    }
+  });
 
 // 4) Draw one PA (plate appearance)
 function drawPA(pa, canvas, tableDiv) {
@@ -324,20 +356,25 @@ const mapX = x => ox + (x - zone.left) * scale;
 
   // 5) Render everything in 2×2 pages
   function renderReports(){
-    const batTeam = document.getElementById('battingTeam').value,
-          pitTeam = document.getElementById('pitchingTeam').value;
+    const batVal   = document.getElementById('battingTeam').value;
+    const pitVal   = document.getElementById('pitchingTeam').value;
+    const isCustom = batVal === '__custom__';
     const container = document.getElementById('reportContainer');
     container.innerHTML = '';
     let paCount = 0, currentBatter = null, pageDiv = null;
 
     paList.forEach(pa=>{
-      // filter by chosen teams
-      if(!gamePitches.some(r=>
-          r.Batter===pa.batter &&
-          r.Pitcher===pa.pitcher &&
-          r.BatterTeam===batTeam &&
-          r.PitcherTeam===pitTeam
-        )) return;
+      // filter by custom lists or by chosen teams
+      if (isCustom) {
+        if (!customBatters.includes(pa.batter) || !customPitchers.includes(pa.pitcher)) return;
+      } else {
+        if(!gamePitches.some(r=>
+            r.Batter===pa.batter &&
+            r.Pitcher===pa.pitcher &&
+            r.BatterTeam===batVal &&
+            r.PitcherTeam===pitVal
+          )) return;
+      }
 
       // new batter? reset count + insert blank page
       if(pa.batter !== currentBatter){

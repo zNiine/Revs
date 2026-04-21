@@ -2,174 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Would It Dong?</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Would It Dong? – ALPB</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
   <style>
-    body { font-family: sans-serif; padding: 1rem; }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 1rem;
-      table-layout: fixed;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 0.5rem;
-      text-align: center;
-      cursor: default;
-    }
-    th.park, td.park {
-      cursor: pointer;
-      background: #fafafa;
-    }
-    th.park:hover, td.park:hover {
-      background: #f0f8ff;
-    }
-    th {
-      background: #f4f4f4;
-      position: sticky;
-      top: 0;
-    }
-    .check { color: green; font-size: 1.2em; }
-    a { color: #0066cc; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
-    /* modal overlay */
-    .modalOverlay {
-      display: none;               /* hidden by default */
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.6);
-      align-items: center;
-      justify-content: center;
-    }
-    .modalOverlay.show {
-      display: flex;
-    }
-
-    #modalContent {
-      position: relative;
-      background: white;
-      border-radius: 8px;
-      padding: 0;
-      width: 80vw;
-      height: 80vh;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-      overflow: hidden;
-    }
-
-    #modalClose {
-      position: absolute;
-      top: 8px; right: 12px;
-      font-size: 1.5rem;
-      cursor: pointer;
-      z-index: 1001;
-      color: #333;
-    }
-    #animFrame {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
-
-    .filters {
-      margin-bottom: 1rem;
-      display: flex;
-      gap: 1rem;
-    }
-    .filters label { font-weight: bold; }
-    input[list] {
-      padding: 0.3rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.75rem 2rem;
-      background: #fff;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin-bottom: 1rem;
-    }
-    header h1 {
-      font-size: 1.5rem;
-      margin: 0;
-      color: #333;
-    }
-    nav#menu ul {
-      list-style: none;
-      display: flex;
-      gap: 1.5rem;
-      margin: 0; padding: 0;
-    }
-    nav#menu a {
-      display: block;
-      padding: 0.5rem 0.75rem;
-      color: #555;
-      text-decoration: none;
-      font-weight: 500;
-      border-radius: 4px;
-      transition: background 0.2s, color 0.2s;
-    }
-    nav#menu a:hover {
-      background: #f0f8ff;
-      color: #007bff;
-    }
-    nav#menu a.active {
-      background: #007bff;
-      color: #fff;
-    }
-
-    #note {
-      margin: 0.5rem 1rem;
-      color: red;
-      font-weight: bold;
-    }
+    .check { color: var(--success); font-size: 1.2em; }
+    td.park { cursor: pointer; text-align: center; }
+    td.park:hover { background: var(--accent-soft); }
+    .dong-table { min-width: 2200px; table-layout: fixed; }
+    .dong-table th.park, .dong-table td.park { width: 8rem; min-width: 8rem; text-align: center; }
+    .dong-table th, .dong-table td { white-space: nowrap; }
+    .dong-table .col-date { width: 5rem; }
+    .dong-table .col-batter { width: 8rem; }
+    .dong-table .col-inning { width: 3rem; }
+    .dong-table .col-result { width: 5rem; }
+    .dong-table .col-dist { width: 4rem; }
+    .dong-table .col-exit { width: 4rem; }
+    .dong-table .col-angle { width: 4rem; }
+    .dong-table .col-details { width: 4rem; }
   </style>
 </head>
 <body>
-  <!-- NAVIGATION -->
-  <header>
-    <h1>Would It Dong?</h1>
-    <nav id="menu">
+  <header class="app-header">
+    <a href="index.html" class="logo">ALPB</a>
+    <nav class="nav-desktop">
+      <a href="index.html">Home</a>
+      <a href="schedule.html">Standings</a>
+      <a href="games.html">Games</a>
+      <a href="leaderboards.html">Leaderboards</a>
+      <a href="park-factors.html">Park Factors</a>
+      <a href="fielding.html">Fielding</a>
+      <a href="stolen-bases.html">Base Running</a>
+      <a href="dong.html" class="active">Would it Dong?</a>
+    </nav>
+    <div class="hamburger" id="hamburger-btn" aria-label="Menu"><span></span><span></span><span></span></div>
+  </header>
+  <div id="side-menu" class="side-menu">
+    <nav>
       <ul>
         <li><a href="index.html">Home</a></li>
+        <li><a href="schedule.html">Standings</a></li>
+        <li><a href="games.html">Games</a></li>
         <li><a href="leaderboards.html">Leaderboards</a></li>
         <li><a href="park-factors.html">Park Factors</a></li>
         <li><a href="fielding.html">Fielding</a></li>
-        <li><a href="dong.html" class="active">Would It Dong?</a></li>
+        <li><a href="stolen-bases.html">Base Running</a></li>
+        <li><a href="dong.html" class="active">Would it Dong?</a></li>
       </ul>
     </nav>
-  </header>
+  </div>
+  <div id="overlay" class="overlay"></div>
 
-  <div class="filters">
-    <label>
-      Player:
-      <input id="player-filter" list="player-list" placeholder="Type to filter…">
+  <main class="main-container" style="max-width:100%;width:100%;padding:1rem 1.5rem;">
+    <h1 class="page-title">Would It Dong?</h1>
+    <div class="filters-panel">
+      <div class="filters-grid">
+        <div><label for="player-filter">Player</label><input type="text" id="player-filter" list="player-list" placeholder="Filter…" /></div>
+        <div><label for="team-filter">Team</label><input type="text" id="team-filter" list="team-list" placeholder="Filter…" /></div>
+      </div>
       <datalist id="player-list"></datalist>
-    </label>
-    <label>
-      Team:
-      <input id="team-filter" list="team-list" placeholder="Type to filter…">
       <datalist id="team-list"></datalist>
-    </label>
-  </div>
+    </div>
+    <p id="note" class="error-msg" style="margin-bottom:1rem;">Work in progress. Park shapes and wall height data may limit accuracy.</p>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div id="table-container" style="width:100%;overflow-x:auto;">Loading…</div>
+    </div>
+  </main>
 
-  <div id="note">
-    Work in progress. Rounded park shapes are not calculated or drawn correctly, will be fixed.
-    Also limited wall height data limits the ability to be 100% accurate.
-  </div>
-
-  <div id="table-container">Loading…</div>
-
-  <!-- animation modal -->
-  <div id="modalOverlay" class="modalOverlay">
-    <div id="modalContent">
-      <span id="modalClose">&times;</span>
+  <div id="modalOverlay" class="modal-overlay">
+    <div class="modal-content">
+      <span id="modalClose" class="modal-close" aria-label="Close">&times;</span>
       <iframe id="animFrame" src="" allowfullscreen></iframe>
     </div>
   </div>
@@ -184,18 +89,23 @@
       'WES_POW':'GoMart BallPark'
     };
 
+    // Fence distances (ft). Wall heights (ft): wallHeightLeftFoul, wallHeightLeftCenter, wallHeightCenter, wallHeightRightCenter, wallHeightRightFoul.
+    // Edit the wallHeight* values below for each park; 8 is placeholder. round:true = circular fence (e.g. SIUH).
+    const FENCE_KEYS = ['leftFoul','leftCenter','center','rightCenter','rightFoul'];
+    const WALL_ANGLES = [-90,-45,0,45,90]; // degrees
+
     const parks = {
-      default:{leftFoul:325,leftCenter:(325+400)/2,center:400,rightCenter:(400+325)/2,rightFoul:325},
-      "Meritus Park":{leftFoul:346,leftCenter:(346+387)/2,center:400,rightCenter:(400+360)/2,rightFoul:325},
-      "Wellspan Park":{leftFoul:300,leftCenter:(300+405)/2,center:405,rightCenter:(405+326)/2,rightFoul:326},
-      "CaroMont Health Park":{leftFoul:315,leftCenter:361,center:400,rightCenter:367,rightFoul:325},
-      "Penn Medicine Park":{leftFoul:320,leftCenter:409,center:400,rightCenter:363,rightFoul:300},
-      "Fairfield Properties BallPark":{leftFoul:325,leftCenter:(325+400)/2,center:400,rightCenter:(400+325)/2,rightFoul:325},
-      "SIUH Community Park":{leftFoul:320,leftCenter:(320+390)/2,center:390,rightCenter:(390+318)/2,rightFoul:318},
-      "GoMart BallPark":{leftFoul:330,leftCenter:(330+400)/2,center:400,rightCenter:(400+320)/2,rightFoul:320},
-      "Truist Point":{leftFoul:336,leftCenter:363,center:400,rightCenter:366,rightFoul:339},
-      "Legends Field":{leftFoul:320,leftCenter:(320+401)/2,center:401,rightCenter:(401+318)/2,rightFoul:318},
-      "Regency Furniture Stadium":{leftFoul:310,leftCenter:(310+400)/2,center:400,rightCenter:(400+325)/2,rightFoul:325}
+      default:{leftFoul:325,leftCenter:(325+400)/2,center:400,rightCenter:(400+325)/2,rightFoul:325, round:false, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8},
+      "Meritus Park":{leftFoul:346,leftCenter:(346+387)/2,center:400,rightCenter:(400+360)/2,rightFoul:325, round:false, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8},
+      "Wellspan Park":{leftFoul:300,leftCenter:(300+405)/2,center:405,rightCenter:(405+326)/2,rightFoul:326, round:false, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8},
+      "CaroMont Health Park":{leftFoul:315,leftCenter:361,center:400,rightCenter:367,rightFoul:325, round:false, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8},
+      "Penn Medicine Park":{leftFoul:320,leftCenter:409,center:400,rightCenter:363,rightFoul:300, round:false, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8},
+      "Fairfield Properties BallPark":{leftFoul:325,leftCenter:(325+400)/2,center:400,rightCenter:(400+325)/2,rightFoul:325, round:false, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8},
+      "SIUH Community Park":{leftFoul:320,leftCenter:(320+390)/2,center:390,rightCenter:(390+318)/2,rightFoul:318, round:true, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8},
+      "GoMart BallPark":{leftFoul:330,leftCenter:(330+400)/2,center:400,rightCenter:(400+320)/2,rightFoul:320, round:false, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8},
+      "Truist Point":{leftFoul:336,leftCenter:363,center:400,rightCenter:366,rightFoul:339, round:false, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8},
+      "Legends Field":{leftFoul:320,leftCenter:(320+401)/2,center:401,rightCenter:(401+318)/2,rightFoul:318, round:false, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8},
+      "Regency Furniture Stadium":{leftFoul:310,leftCenter:(310+400)/2,center:400,rightCenter:(400+325)/2,rightFoul:325, round:false, wallHeightLeftFoul:8,wallHeightLeftCenter:8,wallHeightCenter:8,wallHeightRightCenter:8,wallHeightRightFoul:8}
     };
 
     const logicParks = {};
@@ -204,27 +114,37 @@
     });
 
     function buildWallVertices(park) {
-      const angles=[-90,-45,0,45,90].map(d=>d*Math.PI/180);
-      return angles.map((rad,i)=>({
-        x: Math.sin(rad)*park[ ["leftFoul","leftCenter","center","rightCenter","rightFoul"][i] ],
-        y: -Math.cos(rad)*park[ ["leftFoul","leftCenter","center","rightCenter","rightFoul"][i] ]
-      }));
+      return WALL_ANGLES.map((deg,i)=>{
+        const rad = deg*Math.PI/180, r = park[FENCE_KEYS[i]];
+        return { x: Math.sin(rad)*r, y: -Math.cos(rad)*r };
+      });
     }
 
-    function fenceDist(park,dirDeg){
-      const θ=dirDeg*Math.PI/180,dx=Math.sin(θ),dy=-Math.cos(θ),wall=buildWallVertices(park);
-      let minT=Infinity;
-      for(let i=0;i<wall.length-1;i++){
-        const P1=wall[i],P2=wall[i+1],
-              sx=P2.x-P1.x,sy=P2.y-P1.y,
-              det=dx*(-sy)-dy*(-sx);
-        if(Math.abs(det)<1e-6) continue;
-        const inv=1/det,
-              t=(P1.x*(-sy)-P1.y*(-sx))*inv,
-              u=(dx*P1.y-dy*P1.x)*inv;
-        if(t>0&&u>=0&&u<=1) minT=Math.min(minT,t);
+    function fenceDist(park, dirDeg) {
+      if (park.round) return park.center;
+      const θ = dirDeg*Math.PI/180, dx = Math.sin(θ), dy = -Math.cos(θ), wall = buildWallVertices(park);
+      let minT = Infinity;
+      for (let i = 0; i < wall.length-1; i++) {
+        const P1 = wall[i], P2 = wall[i+1], sx = P2.x-P1.x, sy = P2.y-P1.y, det = dx*(-sy)-dy*(-sx);
+        if (Math.abs(det) < 1e-6) continue;
+        const inv = 1/det, t = (P1.x*(-sy)-P1.y*(-sx))*inv, u = (dx*P1.y-dy*P1.x)*inv;
+        if (t > 0 && u >= 0 && u <= 1) minT = Math.min(minT, t);
       }
-      return isFinite(minT)?minT:park.center;
+      return isFinite(minT) ? minT : park.center;
+    }
+
+    function wallHeightAt(park, dirDeg) {
+      const h = (k)=>park['wallHeight'+k.charAt(0).toUpperCase()+k.slice(1)];
+      const heights = FENCE_KEYS.map(k=>h(k)!=null?h(k):8);
+      if (dirDeg <= WALL_ANGLES[0]) return heights[0];
+      if (dirDeg >= WALL_ANGLES[4]) return heights[4];
+      for (let i = 0; i < WALL_ANGLES.length-1; i++) {
+        if (dirDeg >= WALL_ANGLES[i] && dirDeg <= WALL_ANGLES[i+1]) {
+          const t = (dirDeg - WALL_ANGLES[i]) / (WALL_ANGLES[i+1]-WALL_ANGLES[i]);
+          return heights[i]*(1-t) + heights[i+1]*t;
+        }
+      }
+      return heights[2];
     }
 
     let allHits=[];
@@ -264,12 +184,12 @@
       });
       filtered.sort((a,b)=>new Date(b.Date)-new Date(a.Date));
       const parkNames=Object.keys(parks).filter(n=>'default'!==n);
-      let html='<table><thead><tr>'
-               +'<th>Date</th><th>Batter</th><th>Inning</th>'
-               +'<th>Result</th><th>Dist (ft)</th><th>ExitSpeed</th>'
-               +'<th>LaunchAngle</th>';
+      let html='<table class="dong-table"><thead><tr>'
+               +'<th class="col-date">Date</th><th class="col-batter">Batter</th><th class="col-inning">Inn</th>'
+               +'<th class="col-result">Result</th><th class="col-dist">Dist</th><th class="col-exit">Exit</th>'
+               +'<th class="col-angle">Angle</th>';
       parkNames.forEach(p=>html+=`<th class="park">${p}</th>`);
-      html+='<th>Details</th></tr></thead><tbody>';
+      html+='<th class="col-details">Details</th></tr></thead><tbody>';
       filtered.forEach((r,i)=>{
         const dist=+r.Distance||0,dir=+r.Direction||0,exit=+r.ExitSpeed||0,ang=+r.Angle||0;
         const actualPark=teamParkMap[r.HomeTeam]||null;
@@ -277,26 +197,23 @@
         const batterLink=`<a href="batter-profiles.html?player=${encodeURIComponent(r.Batter)}">${r.Batter}</a>`;
         const detailLink=`<a href="Game-view.html?pitchUID=${encodeURIComponent(r.PitchUID)}">Details</a>`;
         html+='<tr>';
-        html+=`<td>${dateLink}</td><td>${batterLink}</td><td>${r.Inning}</td>`
-             +`<td>${r.PlayResult}</td><td>${dist.toFixed(0)}</td>`
-             +`<td>${exit.toFixed(0)}</td><td>${ang.toFixed(0)}</td>`;
+        html+=`<td class="col-date">${dateLink}</td><td class="col-batter">${batterLink}</td><td class="col-inning">${r.Inning}</td>`
+             +`<td class="col-result">${r.PlayResult}</td><td class="col-dist">${dist.toFixed(0)}</td>`
+             +`<td class="col-exit">${exit.toFixed(0)}</td><td class="col-angle">${ang.toFixed(0)}</td>`;
         parkNames.forEach(p=>{
           let mark='';
           if(p===actualPark){
             if(r.PlayResult==='HomeRun') mark='<span class="check">✓</span>';
           } else {
-            const fDist=fenceDist(logicParks[p],dir);
-            if(p==='Wellspan Park'){
-              if(dist>=fDist && trajectoryHeight(fDist,exit,ang)>=37.7){
-                mark='<span class="check">✓</span>';
-              }
-            } else if(dist>=fDist){
-              mark='<span class="check">✓</span>';
-            }
+            const parkObj=logicParks[p];
+            const fDist=fenceDist(parkObj,dir);
+            const requiredHeight=wallHeightAt(parkObj,dir);
+            const heightAtFence=trajectoryHeight(fDist,exit,ang);
+            if(dist>=fDist&&heightAtFence>=requiredHeight) mark='<span class="check">✓</span>';
           }
           html+=`<td class="park" data-index="${i}" data-park="${p}" data-pitchuid="${r.PitchUID}">${mark}</td>`;
         });
-        html+=`<td>${detailLink}</td></tr>`;
+        html+=`<td class="col-details">${detailLink}</td></tr>`;
       });
       html+='</tbody></table>';
       document.getElementById('table-container').innerHTML=html;
@@ -321,17 +238,14 @@ animFrame.src =
       });
     }
 
-    modalClose.addEventListener('click',()=>{
-      modalOverlay.classList.remove('show');
-      animFrame.src = '';
-    });
-
-    modalOverlay.addEventListener('click', e=>{
-      if(e.target === modalOverlay){
-        modalOverlay.classList.remove('show');
-        animFrame.src = '';
-      }
-    });
+    modalClose.addEventListener('click',()=>{ modalOverlay.classList.remove('show'); animFrame.src = ''; });
+    modalOverlay.addEventListener('click', e=>{ if(e.target === modalOverlay){ modalOverlay.classList.remove('show'); animFrame.src = ''; } });
+  </script>
+  <script>
+    (function(){ var h=document.getElementById('hamburger-btn'), s=document.getElementById('side-menu'), o=document.getElementById('overlay');
+      h.addEventListener('click', function(){ if(s.classList.contains('open')){ h.classList.remove('open'); s.classList.remove('open'); o.classList.remove('visible'); }else{ h.classList.add('open'); s.classList.add('open'); o.classList.add('visible'); } });
+      o.addEventListener('click', function(){ h.classList.remove('open'); s.classList.remove('open'); o.classList.remove('visible'); });
+    })();
   </script>
   <script type="module">
   // Import the functions you need from the SDKs you need

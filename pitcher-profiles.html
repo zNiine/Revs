@@ -13,628 +13,882 @@
     <script src="libs/plotly.min.js"></script>
     <script src="libs/papaparse.min.js"></script>
     <style>
-        /* (same styles as batter page) */
-        body {
-            display: flex;
-            flex-direction: column;
-            margin: 0;
-            font-family: Arial, sans-serif;
+      /* ── Pitcher Profile Overrides ── */
+      body { margin: 0; }
+
+      /* Tooltip */
+      #tooltip {
+        position: fixed; background: rgba(0,0,0,0.85); color: #fff;
+        padding: 6px 10px; border-radius: 6px; pointer-events: none;
+        font-size: 12px; display: none; z-index: 1000;
+        border: 1px solid var(--border);
+      }
+
+      /* Sub-nav */
+      #subMenu button {
+        background: none; border: none; padding: 0.6rem 1.25rem;
+        cursor: pointer; font-weight: 600; font-size: 0.85rem;
+        color: var(--text-muted); border-bottom: 2px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      #subMenu button:hover { color: var(--text); }
+      #subMenu button.sub-active { color: var(--accent); border-bottom-color: var(--accent); }
+
+      /* ── Hero Stats Bar ── */
+      .hero-stats-bar {
+        display: flex; flex-wrap: wrap; gap: 1px;
+        background: var(--border); border-radius: var(--radius);
+        overflow: hidden; margin-bottom: 1.5rem;
+      }
+      .hero-stat {
+        flex: 1; min-width: 100px; background: var(--bg-card);
+        padding: 1rem 1.25rem; display: flex; flex-direction: column;
+        align-items: center; gap: 0.2rem;
+      }
+      .hero-stat-val { font-size: 1.6rem; font-weight: 700; color: var(--text); line-height: 1; }
+      .hero-stat-lbl { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+
+      /* ── Section Cards ── */
+      .section-card {
+        background: var(--bg-card); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem;
+      }
+      .section-title {
+        font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em;
+        text-transform: uppercase; color: var(--text-muted);
+        margin-bottom: 1.25rem; padding-bottom: 0.6rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .chart-label {
+        font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+        letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.5rem;
+      }
+
+      /* ── Grid layouts ── */
+      .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+      .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem; }
+      .dist-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 1rem; }
+      @media (max-width: 900px) {
+        .two-col, .three-col, .dist-grid { grid-template-columns: 1fr; }
+      }
+
+      /* ── Arsenal Layout ── */
+      .arsenal-grid { display: grid; grid-template-columns: 420px 1fr; gap: 1.5rem; align-items: start; }
+      @media (max-width: 900px) { .arsenal-grid { grid-template-columns: 1fr; } }
+
+      /* Movement canvas */
+      #movementChart { display: block; border-radius: 8px; }
+      .movement-legend {
+        display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;
+        margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);
+      }
+      .legend-dot {
+        display: inline-block; width: 10px; height: 10px;
+        border-radius: 50%; margin-right: 4px; vertical-align: middle;
+      }
+
+      /* ── Pitch Arsenal Table ── */
+      .arsenal-tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+      .arsenal-tbl th {
+        background: var(--bg-elevated); color: var(--text-muted); font-weight: 600;
+        font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase;
+        padding: 0.5rem 0.75rem; text-align: right; border-bottom: 1px solid var(--border);
+      }
+      .arsenal-tbl th:first-child, .arsenal-tbl th:nth-child(2) { text-align: left; }
+      .arsenal-tbl td {
+        padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+        color: var(--text); text-align: right;
+      }
+      .arsenal-tbl td:first-child { text-align: left; display: flex; align-items: center; gap: 6px; }
+      .arsenal-tbl td:nth-child(2) { text-align: left; min-width: 120px; }
+      .arsenal-tbl tbody tr:hover { background: var(--bg-elevated); }
+      .pitch-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+      .usage-bar-wrap { display: flex; align-items: center; gap: 6px; }
+      .usage-bar-track { flex: 1; background: var(--bg-elevated); border-radius: 3px; height: 6px; min-width: 60px; overflow: hidden; }
+      .usage-bar { height: 6px; border-radius: 3px; transition: width 0.3s; }
+      .usage-bar-wrap span { font-size: 0.8rem; color: var(--text); white-space: nowrap; }
+
+      /* ── Percentile Bars ── */
+      .pct-bar-row {
+        display: grid; grid-template-columns: 160px 1fr 100px;
+        align-items: center; gap: 1rem; padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .pct-bar-label { font-size: 0.82rem; color: var(--text); font-weight: 500; }
+      .pct-bar-track { background: var(--bg-elevated); border-radius: 4px; height: 8px; overflow: hidden; }
+      .pct-bar-fill { height: 8px; border-radius: 4px; transition: width 0.4s ease; }
+      .pct-bar-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+      .pct-val { font-size: 0.9rem; font-weight: 700; }
+      .pct-raw { font-size: 0.75rem; color: var(--text-muted); }
+
+      /* ── Tables (dark) ── */
+      .dark-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+      .dark-table th {
+        background: var(--bg-elevated); color: var(--text-muted);
+        font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase;
+        padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);
+      }
+      .dark-table td { padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text); }
+      .dark-table tbody tr:hover { background: var(--bg-elevated); }
+
+      /* Scrollable table wrapper */
+      .table-scroll { max-height: 400px; overflow-y: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+
+      /* Batted ball table */
+      #battedBallTable table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+      #battedBallTable th {
+        background: var(--bg-elevated); color: var(--text-muted);
+        font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase;
+        padding: 0.45rem 0.6rem; text-align: left; border-bottom: 1px solid var(--border);
+        position: sticky; top: 0;
+      }
+      #battedBallTable td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); color: var(--text); }
+      #battedBallTable tbody tr:hover { background: var(--bg-elevated); }
+      #battedBallTable a { color: var(--accent); }
+      #battedBallTable button { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 0.75rem; }
+
+      /* At-bat pitch table */
+      #atBatPitchTable { display: none; font-size: 0.85rem; }
+      #atBatPitchTable table { width: 100%; border-collapse: collapse; }
+      #atBatPitchTable th { background: var(--bg-elevated); color: var(--text-muted); padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.7rem; text-transform: uppercase; }
+      #atBatPitchTable td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); color: var(--text); }
+
+      /* Contact metrics */
+      .contact-metrics-bar {
+        display: flex; gap: 1.5rem; flex-wrap: wrap;
+        margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);
+      }
+      .contact-metric { text-align: center; }
+      .contact-metric-val { font-size: 1.3rem; font-weight: 700; color: var(--text); }
+      .contact-metric-lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+
+      /* Game log table */
+      #gameLogTable table { width: 100%; border-collapse: collapse; }
+      #gameLogTable th {
+        background: var(--bg-elevated); color: var(--text-muted);
+        padding: 0.5rem 0.75rem; font-size: 0.7rem; letter-spacing: 0.06em;
+        text-transform: uppercase; border-bottom: 1px solid var(--border); text-align: left;
+      }
+      #gameLogTable td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text); font-size: 0.85rem; }
+      #gameLogTable tbody tr:hover { background: var(--bg-elevated); }
+      #gameLogTable a { color: var(--accent); }
+
+      /* Pitch stats by count table */
+      #pitchStatsByCount table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+      #pitchStatsByCount th {
+        background: var(--bg-elevated); color: var(--text-muted); padding: 0.45rem 0.75rem;
+        font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase;
+        border-bottom: 1px solid var(--border);
+      }
+      #pitchStatsByCount td { padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text); }
+      #pitchStatsByCount tbody tr:hover { background: var(--bg-elevated); }
+
+      /* Call rates table */
+      #callRatesTable table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+      #callRatesTable th { background: var(--bg-elevated); color: var(--text-muted); padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.7rem; text-transform: uppercase; }
+      #callRatesTable td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); color: var(--text); }
+
+      /* Plate container */
+      #plateContainer { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+      #plateChart { min-width: 280px; }
+      #legendDiv { font-size: 0.8rem; color: var(--text-muted); min-width: 110px; }
+
+      /* Spray canvas */
+      #sprayCanvas { display: block; border-radius: var(--radius-sm); border: 1px solid var(--border); max-width: 100%; }
+
+      /* Filter row */
+      .filter-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; font-size: 0.85rem; color: var(--text-muted); }
+      .filter-row select, .filter-row input { background: var(--bg-elevated); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.3rem 0.6rem; font-size: 0.82rem; }
+
+      /* Dist cell */
+      .dist-cell { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+      .percentile-text { font-size: 0.88rem; color: var(--text); min-width: 120px; }
+      .percentile-text strong { color: var(--accent); }
+
+      /* Stuff+ section */
+      .stuff-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; margin-top: 0.5rem; max-width: 600px; }
+
+      /* Usage tree */
+      .treeWrapper { display: flex; gap: 1rem; align-items: flex-start; }
+      #treeChart { width: 70%; height: 600px; position: relative; }
+      #treeLegend { width: 10%; font-size: 0.85rem; padding: 0.5rem; }
+      #validationTable { width: 20%; max-height: 600px; overflow: auto; font-size: 0.85rem; }
+      #validationTable table { width: 100%; border-collapse: collapse; }
+      #validationTable th { background: var(--bg-elevated); color: var(--text-muted); padding: 0.4rem; border-bottom: 1px solid var(--border); font-size: 0.7rem; text-transform: uppercase; }
+      #validationTable td { padding: 0.4rem; border-bottom: 1px solid var(--border); color: var(--text); }
+
+      /* Print is handled by a separate generated window — no @media print rules needed here */
+
+      /* ══════════════════════════════════════════════
+         MOBILE-FIRST RESPONSIVE OVERRIDES
+         ══════════════════════════════════════════════ */
+
+      /* ── Sub-nav: horizontally scrollable pill strip ── */
+      #subMenu {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 0;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 1rem;
+      }
+      #subMenu::-webkit-scrollbar { display: none; }
+      #subMenu button {
+        flex-shrink: 0;
+        padding: 0.7rem 1.1rem;
+        font-size: 0.82rem;
+        white-space: nowrap;
+      }
+
+      /* ── Filters: larger touch targets ── */
+      .filters-panel .filters-grid label { font-size: 0.78rem; }
+      .filters-panel select,
+      .filters-panel input[type="date"] {
+        min-height: 36px;
+        font-size: 0.85rem;
+      }
+
+      /* ── Filter row inline controls ── */
+      .filter-row { gap: 0.5rem; }
+      .filter-row select,
+      .filter-row input { min-height: 32px; }
+
+      /* ── All tables: horizontal scroll ── */
+      .dark-table-wrap,
+      #battedBallTable,
+      #gameLogTable,
+      #pitchStatsByCount,
+      #callRatesTable,
+      #atBatPitchTable {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      @media (max-width: 768px) {
+        /* ── Page title ── */
+        .page-title { font-size: 1.4rem !important; }
+
+        /* ── Section cards ── */
+        .section-card { padding: 1rem; margin-bottom: 1rem; }
+
+        /* ── Hero stats: 3 per row on mobile ── */
+        .hero-stats-bar { margin-bottom: 1rem; }
+        .hero-stat { min-width: 30%; padding: 0.75rem 0.5rem; }
+        .hero-stat-val { font-size: 1.3rem; }
+        .hero-stat-lbl { font-size: 0.62rem; }
+
+        /* ── Grids collapse at 768 too ── */
+        .two-col, .three-col { grid-template-columns: 1fr; gap: 1rem; }
+        .arsenal-grid { grid-template-columns: 1fr; gap: 1rem; }
+
+        /* ── League comparisons: 2-col grid on tablet ── */
+        .dist-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+        /* ── dist-cell: stack chart above text ── */
+        .dist-cell { flex-direction: column; align-items: stretch; gap: 0.4rem; }
+        .percentile-text { min-width: unset; font-size: 0.8rem; }
+
+        /* ── Movement canvas ── */
+        #movementChart { max-width: 100%; height: auto !important; }
+
+        /* ── Spray canvas ── */
+        #sprayCanvas { max-width: 100%; height: auto !important; }
+
+        /* ── Percentile bar rows: stack label / bar / value ── */
+        .pct-bar-row {
+          grid-template-columns: 1fr auto;
+          grid-template-rows: auto auto;
+          gap: 0.25rem 0.5rem;
         }
+        .pct-bar-label { grid-column: 1; grid-row: 1; font-size: 0.78rem; }
+        .pct-bar-meta  { grid-column: 2; grid-row: 1; align-items: flex-end; }
+        .pct-bar-track { grid-column: 1 / -1; grid-row: 2; }
+        .pct-val { font-size: 0.82rem; }
+        .pct-raw { font-size: 0.7rem; }
 
+        /* ── Arsenal table: prevent tiny cols ── */
+        .arsenal-tbl { font-size: 0.78rem; }
+        .arsenal-tbl th, .arsenal-tbl td { padding: 0.4rem 0.5rem; }
 
-        .modalOverlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.modalOverlay.show {
-  display: flex;
-}
-#modalContent {
-  position: relative;
-  width: 80vw;
-  height: 80vh;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-  overflow: hidden;
-}
-#modalClose {
-  position: absolute;
-  top: 8px; right: 12px;
-  font-size: 1.5rem;
-  cursor: pointer;
-  z-index: 1001;
-}
+        /* ── Usage tree: stack on mobile ── */
+        .treeWrapper { flex-direction: column; gap: 0.75rem; }
+        #treeChart { width: 100% !important; height: 420px !important; }
+        #treeLegend { width: 100% !important; display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; padding: 0 !important; }
+        #validationTable { width: 100% !important; max-height: none !important; }
 
-/* mobile-first base: sidebar hidden, main full-width */
-.container {
-  flex-direction: column;
-}
-.sidebar {
-  display: none;
-}
-.main {
-  width: 100%;
-  padding: 0.5rem;
-}
-.card > div {
-  height: 300px; /* smaller height on phones */
-}
+        /* ── Contact metrics: evenly spaced row ── */
+        .contact-metrics-bar { justify-content: space-around; gap: 0.5rem; }
+        .contact-metric-val { font-size: 1.1rem; }
 
-/* medium+ screens: restore your two-column layout */
-@media (min-width: 768px) {
-  .container {
-    flex-direction: row;
-  }
-  .sidebar {
-    display: block;
-    width: 250px;
-  }
-  .main {
-    width: auto;
-    padding: 1rem;
-  }
-  .card > div {
-    height: 100%;  /* back to original height */
-  }
-}
+        /* ── Plate container ── */
+        #plateContainer { flex-direction: column; }
 
-#animFrame {
-  width: 100%;
-  height: 100%;
-  border: none;
-}
+        /* ── Charts that are fixed height ── */
+        #sunburstChart, #usageOverTime { height: 320px !important; }
+        #spinAxisRose { height: 280px !important; }
+        #spinDistChart { height: 240px !important; }
+        #stuffGauge { height: 180px !important; }
+        #releasePointScatter, #spinBreakBoxplots, #zoneAccuracy { height: 240px !important; }
+        #runValueBar, #exitVelByPitch { height: 220px !important; }
+        #tunnelX, #tunnelY { height: 240px !important; }
+        #inningTrend { height: 220px !important; }
+        #locationHeatmap, #locationScatter { height: 240px !important; }
+        #veloDistChart, #exitDistChart, #chaseDistChart,
+        #whiffDistChart, #hhDistChart, #kDistChart { height: 160px !important; }
 
-        header,
-        nav {
-            padding: 0.5rem 1rem;
-            background: #fafafa;
-            border-bottom: 1px solid #ddd;
-        }
+        /* ── Stuff+ description ── */
+        .stuff-desc { font-size: 0.78rem; }
+      }
 
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+      @media (max-width: 480px) {
+        /* ── Very small phones: single-col league comparisons ── */
+        .dist-grid { grid-template-columns: 1fr; }
 
-          #tooltip {
-            position: fixed;
-            background: rgba(0,0,0,0.75);
-            color: #fff;
-            padding: 4px 8px;
-            border-radius: 4px;
-            pointer-events: none;
-            font-size: 12px;
-            display: none;
-            z-index: 1000;
-        }
+        /* ── Hero stats: 2 per row ── */
+        .hero-stat { min-width: 45%; }
 
-        #logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
+        /* ── Tighter section padding ── */
+        .section-card { padding: 0.75rem; }
 
-        nav#menu ul {
-            list-style: none;
-            display: flex;
-            gap: 1rem;
-            margin: 0;
-            padding: 0;
-        }
+        /* ── Filter labels hidden to save space ── */
+        .filters-panel .filters-grid label > span { display: none; }
 
-        nav#menu a {
-            text-decoration: none;
-            color: #333;
-            font-weight: 500;
-        }
-
-        nav#menu a.active {
-            text-decoration: underline;
-        }
-
-        #subMenu {
-            padding: 0.5rem 1rem;
-            background: #f0f0f0;
-            border-bottom: 1px solid #ddd;
-        }
-
-        #subMenu button {
-            margin-right: 0.5rem;
-            padding: 0.4rem 0.8rem;
-        }
-
-        #subMenu .sub-active {
-            background: #ddd;
-        }
-
-        .container {
-            display: flex;
-            flex: 1;
-        }
-
-        .sidebar {
-            width: 250px;
-            padding: 1rem;
-            background: #f7f7f7;
-            border-right: 1px solid #ddd;
-        }
-
-        .sidebar .filters {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .sidebar label {
-            font-size: 0.9rem;
-        }
-
-        .sidebar button {
-            margin-top: 1rem;
-            padding: 0.5rem;
-            cursor: pointer;
-        }
-
-        .main {
-            flex: 1;
-            padding: 1rem;
-            overflow: auto;
-        }
-
-        /* Game Log Table Styling */
-#gameLogTable table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-}
-#gameLogTable th,
-#gameLogTable td {
-  border: 1px solid #ccc;
-  padding: 0.5rem;
-  text-align: left;
-}
-#gameLogTable th {
-  background: #f4f4f4;
-}
-#gameLogTable tbody tr:nth-child(even) {
-  background: #fafafa;
-}
-#gameLogTable a {
-  color: #0066cc;
-  text-decoration: none;
-}
-#gameLogTable a:hover {
-  text-decoration: underline;
-}
-
-
-          
-        #sprayCanvas { border: 1px solid #ccc; background: #e8f5e9; display: block; margin: 1rem auto; }
-        #parkSelect2 { margin-bottom: 0.5rem; }
-
-        #plateContainer {
-            display: flex;
-            margin-bottom: 2rem;
-            height: 400px;
-            gap: 0.5rem;
-        }
-
-        #plateChart {
-            width: 40%;
-            height: 100%;
-        }
-
-        #legendDiv {
-            width: 10%;
-            padding-left: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        #atBatPitchTable {
-            width: 60%;
-            overflow: auto;
-            font-size: 0.9rem;
-            display: none;
-            padding-left: 0.5rem;
-        }
-
-        #battedBallTable table,
-        #atBatPitchTable table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
-
-        #battedBallTable th,
-        #battedBallTable td,
-        #atBatPitchTable th,
-        #atBatPitchTable td {
-            border: 1px solid #ccc;
-            padding: 0.4rem;
-            text-align: left;
-        }
-
-        #battedBallTable th,
-        #atBatPitchTable th {
-            background: #eee;
-        }
-
-         .row { display: flex; gap: 1rem; margin-bottom: 1rem; }
-    .col { flex: 1; }
-    .card { border: 1px solid #ddd; border-radius: 4px; padding: 0.75rem; background: #fff; }
-    /* Chart containers should fill card */
-    .card > div { width: 100%; height: 100%; }
-
-        @media print {
-  header, nav, #subMenu, .sidebar, #paContainer { display: none !important; }
-  body, html { margin:0; padding:0; }
-  #usageContainer { display:block !important; width:100% !important; }
-  .treeWrapper { display:block !important; width:100% !important; }
-  #treeChart {
-    width:100% !important; height:400px !important;
-    page-break-inside: avoid;
-  }
-  #treeLegend {
-    display:block !important;
-    width:100% !important;
-    margin:1rem 0;
-    z-index: 100;
-  }
-  #validationTable {
-    display:block !important;
-    width:50% !important;
-    max-height: 20vh;       /* keep it from taking too much space */
-    margin-top: 210px;
-    page-break-before: auto;
-        page-break-inside: avoid;
-
-  }
-  * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
-}
+        /* ── Sub-nav smaller text ── */
+        #subMenu button { font-size: 0.78rem; padding: 0.65rem 0.9rem; }
+      }
     </style>
 </head>
 
 <body>
-
-    <header>
-        <div id="logo">ALPB</div>
-        <form id="search-form">
-      <input type="text" id="search" placeholder="Search players, teams, umps..." list="suggestions" autocomplete="off" />
-      <button type="submit" id="search-btn">Go</button>
+  <header class="app-header">
+    <a href="index.html" class="logo">ALPB</a>
+    <nav class="nav-desktop">
+      <a href="index.html">Home</a>
+      <a href="schedule.html">Standings</a>
+      <a href="games.html">Games</a>
+      <a href="leaderboards.html">Leaderboards</a>
+      <a href="park-factors.html">Park Factors</a>
+      <a href="fielding.html">Fielding</a>
+      <a href="stolen-bases.html">Base Running</a>
+      <a href="dong.html">Would it Dong?</a>
+    </nav>
+    <form id="search-form" class="nav-desktop header-search-form">
+      <input type="text" id="search" placeholder="Search…" list="suggestions" autocomplete="off" style="width:180px;padding:0.4rem 0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);" />
+      <button type="submit" id="search-btn" class="btn btn-primary" style="margin-left:4px;">Go</button>
       <datalist id="suggestions"></datalist>
     </form>
-    </header>
-   <nav id="menu">
+    <div class="hamburger" id="hamburger-btn" aria-label="Menu"><span></span><span></span><span></span></div>
+  </header>
+  <div id="side-menu" class="side-menu">
+    <form id="search-form-mobile" style="margin-bottom:1rem;">
+      <input type="text" id="search-mobile" placeholder="Search…" list="suggestions-mobile" autocomplete="off" style="width:100%;padding:0.5rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);" />
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem;">Go</button>
+      <datalist id="suggestions-mobile"></datalist>
+    </form>
+    <nav>
       <ul>
         <li><a href="index.html">Home</a></li>
+        <li><a href="schedule.html">Standings</a></li>
+        <li><a href="games.html">Games</a></li>
         <li><a href="leaderboards.html">Leaderboards</a></li>
         <li><a href="park-factors.html">Park Factors</a></li>
-        <li><a href="fielding.html" class="active">Fielding</a></li>
+        <li><a href="fielding.html">Fielding</a></li>
+        <li><a href="stolen-bases.html">Base Running</a></li>
+        <li><a href="dong.html">Would it Dong?</a></li>
       </ul>
     </nav>
+  </div>
+  <div id="overlay" class="overlay"></div>
 
-    <!-- Sub-menu: toggle between the two profile panels -->
-    <div id="subMenu">
-        <button id="tabPA" class="sub-active">Plate Appearances</button>
-        <button id="tabGameLog">Game Log</button>
+  <main class="main-container">
+    <h1 class="page-title" id="playerName">Pitcher</h1>
 
-        <button id="tabTree">Usage Tree</button>
-        <button id="printTree">Print</button>
-        
+    <!-- Hero Stats Bar -->
+    <div id="heroStats" class="hero-stats-bar"></div>
 
+    <div class="filters-panel">
+      <div class="filters-grid">
+        <div><label for="startDate">Start</label><input type="date" id="startDate" onchange="applyFilters()" /></div>
+        <div><label for="endDate">End</label><input type="date" id="endDate" onchange="applyFilters()" /></div>
+        <div><label><input type="checkbox" id="showAllDates" onchange="applyFilters()" /> All dates</label></div>
+        <div><label for="sideFilter">Batter side</label><select id="sideFilter" onchange="applyFilters()"><option value="">All</option><option value="Left">Left</option><option value="Right">Right</option></select></div>
+        <div><label for="batterFilter">Batter</label><select id="batterFilter" onchange="onBatterChange()"><option value="">All</option></select></div>
+        <div><label for="pitchTypeFilter">Pitch type</label><select id="pitchTypeFilter" onchange="applyFilters()"><option value="">All</option></select></div>
+        <div><label for="atBatFilter" id="atBatLabel" style="display:none;">At Bat</label><select id="atBatFilter" onchange="applyFilters()" style="display:none;"><option value="">All</option></select></div>
+        <div><label>&nbsp;</label><button type="button" onclick="resetFilters()" class="btn btn-ghost">Reset</button></div>
+      </div>
     </div>
 
-    <div class="container">
-        <div class="sidebar">
-            <div class="filters">
-                <label for="startDate">Start Date</label>
-                <input type="date" id="startDate" onchange="applyFilters()" />
+    <nav id="subMenu" class="subnav">
+      <button type="button" id="tabPA" class="sub-active">Plate Appearances</button>
+      <button type="button" id="tabGameLog">Game Log</button>
+      <button type="button" id="tabTree">Usage Tree</button>
+      <button type="button" id="printTree">Print</button>
+    </nav>
 
-                <label for="endDate">End Date</label>
-                <input type="date" id="endDate" onchange="applyFilters()" />
+    <div id="tooltip"></div>
 
-                <label>
-                    <input type="checkbox" id="showAllDates" onchange="applyFilters()" />
-                    Show All Dates
-                </label>
+    <div id="paContainer">
 
-                <label for="sideFilter">Batter Side</label>
-                <select id="sideFilter" onchange="applyFilters()">
-                    <option value="">All</option>
-                    <option value="Left">Left</option>
-                    <option value="Right">Right</option>
-                </select>
-
-                <label for="batterFilter">Batter</label>
-                <select id="batterFilter" onchange="onBatterChange()">
-                    <option value="">All</option>
-                </select>
-
-                <label for="pitchTypeFilter">Pitch Type</label>
-                <select id="pitchTypeFilter" onchange="applyFilters()">
-                    <option value="">All</option>
-                </select>
-
-                <label for="atBatFilter" id="atBatLabel" style="display:none;">At Bat</label>
-                <select id="atBatFilter" onchange="applyFilters()" style="display:none;">
-                    <option value="">All</option>
-                </select>
-
-                <button onclick="resetFilters()">Reset Filters</button>
-            </div>
+      <!-- PITCH ARSENAL -->
+      <div class="section-card">
+        <div class="section-title">Pitch Arsenal</div>
+        <div class="arsenal-grid">
+          <div>
+            <div class="chart-label">Movement Profile</div>
+            <canvas id="movementChart" width="400" height="400" style="max-width:100%;height:auto;"></canvas>
+            <div id="movementLegend" class="movement-legend"></div>
+          </div>
+          <div>
+            <div class="chart-label">Arsenal Summary</div>
+            <div id="pitchArsenalTable"></div>
+            <div class="chart-label" style="margin-top:1.25rem;">Call Rates by Pitch</div>
+            <div id="callRatesTable"></div>
+          </div>
         </div>
+      </div>
 
-        <!-- Plate Appearances view -->
-        <div class="main" id="paContainer">
-            <h2 id="playerName"></h2>
-
+      <!-- PITCH LOCATION -->
+      <div class="section-card">
+        <div class="section-title">Pitch Location</div>
+        <div class="two-col">
+          <div>
+            <div class="chart-label">Plate Appearances</div>
             <div id="plateContainer">
-                <div id="plateChart"></div>
-                <div id="legendDiv"></div>
-                <div id="atBatPitchTable"></div>
+              <div id="plateChart"></div>
+              <div id="legendDiv"></div>
             </div>
-
-            <label for="parkSelect2">Ballpark:</label>
-                <div id="tooltip"></div>
-
-            <select id="parkSelect2">
-                <option value="default">-- Select Park --</option>
-      <option value="Meritus Park">Meritus Park</option>
-      <option value="Wellspan Park">Wellspan Park</option>
-      <option value="CaroMont Health Park">CaroMont Health Park</option>
-      <option value="Penn Medicine Park">Penn Medicine Park</option>
-      <option value="Fairfield Properties BallPark">Fairfield Properties BallPark</option>
-      <option value="SIUH Community Park">SIUH Community Park</option>
-      <option value="GoMart BallPark">GoMart BallPark</option>
-      <option value="Truist Point">Truist Point</option>
-      <option value="Legends Field">Legends Field</option>
-      <option value="Regency Furniture Stadium">Regency Furniture Stadium</option>
-    
-            </select>
-            <canvas id="sprayCanvas" width="700" height="600"></canvas>
-            <div id="trajectoryChart"></div>
-
-            <h3>Batted Ball Table</h3>
-            <div id="battedBallTable"></div>
-
-            <div>
-  <h4>Plate-Location Clusters</h4>
-  <div id="locationScatter" style="width:500px;height:450px;"></div>
-</div>
-
-
-            <h3>Movement Profile</h3>
-<div id="movementContainer" style="text-align:center;">
-  <svg id="movementSvg" width="500" height="500" style="border:1px solid #ccc;"></svg>
-  <div id="movementLegend" style="text-align:center; margin-top:0.5rem;"></div>
-
-</div>
-
-
-
-<h3>Pitch Type Location</h3>
-<div style="margin-bottom:0.5rem;">
-  <label for="heatmapSideFilter">Batter Side:</label>
-  <select id="heatmapSideFilter" onchange="drawLocationHeatmap()">
-    <option value="">All</option>
-    <option value="Left">Left</option>
-    <option value="Right">Right</option>
-  </select>
-
-  <label for="locationPitchType" style="margin-left:1rem;">
-    Pitch Type:
-  </label>
-  <select id="locationPitchType" onchange="drawLocationHeatmap()">
-    <option value="">All</option>
-    <!-- options filled in initDashboard() -->
-  </select>
-</div>
-<div id="locationHeatmap" style="width:500px; height:500px; margin:auto;"></div>
-
-<label for="pitchTypeTableFilter">
-  Show stats for:
-  <select id="pitchTypeTableFilter">
-    <option value="">All Types</option>
-    <!-- JS will populate the rest -->
-  </select>
-</label>
-
-<h3>Pitch Stats By Count</h3>
-<div id="pitchStatsByCount"></div>
-<h3>Contact Quality Metrics</h3>
-<div id="contactMetrics"></div>
-
-<!-- 1. Release Point Scatter -->
-<h3>Release Point Profile (Extension vs. Height)</h3>
-<div id="releasePointScatter" style="width:600px; height:400px; margin:auto;"></div>
-
-<!-- 2. Spin‐Efficiency Boxplots -->
-<h3>Spin vs. Break Boxplots</h3>
-<div id="spinBreakBoxplots" style="width:600px; height:400px; margin:auto;"></div>
-
-<!-- 3. Pitch Usage Over Time -->
-<h3>Weekly Pitch Mix</h3>
-<div id="usageOverTime" style="width:800px; height:400px; margin:auto;"></div>
-
-
-<!-- 5. Tunneling Map (Ext vs Break) -->
-<h3>Tunneling Map</h3>
-<div id="tunnelMap" style="display:flex; justify-content:center; gap:1rem;">
-  <div id="tunnelX" style="width:300px; height:300px;"></div>
-  <div id="tunnelY" style="width:300px; height:300px;"></div>
-</div>
-
-<!-- 6. Called‐Swing‐Whiff Table -->
-<h3>Pitch Call Rates</h3>
-<div id="callRatesTable" style="width:50%; margin:auto;"></div>
-
-
-<!-- 1) Pitch Sequence Sankey -->
-<h3>Pitch Type Transition Sunburst</h3>
-<div id="sunburstChart" style="width:700px; height:500px; margin:auto;"></div>
-
-<h3>Zone% by Pitch Type</h3>
-<div id="zoneAccuracy" style="width:700px;height:400px;margin:auto;"></div>
-
-
-<!-- 3) Leverage‐Indexed Run Value -->
-<h3>Avg Run Value by Pitch</h3>
-<div id="runValueBar" style="width:600px;height:400px;margin:auto;"></div>
-
-<!-- 5) Inning‐by‐Inning Velocity Trend -->
-<h3>Avg Release Speed by Inning</h3>
-<div id="inningTrend" style="width:700px;height:400px;margin:auto;"></div>
-
-
-
-<!-- 3. Spin-Axis Rose Plot -->
-<h3>Spin-Axis Rose</h3>
-<div id="spinAxisRose" style="width:100%;height:400px;margin:auto;"></div>
-
-
-
-
-<!-- 10. Exit-Velocity Allowed by Pitch Type -->
-<h3>Exit-Velocity Allowed by Pitch Type</h3>
-<div id="exitVelByPitch" style="width:100%;height:400px;margin:auto;"></div>
-
-<!-- Batted-Ball Spray-WAZE (now feet + fixed hover) -->
-
-<!-- Spin-Rate Distribution & Percentile (with pitch-type toggle) -->
-<h3>Spin-Rate Distribution &amp; Percentile</h3>
-<div style="text-align:center;margin-bottom:0.5rem;">
-  <label for="spinTypeToggle">Pitch Type:</label>
-  <select id="spinTypeToggle" onchange="drawSpinPercentile()">
-    <!-- will be populated in initDashboard() -->
-  </select>
-</div>
-<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
-  <div id="spinDistChart" style="width:600px;height:400px;"></div>
-  <div id="spinPercentile" style="font-size:1.2rem; padding:1rem;"></div>
-</div>
-
-
-<!-- Fastball Velocity Distribution & Percentile -->
-<h3>Fastball Velocity Distribution &amp; Percentile</h3>
-<div style="text-align:center;margin-bottom:0.5rem;">
-  <label for="veloTypeToggle">Pitch Type:</label>
-  <select id="veloTypeToggle" onchange="drawVeloPercentile()">
-    <option>Four-Seam</option>
-    <option>Sinker</option>
-  </select>
-</div>
-<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
-  <div id="veloDistChart" style="width:500px;height:300px;"></div>
-  <div id="veloPercentile" style="font-size:1.1rem;max-width:200px;"></div>
-</div>
-
-<!-- Avg Exit Velocity Distribution & Percentile -->
-<h3>Avg Exit-Velocity Distribution &amp; Percentile</h3>
-<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
-  <div id="exitDistChart" style="width:500px;height:300px;"></div>
-  <div id="exitVelPercentile" style="font-size:1.1rem;max-width:200px;"></div>
-</div>
-
-<!-- Chase Rate Distribution & Percentile -->
-<h3>Chase Rate Distribution &amp; Percentile</h3>
-<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
-  <div id="chaseDistChart" style="width:500px;height:300px;"></div>
-  <div id="chasePercentile" style="font-size:1.1rem;max-width:200px;"></div>
-</div>
-
-<!-- Whiff Rate Distribution & Percentile -->
-<h3>Whiff Rate Distribution &amp; Percentile</h3>
-<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
-  <div id="whiffDistChart" style="width:500px;height:300px;"></div>
-  <div id="whiffPercentile" style="font-size:1.1rem;max-width:200px;"></div>
-</div>
-
-
-<!-- Hard-Hit % Distribution & Percentile -->
-<h3>Hard-Hit % Distribution &amp; Percentile</h3>
-<div style="display:flex; align-items:center; justify-content:center; gap:2rem;">
-  <div id="hhDistChart" style="width:500px;height:300px;"></div>
-  <div id="hhPercentile" style="font-size:1.1rem;max-width:200px;"></div>
-</div>
-
-
-
-
-<!-- 10. Stuff+ Score Gauge -->
-<h3>“Stuff+” Score</h3>
-<div id="stuffGauge" style="width:350px; height:190px; margin:auto;"></div>
-<p id="stuffDesc" style="max-width:400px; margin:0.5rem auto; font-size:0.9rem; color:#333;">
-  <!-- description will be injected here -->
-</p>
-
-
-
-
-        </div>
-
-        <div class="main" id="gameLogContainer" style="display:none;">
-  <h2 id="gameLogTitle">Game Log</h2>
-  <div id="gameLogTable"></div>
-</div>
-
-        <!-- Usage Tree view -->
-        <div class="main" id="usageContainer" style="display:none;">
-            <h2 id="playerNameTree"></h2>
-            <div style="margin-bottom:1rem;">
-                <label for="treeSideFilter">Batter Side:</label>
-                <select id="treeSideFilter" onchange="renderUsageTree()">
-                    <option value="">All</option>
-                    <option value="Left">Left</option>
-                    <option value="Right">Right</option>
-                </select>
+            <div id="atBatPitchTable"></div>
+          </div>
+          <div>
+            <div class="chart-label">Location Heatmap</div>
+            <div class="filter-row">
+              <label>Side: <select id="heatmapSideFilter" onchange="drawLocationHeatmap()">
+                <option value="">All</option><option value="Left">Left</option><option value="Right">Right</option>
+              </select></label>
+              <label>Type: <select id="locationPitchType" onchange="drawLocationHeatmap()">
+                <option value="">All</option>
+              </select></label>
             </div>
-
-            <div class="treeWrapper" style="display:flex; gap:1rem; align-items:flex-start;">
-  <!-- Chart -->
-  <div id="treeChart" style="width:70%; height:600px; position:relative;"></div>
-  <!-- Legend moved out here -->
-  <div id="treeLegend" style="width:10%; padding-left:0.5rem; font-size:0.9rem;"></div>
-  <!-- Stats table -->
-  <div id="validationTable" style="width:20%; height:600px; overflow:auto;
-             border:1px solid #ccc; padding:0.5rem; font-size:0.9rem;">
-    <strong>Pitch Type Statistics</strong>
-    <table style="width:100%; border-collapse: collapse; margin-top:0.5rem;">
-      <thead>…</thead>
-      <th>Pitch Type</th>
-      <th>Count</th>
-      <th>Velo Mean</th>
-      <th>Std</th>
-      <tbody id="statsTableBody"></tbody>
-    </table>
-  </div>
-</div>
+            <div id="locationHeatmap"></div>
+          </div>
         </div>
+        <div class="chart-label" style="margin-top:1.5rem;">Plate-Location Clusters</div>
+        <div id="locationScatter"></div>
+      </div>
 
-       
+      <!-- BATTED BALL -->
+      <div class="section-card">
+        <div class="section-title">Batted Ball</div>
+        <div class="filter-row">
+          <label>Ballpark: <select id="parkSelect2">
+            <option value="default">-- Select Park --</option>
+            <option value="Meritus Park">Meritus Park</option>
+            <option value="Wellspan Park">Wellspan Park</option>
+            <option value="CaroMont Health Park">CaroMont Health Park</option>
+            <option value="Penn Medicine Park">Penn Medicine Park</option>
+            <option value="Fairfield Properties BallPark">Fairfield Properties BallPark</option>
+            <option value="SIUH Community Park">SIUH Community Park</option>
+            <option value="GoMart BallPark">GoMart BallPark</option>
+            <option value="Truist Point">Truist Point</option>
+            <option value="Legends Field">Legends Field</option>
+            <option value="Regency Furniture Stadium">Regency Furniture Stadium</option>
+          </select></label>
+        </div>
+        <div class="two-col" style="align-items:start;">
+          <canvas id="sprayCanvas" width="560" height="480"></canvas>
+          <div>
+            <div class="chart-label">Batted Ball Log</div>
+            <div class="table-scroll"><div id="battedBallTable"></div></div>
+          </div>
+        </div>
+        <div id="contactMetrics" class="contact-metrics-bar"></div>
+      </div>
+
+      <!-- PITCH ANALYTICS -->
+      <div class="section-card">
+        <div class="section-title">Pitch Analytics</div>
+        <div class="three-col">
+          <div>
+            <div class="chart-label">Release Point</div>
+            <div id="releasePointScatter" style="height:300px;"></div>
+          </div>
+          <div>
+            <div class="chart-label">Spin Rate by Pitch Type</div>
+            <div id="spinBreakBoxplots" style="height:300px;"></div>
+          </div>
+          <div>
+            <div class="chart-label">Zone% by Pitch Type</div>
+            <div id="zoneAccuracy" style="height:300px;"></div>
+          </div>
+        </div>
+        <div class="two-col" style="margin-top:1.25rem;">
+          <div>
+            <div class="chart-label">Avg Run Value by Pitch</div>
+            <div id="runValueBar" style="height:280px;"></div>
+          </div>
+          <div>
+            <div class="chart-label">Exit Velocity Allowed by Pitch</div>
+            <div id="exitVelByPitch" style="height:280px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TUNNELING -->
+      <div class="section-card">
+        <div class="section-title">Tunneling &amp; Extension</div>
+        <div class="two-col">
+          <div>
+            <div class="chart-label">Extension vs. Horizontal Break</div>
+            <div id="tunnelX" style="height:300px;"></div>
+          </div>
+          <div>
+            <div class="chart-label">Extension vs. Vertical Break</div>
+            <div id="tunnelY" style="height:300px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEQUENCING -->
+      <div class="section-card">
+        <div class="section-title">Pitch Sequencing &amp; Mix</div>
+        <div class="two-col">
+          <div>
+            <div class="chart-label">Pitch Type Transitions</div>
+            <div id="sunburstChart" style="height:420px;"></div>
+          </div>
+          <div>
+            <div class="chart-label">Weekly Pitch Mix</div>
+            <div id="usageOverTime" style="height:420px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COUNT ANALYSIS -->
+      <div class="section-card">
+        <div class="section-title">Count Analysis</div>
+        <div class="filter-row">
+          <label>Show stats for: <select id="pitchTypeTableFilter"><option value="">All Types</option></select></label>
+        </div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div id="pitchStatsByCount"></div></div>
+      </div>
+
+      <!-- VELOCITY TREND -->
+      <div class="section-card">
+        <div class="section-title">Velocity Over Course of Outing</div>
+        <div id="inningTrend" style="height:300px;"></div>
+      </div>
+
+      <!-- SPIN ANALYSIS -->
+      <div class="section-card">
+        <div class="section-title">Spin Analysis</div>
+        <div class="two-col">
+          <div>
+            <div class="chart-label">Spin Axis Rose</div>
+            <div id="spinAxisRose" style="height:380px;"></div>
+          </div>
+          <div>
+            <div class="chart-label">Spin Rate Distribution</div>
+            <div class="filter-row">
+              <label>Pitch: <select id="spinTypeToggle" onchange="drawSpinPercentile()"></select></label>
+            </div>
+            <div class="dist-cell">
+              <div id="spinDistChart" style="height:300px;flex:1;"></div>
+              <div id="spinPercentile" class="percentile-text"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STUFF+ & PERCENTILES -->
+      <div class="section-card">
+        <div class="section-title">Stuff+ &amp; Percentiles</div>
+        <div class="two-col">
+          <div>
+            <div class="chart-label">Stuff+ Score</div>
+            <div id="stuffGauge" style="height:200px;"></div>
+            <p id="stuffDesc" class="stuff-desc"></p>
+          </div>
+          <div>
+            <div class="chart-label">Metric Percentile Ranks</div>
+            <div id="metricPercentileBars"></div>
+          </div>
+        </div>
+        <div class="section-title" style="margin-top:1.75rem;">League Comparisons</div>
+        <div class="dist-grid">
+          <div>
+            <div class="chart-label">Fastball Velocity</div>
+            <div class="filter-row"><label><select id="veloTypeToggle" onchange="drawVeloPercentile()"><option>Four-Seam</option><option>Sinker</option></select></label></div>
+            <div class="dist-cell"><div id="veloDistChart" style="height:200px;flex:1;"></div><div id="veloPercentile" class="percentile-text"></div></div>
+          </div>
+          <div>
+            <div class="chart-label">Avg Exit Velocity Allowed</div>
+            <div class="dist-cell"><div id="exitDistChart" style="height:200px;flex:1;"></div><div id="exitVelPercentile" class="percentile-text"></div></div>
+          </div>
+          <div>
+            <div class="chart-label">Chase Rate</div>
+            <div class="dist-cell"><div id="chaseDistChart" style="height:200px;flex:1;"></div><div id="chasePercentile" class="percentile-text"></div></div>
+          </div>
+          <div>
+            <div class="chart-label">Whiff Rate</div>
+            <div class="dist-cell"><div id="whiffDistChart" style="height:200px;flex:1;"></div><div id="whiffPercentile" class="percentile-text"></div></div>
+          </div>
+          <div>
+            <div class="chart-label">Hard Hit%</div>
+            <div class="dist-cell"><div id="hhDistChart" style="height:200px;flex:1;"></div><div id="hhPercentile" class="percentile-text"></div></div>
+          </div>
+          <div>
+            <div class="chart-label">Strikeout Rate (K%)</div>
+            <div class="dist-cell"><div id="kDistChart" style="height:200px;flex:1;"></div><div id="kPercentile" class="percentile-text"></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end #paContainer -->
+
+    <!-- GAME LOG -->
+    <div id="gameLogContainer" style="display:none;">
+      <h2 id="gameLogTitle" class="page-title">Game Log</h2>
+      <div class="section-card">
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div id="gameLogTable"></div></div>
+      </div>
     </div>
 
-    <div id="modalOverlay" class="modalOverlay">
-    <div id="modalContent">
-      <span id="modalClose">&times;</span>
-      <iframe id="animFrame" src="" allowfullscreen></iframe>
+    <!-- USAGE TREE -->
+    <div id="usageContainer" style="display:none;">
+      <h2 id="playerNameTree" class="page-title"></h2>
+      <div class="section-card">
+        <div class="filter-row">
+          <label>Batter Side: <select id="treeSideFilter" onchange="renderUsageTree()">
+            <option value="">All</option><option value="Left">Left</option><option value="Right">Right</option>
+          </select></label>
+        </div>
+        <div class="treeWrapper">
+          <div id="treeChart" style="width:70%;height:600px;position:relative;"></div>
+          <div id="treeLegend" style="width:10%;padding-left:0.5rem;"></div>
+          <div id="validationTable" style="width:20%;max-height:600px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.5rem;">
+            <div class="chart-label">Pitch Type Statistics</div>
+            <table style="width:100%;border-collapse:collapse;">
+              <thead><tr><th>Type</th><th>Count</th><th>Velo Avg</th><th>Std</th></tr></thead>
+              <tbody id="statsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
+
+
+    </div>
+
+    <div id="modalOverlay" class="modal-overlay">
+      <div class="modal-content">
+        <span id="modalClose" class="modal-close" aria-label="Close">&times;</span>
+        <iframe id="animFrame" src="" allowfullscreen></iframe>
+      </div>
+    </div>
+
+  </main>
 
     <script>
         let allData = [], playerName = '';
  let data = [];
         document.getElementById('printTree').addEventListener('click', () => {
-  // ensure we’re on the Usage Tree first
-  document.getElementById('tabTree').click();
-  // give the browser a moment to re-layout, then print
-  setTimeout(() => window.print(), 200);
+  const html = generateUsageTreePrintHTML();
+  const win = window.open('', '_blank', 'width=1200,height=900');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 600);
 });
+
+function generateUsageTreePrintHTML() {
+  const PALETTE = {
+    'Four-Seam': '#1e293b', 'Sinker': '#ec4899', 'Slider': '#3b82f6',
+    'Changeup': '#22c55e', 'Curveball': '#f97316', 'Cutter': '#a855f7',
+    'Splitter': '#06b6d4', 'undefined': '#94a3b8'
+  };
+
+  const side = document.getElementById('treeSideFilter').value;
+  let rows = allData.filter(r => r.Pitcher === playerName);
+  if (side) rows = rows.filter(r => r.BatterSide === side);
+
+  // Build tree map: "b-s" -> { pitchType: count }
+  const tree = {};
+  rows.forEach(r => {
+    const key = Math.round(r.Balls) + '-' + Math.round(r.Strikes);
+    const t = r.AutoPitchType || 'undefined';
+    if (!tree[key]) tree[key] = {};
+    tree[key][t] = (tree[key][t] || 0) + 1;
+  });
+
+  const maxSum = Object.keys(tree).reduce((m, k) => {
+    const [b, s] = k.split('-').map(Number);
+    return Math.max(m, b + s);
+  }, 0);
+
+  // Pure-SVG donut chart generator
+  function makeSVGDonut(dist, sz, centerLabel) {
+    const cx = sz / 2, cy = sz / 2;
+    const R = sz * 0.44, r = sz * 0.22;
+    const f = n => n.toFixed(2);
+    const entries = Object.entries(dist).filter(([, v]) => v > 0);
+    const total = entries.reduce((s, [, v]) => s + v, 0);
+
+    const centerText = () => {
+      const parts = centerLabel.split('\n');
+      return parts.map((p, i) => {
+        const yOff = (i - (parts.length - 1) / 2) * sz * 0.17;
+        const fs = i === 0 ? Math.round(sz * 0.19) : Math.round(sz * 0.13);
+        return '<text x="' + cx + '" y="' + (cy + yOff).toFixed(2)
+          + '" text-anchor="middle" dominant-baseline="middle" fill="#0f172a"'
+          + ' font-size="' + fs + '" font-weight="' + (i === 0 ? 'bold' : 'normal') + '" font-family="Arial">' + p + '</text>';
+      }).join('');
+    };
+
+    const svgWrap = inner =>
+      '<svg width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + ' ' + sz + '" xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
+
+    // Empty count
+    if (!total) {
+      return svgWrap(
+        '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1.5"/>'
+        + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="white"/>'
+        + '<text x="' + cx + '" y="' + cy + '" text-anchor="middle" dominant-baseline="middle" fill="#94a3b8" font-size="' + Math.round(sz * 0.17) + '" font-family="Arial">' + centerLabel.replace('\n', '/') + '</text>'
+      );
+    }
+
+    // Single pitch type: SVG arc can't draw a 360° arc (start=end), use circles instead
+    if (entries.length === 1) {
+      const col = PALETTE[entries[0][0]] || PALETTE['undefined'];
+      const lr = (R + r) / 2;
+      return svgWrap(
+        '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="' + col + '"/>'
+        + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="white"/>'
+        + '<text x="' + cx + '" y="' + (cy - lr * 0.15).toFixed(2) + '" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="' + Math.round(sz * 0.1) + '" font-weight="bold" font-family="Arial">100%</text>'
+        + centerText()
+      );
+    }
+
+    // Multi-slice arc path
+    let paths = '', angle = -Math.PI / 2;
+    entries.forEach(([type, val]) => {
+      const frac = val / total;
+      const end = angle + frac * 2 * Math.PI;
+      const large = frac > 0.5 ? 1 : 0;
+      const col = PALETTE[type] || PALETTE['undefined'];
+      const ox1 = cx + R * Math.cos(angle), oy1 = cy + R * Math.sin(angle);
+      const ox2 = cx + R * Math.cos(end),   oy2 = cy + R * Math.sin(end);
+      const ix1 = cx + r * Math.cos(angle), iy1 = cy + r * Math.sin(angle);
+      const ix2 = cx + r * Math.cos(end),   iy2 = cy + r * Math.sin(end);
+      paths += '<path d="M ' + f(ox1) + ' ' + f(oy1)
+        + ' A ' + R + ' ' + R + ' 0 ' + large + ' 1 ' + f(ox2) + ' ' + f(oy2)
+        + ' L ' + f(ix2) + ' ' + f(iy2)
+        + ' A ' + r + ' ' + r + ' 0 ' + large + ' 0 ' + f(ix1) + ' ' + f(iy1)
+        + ' Z" fill="' + col + '" stroke="white" stroke-width="1.5"/>';
+      if (frac > 0.09) {
+        const mid = (angle + end) / 2;
+        const lr = (R + r) / 2;
+        paths += '<text x="' + f(cx + lr * Math.cos(mid)) + '" y="' + f(cy + lr * Math.sin(mid))
+          + '" text-anchor="middle" dominant-baseline="middle" fill="white"'
+          + ' font-size="' + Math.round(sz * 0.1) + '" font-weight="bold" font-family="Arial">'
+          + Math.round(frac * 100) + '%</text>';
+      }
+      angle = end;
+    });
+
+    return svgWrap(paths + centerText());
+  }
+
+  // Build grid rows HTML
+  const BOX = 100, GAP = 7;
+  let gridHTML = '';
+  for (let sum = 0; sum <= maxSum; sum++) {
+    const tier = [];
+    for (let b = 0; b <= 3; b++) {
+      const s = sum - b;
+      if (s < 0 || s > 2) continue;
+      tier.push({ b, s, dist: tree[b + '-' + s] || {} });
+    }
+    tier.sort((a, b) => b.b - a.b);
+    const cells = tier.map(({ b, s, dist }) => {
+      const total = Object.values(dist).reduce((a, v) => a + v, 0);
+      return '<div style="display:inline-block;">' + makeSVGDonut(dist, BOX, b + '-' + s + '\n' + total) + '</div>';
+    }).join('');
+    gridHTML += '<div style="display:flex;justify-content:center;gap:' + GAP + 'px;margin-bottom:' + GAP + 'px;">' + cells + '</div>';
+  }
+
+  // Pitch mix stats
+  const stats = {};
+  rows.forEach(r => {
+    const t = r.AutoPitchType || 'undefined';
+    const spd = parseFloat(r.RelSpeed);
+    if (isNaN(spd)) return;
+    if (!stats[t]) stats[t] = { n: 0, sum: 0 };
+    stats[t].n++; stats[t].sum += spd;
+  });
+  const pitchTypes = Object.keys(stats).sort((a, b) => stats[b].n - stats[a].n);
+  const totalPitches = rows.length || 1;
+
+  const tableRows = pitchTypes.map(t => {
+    const { n, sum } = stats[t];
+    const pct = Math.round(n / totalPitches * 100);
+    const velo = (sum / n).toFixed(1);
+    const col = PALETTE[t] || PALETTE['undefined'];
+    return '<tr><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;">'
+      + '<span style="display:inline-block;width:10px;height:10px;background:' + col + ';border-radius:2px;margin-right:5px;vertical-align:middle;"></span>' + t
+      + '</td><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">' + pct + '%'
+      + '</td><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;text-align:right;">' + velo + ' mph</td></tr>';
+  }).join('');
+
+  const sideLabel = side ? ' vs ' + side + '-Handed' : '';
+  const now = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + playerName + ' – Usage Tree</title><style>'
+    + '* { margin:0; padding:0; box-sizing:border-box; }'
+    + 'body { font-family: Arial, Helvetica, sans-serif; background: white; color: #0f172a; padding: 14px 18px; }'
+    + '@page { size: landscape; margin: 0.3in; }'
+    + '@media print { .no-print { display:none!important; } body { padding:0; } }'
+    + 'table { border-collapse: collapse; width: 100%; }'
+    // Compute scale factor now (in the outer script, no inner <script> tags needed)
+    // Available print height for landscape letter with 0.3in margins ≈ 660px at screen resolution
+    // Tree height = header (~54px) + rows * (BOX + GAP)
+    + (function() {
+        const treeH = 54 + (maxSum + 1) * (BOX + GAP);
+        const avail = 660;
+        const scale = treeH > avail ? (avail / treeH).toFixed(3) : '1';
+        return '@media print { .scale-wrap { transform: scale(' + scale + '); transform-origin: top left; width: calc(100% / ' + scale + '); } }';
+      })()
+    + '</style></head><body>'
+
+    // Outer flex: grid left, sidebar right
+    + '<div class="scale-wrap" style="display:flex;align-items:flex-start;gap:20px;">'
+
+    // Left: title + grid
+    + '<div style="flex:1;min-width:0;">'
+    + '<div style="text-align:center;margin-bottom:10px;">'
+    + '<div style="font-size:20pt;font-weight:800;letter-spacing:-0.5px;color:#0f172a;">' + playerName + '</div>'
+    + '<div style="font-size:9pt;color:#64748b;margin-top:2px;">Pitch Usage Tree by Count' + sideLabel + '</div>'
+    + '</div>'
+    + gridHTML
+    + '</div>'
+
+    // Right: stats table
+    + '<div style="width:160px;flex-shrink:0;padding-top:54px;">'
+    + '<div style="font-size:7.5pt;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Pitch Mix</div>'
+    + '<table style="font-size:8pt;">'
+    + '<thead><tr style="border-bottom:2px solid #0f172a;">'
+    + '<th style="padding:3px 6px;text-align:left;">Type</th>'
+    + '<th style="padding:3px 6px;text-align:right;">%</th>'
+    + '<th style="padding:3px 6px;text-align:right;">Velo</th>'
+    + '</tr></thead><tbody>' + tableRows + '</tbody></table>'
+    + '<div style="margin-top:16px;font-size:7pt;color:#94a3b8;">Generated ' + now + '</div>'
+    + '</div>'
+
+    + '</div>'
+    + '<button class="no-print" onclick="window.print()" style="position:fixed;bottom:18px;right:18px;padding:10px 22px;background:#0f172a;color:white;border:none;border-radius:8px;font-size:11pt;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);">Print</button>'
+    + '</body></html>';
+}
 // use same colors as plate-chart
 const PTYPE_COLORS = {};  
 (function(){
@@ -654,6 +908,180 @@ const PTYPE_COLORS = {};
 
 
 
+
+// ── Plotly dark theme wrapper ──
+(function(){
+  const _orig = Plotly.newPlot.bind(Plotly);
+  Plotly.newPlot = function(el, traces, layout, config) {
+    const dl = Object.assign({
+      paper_bgcolor: '#1a2332',
+      plot_bgcolor: '#0f1419',
+      font: { color: '#8b9cad', size: 11, family: 'DM Sans, sans-serif' }
+    }, layout || {});
+    if (!dl.xaxis) dl.xaxis = {};
+    if (!dl.yaxis) dl.yaxis = {};
+    dl.xaxis = Object.assign({ gridcolor: '#243044', zerolinecolor: '#475569', linecolor: '#30363d' }, dl.xaxis);
+    dl.yaxis = Object.assign({ gridcolor: '#243044', zerolinecolor: '#475569', linecolor: '#30363d' }, dl.yaxis);
+    if (!dl.legend) dl.legend = {};
+    dl.legend = Object.assign({ bgcolor: 'rgba(0,0,0,0)', bordercolor: '#30363d' }, dl.legend);
+    return _orig(el, traces, dl, config);
+  };
+})();
+
+// ── Hero stats bar ──
+function drawHeroStats(rows) {
+  const fbRows = rows.filter(r => r.AutoPitchType === 'Four-Seam' || r.AutoPitchType === 'Sinker');
+  const veloVals = fbRows.map(r => parseFloat(r.RelSpeed)).filter(v => !isNaN(v));
+  const avgVelo = veloVals.length ? (veloVals.reduce((s,v)=>s+v,0)/veloVals.length).toFixed(1) : '--';
+
+  const paPitcher = {};
+  rows.forEach(r => { paPitcher[`${r.GameUID}|${r.Inning}|${r.PAofInning}`] = true; });
+  const myPAs = Object.keys(paPitcher).length;
+  const myKs  = rows.filter(r => r.KorBB === 'Strikeout').length;
+  const myBBs = rows.filter(r => r.KorBB === 'Walk').length;
+  const kPct  = myPAs ? (myKs  / myPAs * 100).toFixed(1) : '--';
+  const bbPct = myPAs ? (myBBs / myPAs * 100).toFixed(1) : '--';
+
+  const swings = rows.filter(r => ['StrikeSwinging','FoulBallNotFieldable','InPlay'].includes(r.PitchCall));
+  const whiffs = rows.filter(r => r.PitchCall === 'StrikeSwinging');
+  const whiffPct = swings.length ? (whiffs.length / swings.length * 100).toFixed(1) : '--';
+
+  const outZone = rows.filter(r => {
+    const h = parseFloat(r.PlateLocHeight), s = parseFloat(r.PlateLocSide);
+    return h < 1.5 || h > 3.5 || Math.abs(s) > 0.83;
+  });
+  const chasePct = outZone.length ? (outZone.filter(r => !['StrikeCalled','BallCalled'].includes(r.PitchCall)).length / outZone.length * 100).toFixed(1) : '--';
+
+  const evVals = rows.filter(r => r.PitchCall === 'InPlay' && r.PlayResult !== 'Undefined').map(r => parseFloat(r.ExitSpeed)).filter(v => !isNaN(v));
+  const avgEV = evVals.length ? (evVals.reduce((s,v)=>s+v,0)/evVals.length).toFixed(1) : '--';
+
+  document.getElementById('heroStats').innerHTML = [
+    ['Pitches', rows.length], ['FB Velo', avgVelo+' mph'], ['K%', kPct+'%'],
+    ['BB%', bbPct+'%'], ['Whiff%', whiffPct+'%'], ['Chase%', chasePct+'%'], ['Avg EV', avgEV+' mph']
+  ].map(([lbl,val]) => `<div class="hero-stat"><span class="hero-stat-val">${val}</span><span class="hero-stat-lbl">${lbl}</span></div>`).join('');
+}
+
+// ── Pitch Arsenal Table ──
+function drawPitchArsenalTable(rows) {
+  const byType = {};
+  rows.forEach(r => {
+    const t = r.AutoPitchType || 'Unknown';
+    if (!byType[t]) byType[t] = { n:0, vSum:0, spSum:0, ivbSum:0, hbSum:0, swings:0, whiffs:0, inPlay:0, evSum:0 };
+    const d = byType[t]; d.n++;
+    const v=parseFloat(r.RelSpeed), sp=parseFloat(r.SpinRate), ivb=parseFloat(r.InducedVertBreak), hb=parseFloat(r.HorzBreak);
+    if(!isNaN(v)) d.vSum+=v; if(!isNaN(sp)) d.spSum+=sp; if(!isNaN(ivb)) d.ivbSum+=ivb; if(!isNaN(hb)) d.hbSum+=hb;
+    const c=r.PitchCall;
+    if(['StrikeSwinging','FoulBallNotFieldable','InPlay'].includes(c)){ d.swings++; if(c==='StrikeSwinging') d.whiffs++; }
+    if(c==='InPlay'){ const ev=parseFloat(r.ExitSpeed); if(!isNaN(ev)){ d.inPlay++; d.evSum+=ev; } }
+  });
+  const total = rows.length;
+  let html = `<table class="arsenal-tbl"><thead><tr><th>Type</th><th>Usage</th><th>Velo</th><th>Spin</th><th>IVB</th><th>HB</th><th>Whiff%</th><th>Avg EV</th></tr></thead><tbody>`;
+  Object.entries(byType).sort((a,b)=>b[1].n-a[1].n).forEach(([t,d]) => {
+    const col=PTYPE_COLORS[t]||'#888', pct=total?(d.n/total*100).toFixed(1):'0';
+    const velo=d.n?(d.vSum/d.n).toFixed(1):'--', spin=d.n?Math.round(d.spSum/d.n):'--';
+    const ivb=d.n?(d.ivbSum/d.n).toFixed(1):'--', hb=d.n?(d.hbSum/d.n).toFixed(1):'--';
+    const whiff=d.swings?(d.whiffs/d.swings*100).toFixed(1)+'%':'--';
+    const ev=d.inPlay?(d.evSum/d.inPlay).toFixed(1)+' mph':'--';
+    html+=`<tr><td><span class="pitch-dot" style="background:${col}"></span>${t}</td><td><div class="usage-bar-wrap"><div class="usage-bar-track"><div class="usage-bar" style="width:${pct}%;background:${col}"></div></div><span>${pct}%</span></div></td><td>${velo}</td><td>${spin}</td><td>${ivb}"</td><td>${hb}"</td><td>${whiff}</td><td>${ev}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('pitchArsenalTable').innerHTML = html;
+}
+
+// ── Metric percentile bars ──
+function drawMetricPercentileBars() {
+  const getPctColor = p => p>=80?'#3fb950':p>=60?'#58a6ff':p>=40?'#d29922':'#f85149';
+  const metrics = [];
+
+  const buildLeague=(filterFn,valFn)=>{ const map={}; allData.forEach(r=>{ if(!filterFn(r)) return; const p=r.Pitcher,v=valFn(r); if(isNaN(v)) return; map[p]=map[p]||{s:0,n:0}; map[p].s+=v; map[p].n++; }); return map; };
+
+  const veloMap=buildLeague(r=>['Four-Seam','Sinker'].includes(r.AutoPitchType),r=>parseFloat(r.RelSpeed));
+  if(veloMap[playerName]){ const mine=veloMap[playerName].s/veloMap[playerName].n; const lg=Object.values(veloMap).map(o=>o.s/o.n).sort((a,b)=>a-b); const pct=Math.round(lg.filter(v=>v<mine).length/lg.length*100); metrics.push({label:'FB Velocity',value:mine.toFixed(1)+' mph',pct}); }
+
+  const spinMap=buildLeague(()=>true,r=>parseFloat(r.SpinRate));
+  if(spinMap[playerName]){ const mine=spinMap[playerName].s/spinMap[playerName].n; const lg=Object.values(spinMap).map(o=>o.s/o.n).sort((a,b)=>a-b); const pct=Math.round(lg.filter(v=>v<mine).length/lg.length*100); metrics.push({label:'Avg Spin Rate',value:Math.round(mine)+' rpm',pct}); }
+
+  const wMap={}; allData.forEach(r=>{ const c=r.PitchCall; if(!['StrikeSwinging','FoulBallNotFieldable','InPlay'].includes(c)) return; const p=r.Pitcher; wMap[p]=wMap[p]||{sw:0,wh:0}; wMap[p].sw++; if(c==='StrikeSwinging') wMap[p].wh++; });
+  if(wMap[playerName]&&wMap[playerName].sw){ const mine=wMap[playerName].wh/wMap[playerName].sw*100; const lg=Object.values(wMap).filter(o=>o.sw).map(o=>o.wh/o.sw*100).sort((a,b)=>a-b); const pct=Math.round(lg.filter(v=>v<mine).length/lg.length*100); metrics.push({label:'Whiff%',value:mine.toFixed(1)+'%',pct}); }
+
+  const cMap={}; allData.forEach(r=>{ const h=parseFloat(r.PlateLocHeight),s=parseFloat(r.PlateLocSide); if(h>=1.5&&h<=3.5&&Math.abs(s)<=0.83) return; const p=r.Pitcher; cMap[p]=cMap[p]||{out:0,ch:0}; cMap[p].out++; if(!['StrikeCalled','BallCalled'].includes(r.PitchCall)) cMap[p].ch++; });
+  if(cMap[playerName]&&cMap[playerName].out){ const mine=cMap[playerName].ch/cMap[playerName].out*100; const lg=Object.values(cMap).filter(o=>o.out).map(o=>o.ch/o.out*100).sort((a,b)=>a-b); const pct=Math.round(lg.filter(v=>v<mine).length/lg.length*100); metrics.push({label:'Chase%',value:mine.toFixed(1)+'%',pct}); }
+
+  const hhMap={}; allData.forEach(r=>{ if(r.PitchCall!=='InPlay'||r.PlayResult==='Undefined') return; const ev=parseFloat(r.ExitSpeed),p=r.Pitcher; if(isNaN(ev)) return; hhMap[p]=hhMap[p]||{tot:0,hard:0}; hhMap[p].tot++; if(ev>=95) hhMap[p].hard++; });
+  if(hhMap[playerName]&&hhMap[playerName].tot){ const mine=hhMap[playerName].hard/hhMap[playerName].tot*100; const lg=Object.values(hhMap).filter(o=>o.tot).map(o=>o.hard/o.tot*100).sort((a,b)=>a-b); const pct=100-Math.round(lg.filter(v=>v<mine).length/lg.length*100); metrics.push({label:'Hard Hit% Allowed',value:mine.toFixed(1)+'%',pct}); }
+
+  const kPaMap={}; allData.forEach(r=>{ if(r.Pitcher) kPaMap[`${r.GameUID}|${r.Inning}|${r.PAofInning}`]=r.Pitcher; });
+  const kStMap={}; Object.values(kPaMap).forEach(p=>{kStMap[p]=kStMap[p]||{pa:0,k:0};kStMap[p].pa++;}); allData.forEach(r=>{ const p=kPaMap[`${r.GameUID}|${r.Inning}|${r.PAofInning}`]; if(p&&r.KorBB==='Strikeout'){kStMap[p]=kStMap[p]||{pa:0,k:0};kStMap[p].k++;} });
+  if(kStMap[playerName]&&kStMap[playerName].pa){ const mine=kStMap[playerName].k/kStMap[playerName].pa*100; const lg=Object.values(kStMap).filter(o=>o.pa).map(o=>o.k/o.pa*100).sort((a,b)=>a-b); const pct=Math.round(lg.filter(v=>v<mine).length/lg.length*100); metrics.push({label:'K%',value:mine.toFixed(1)+'%',pct}); }
+
+  const el=document.getElementById('metricPercentileBars');
+  if(!el) return;
+  el.innerHTML = metrics.map(m=>`<div class="pct-bar-row"><div class="pct-bar-label">${m.label}</div><div class="pct-bar-track"><div class="pct-bar-fill" style="width:${m.pct}%;background:${getPctColor(m.pct)}"></div></div><div class="pct-bar-meta"><span class="pct-val" style="color:${getPctColor(m.pct)}">${m.pct}th</span><span class="pct-raw">${m.value}</span></div></div>`).join('');
+}
+
+// ── Canvas movement chart (replaces old SVG version) ──
+function drawMovementProfile(rows) {
+  const cv = document.getElementById('movementChart');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const PAD = 32, cxC = W/2, cyC = H/2, sc = (W - PAD*2) / 44;
+
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(0, 0, W, H);
+
+  for (let v = -20; v <= 20; v += 5) {
+    const x = cxC + v*sc, y = cyC - v*sc;
+    ctx.strokeStyle = (v === 0) ? '#475569' : '#1e3a5f';
+    ctx.lineWidth   = (v === 0) ? 1 : 0.5;
+    ctx.beginPath(); ctx.moveTo(x, PAD); ctx.lineTo(x, H-PAD); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W-PAD, y); ctx.stroke();
+    if (v !== 0) {
+      ctx.fillStyle='#475569'; ctx.font='9px sans-serif';
+      ctx.textAlign='center'; ctx.fillText(v, x, H-PAD+12);
+      ctx.textAlign='right';  ctx.fillText(v, PAD-3, y+3);
+    }
+  }
+  ctx.fillStyle='#64748b'; ctx.font='10px sans-serif';
+  ctx.textAlign='center'; ctx.fillText('HB (in) \u2192', W-PAD-5, cyC-10);
+  ctx.fillText('IVB (in)', cxC, PAD-6);
+
+  if (!rows.length) {
+    ctx.fillStyle='#334155'; ctx.font='13px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('No pitch data', cxC, cyC); return;
+  }
+
+  rows.forEach(r => {
+    const ivb=parseFloat(r.InducedVertBreak), hb=parseFloat(r.HorzBreak);
+    if(isNaN(ivb)||isNaN(hb)) return;
+    const col=PTYPE_COLORS[r.AutoPitchType]||'#888';
+    ctx.beginPath(); ctx.arc(cxC+hb*sc, cyC-ivb*sc, 2.5, 0, Math.PI*2);
+    ctx.fillStyle=col+'66'; ctx.fill();
+  });
+
+  const groups={};
+  rows.forEach(r => {
+    const ivb=parseFloat(r.InducedVertBreak), hb=parseFloat(r.HorzBreak);
+    if(isNaN(ivb)||isNaN(hb)) return;
+    const t=r.AutoPitchType||'Unknown';
+    if(!groups[t]) groups[t]={ivbs:[],hbs:[]};
+    groups[t].ivbs.push(ivb); groups[t].hbs.push(hb);
+  });
+  Object.entries(groups).forEach(([pt,{ivbs,hbs}]) => {
+    if(!ivbs.length) return;
+    const ai=ivbs.reduce((a,b)=>a+b,0)/ivbs.length, ah=hbs.reduce((a,b)=>a+b,0)/hbs.length;
+    const col=PTYPE_COLORS[pt]||'#888';
+    ctx.beginPath(); ctx.arc(cxC+ah*sc, cyC-ai*sc, 9, 0, Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cxC+ah*sc, cyC-ai*sc, 8, 0, Math.PI*2);
+    ctx.fillStyle=col; ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 7px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(pt.split(/[\s-]/).map(w=>w[0]).join('').slice(0,2).toUpperCase(), cxC+ah*sc, cyC-ai*sc+2.5);
+  });
+
+  const lg=document.getElementById('movementLegend');
+  if(lg) lg.innerHTML=Object.entries(groups).map(([pt])=>`<span><span class="legend-dot" style="background:${PTYPE_COLORS[pt]||'#888'}"></span>${pt}</span>`).join('');
+}
 
 function pnum(v){ const n=parseFloat(v); return isNaN(n)?null:n; }
 
@@ -750,7 +1178,7 @@ function drawTunnelingEfficiency(rows) {
 function drawSequenceNetwork(rows) {
   const byPA = {};
   rows.forEach(r=>{
-    const key = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    const key = `${r.GameUID}|${r.Inning}|${r.PAofInning}`;
     (byPA[key] = byPA[key]||[]).push(r);
   });
 
@@ -815,7 +1243,7 @@ function drawStuffGauge(rows) {
   const paPitcher = {};
   allData.forEach(r => {
     if (!r.Pitcher) return;
-    const paKey = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    const paKey = `${r.GameUID}|${r.Inning}|${r.PAofInning}`;
     paPitcher[paKey] = r.Pitcher;
   });
 
@@ -830,7 +1258,7 @@ function drawStuffGauge(rows) {
     rates[pit].pa++;
   });
   allData.forEach(r => {
-    const paKey = `${r.GameID}|${r.Date}|${r.PAofInning}`;    
+    const paKey = `${r.GameUID}|${r.Inning}|${r.PAofInning}`;    
     const pit   = paPitcher[paKey];
     if (!pit) return;
 
@@ -863,7 +1291,7 @@ function drawStuffGauge(rows) {
     leagueStats[m] = { mean, sd };
   });
 
-  // 6) Compute *this* pitcher’s averages
+  // 6) Compute *this* pitcher's averages
   const mine = {};
   // K% & BB% from our rates table
   const me = rates[playerName] || { pa:0, k:0, bb:0 };
@@ -902,7 +1330,7 @@ function drawStuffGauge(rows) {
     'Stuff+ aggregates six key pitch metrics—release speed, spin rate, vertical break, ' +
     'horizontal break, strikeout rate (K%), and walk rate (BB%)—by first converting each ' +
     'raw value into a z-score (subtracting the league mean and dividing by the league standard ' +
-    'deviation). A z-score tells you how many standard deviations a pitcher’s value is above ' +
+    'deviation). A z-score tells you how many standard deviations a pitcher\'s value is above ' +
     'or below the league average. Those six z-scores are then averaged and scaled so that ' +
     'a Stuff+ of 100 is exactly league average, and each 10 points represents one standard ' +
     'deviation above (or below) average. For example, a Stuff+ of 110 is one standard deviation ' +
@@ -1050,70 +1478,41 @@ function drawWhiffPercentile() {
 
 
 function drawKPercentile() {
-  // 1) Map each PA to its pitcher
-  const paPitcher = {};
+  // Build per-pitcher PA and K Sets from full allData
+  const byPitcher = {};
   allData.forEach(r => {
-    if (!r.Pitcher) return;
-    const paKey = `${r.GameID}|${r.Date}|${r.PAofInning}`;
-    paPitcher[paKey] = r.Pitcher;
+    const p = r.Pitcher;
+    if (!p) return;
+    if (!byPitcher[p]) byPitcher[p] = { pas: new Set(), ks: new Set() };
+    const paId = `${r.GameUID}|${r.Inning}|${r.PAofInning}`;
+    byPitcher[p].pas.add(paId);
+    if (r.KorBB === 'Strikeout') byPitcher[p].ks.add(paId);
   });
 
-  // 2) Initialize per‐pitcher counts
-  const stats = {};
-  Object.values(paPitcher).forEach(p => {
-    stats[p] = { pa: 0, k: 0 };
+  const leagueKp = [];
+  Object.entries(byPitcher).forEach(([p, d]) => {
+    if (d.pas.size > 0) leagueKp.push({ pitcher: p, kpct: d.ks.size / d.pas.size * 100 });
   });
 
-  // 3) Tally total PAs
-  Object.values(paPitcher).forEach(p => {
-    stats[p].pa++;
-  });
+  const me = byPitcher[playerName];
+  const myKpct = (me && me.pas.size > 0) ? (me.ks.size / me.pas.size * 100) : null;
+  const leagueVals = leagueKp.map(x => x.kpct).sort((a, b) => a - b);
+  const pct = (myKpct != null && leagueVals.length)
+    ? Math.round(leagueVals.filter(v => v < myKpct).length / leagueVals.length * 100)
+    : 0;
+  const rank = myKpct != null ? (leagueVals.filter(v => v > myKpct).length + 1) : '--';
 
-  // 4) Tally strikeouts using the full word
-  allData.forEach(r => {
-    const paKey = `${r.GameID}|${r.Date}|${r.PAofInning}`;
-    const pit   = paPitcher[paKey];
-    if (!pit) return;
-    if (r.KorBB === 'Strikeout') {
-      stats[pit].k++;
-    }
-  });
+  // Update text first so it always shows even if Plotly has issues
+  document.getElementById('kPercentile').innerHTML = myKpct != null
+    ? `<strong>${playerName}</strong>: ${myKpct.toFixed(1)}%<br>Percentile: <strong>${pct}th</strong><br>Rank: <strong>${rank}/${leagueVals.length}</strong>`
+    : `<em>No K% data — ${Object.keys(byPitcher).length} pitchers loaded, playerName="${playerName}"</em>`;
 
-  // 5) Build league array of K%
-  const leagueKp = Object.values(stats)
-    .map(o => o.pa ? (o.k / o.pa * 100) : 0);
-
-  // 6) Compute this pitcher’s K%
-  const me = stats[playerName] || { pa:0, k:0 };
-  const myKpct = me.pa ? (me.k / me.pa * 100) : 0;
-
-  // 7) Percentile + rank helper
-  function percentileAndRank(arr, value) {
-    const sorted = arr.slice().sort((a,b)=>a-b);
-    const idx = sorted.findIndex(x=>x >= value);
-    const pct = Math.round((idx < 0 ? arr.length : idx) / arr.length * 100);
-    const rank = sorted.filter(x=>x > value).length + 1;
-    return { pct, rank, total: arr.length };
-  }
-  const { pct, rank, total } = percentileAndRank(leagueKp, myKpct);
-
-  // 8) Draw histogram
-  Plotly.newPlot('kDistChart', [{
-    x: leagueKp,
-    type: 'histogram',
-    nbinsx: 30,
-    marker: { color: PTYPE_COLORS['Four-Seam'] || '#444' }
-  }], {
-    xaxis: { title: 'K% per PA' },
-    margin: { t: 20, l: 40 }
-  });
-
-  // 9) Display text
-  document.getElementById('kPercentile').innerHTML = me.pa
-    ? `<strong>${playerName}</strong>: ${myKpct.toFixed(1)}% K<br>
-       Percentile: <strong>${pct}th</strong><br>
-       Rank: <strong>${rank}/${total}</strong>`
-    : `<em>${playerName} has no PAs</em>`;
+  try {
+    Plotly.newPlot('kDistChart', [{
+      x: leagueVals, type: 'histogram', nbinsx: 30,
+      marker: { color: '#58a6ff' }
+    }], { xaxis: { title: 'K% per PA' }, margin: { t: 20, l: 40 } });
+  } catch(e) { console.error('kDistChart plot error:', e); }
 }
 
   
@@ -1518,7 +1917,7 @@ function drawCountSequencing(rows) {
   const trans = {};
   const byPA = {};
   rows.forEach(r=>{
-    const key = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    const key = `${r.GameUID}|${r.Inning}|${r.PAofInning}`;
     byPA[key] = byPA[key]||[];
     byPA[key].push(r);
   });
@@ -1581,7 +1980,7 @@ function drawSunburst(f) {
   // 1) Build transitions
   const trans = {}, byPA = {};
   f.forEach(r => {
-    const key = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    const key = `${r.GameUID}|${r.Inning}|${r.PAofInning}`;
     byPA[key] = byPA[key] || [];
     byPA[key].push(r);
   });
@@ -1619,7 +2018,7 @@ function drawSunburst(f) {
     const [cur, nxt] = k.split('→');
     const nodeId = `${cur}|${nxt}`;  // guaranteed unique
     ids.push(nodeId);
-    labels.push(nxt);                // what’s displayed
+    labels.push(nxt);                // what's displayed
     parents.push(cur);               // hierarchy link
     values.push(cnt);
     colors.push(PTYPE_COLORS[nxt] || '#ccc');
@@ -1644,7 +2043,7 @@ function drawSankey(f) {
   f.sort((a,b)=>a.LocalDateTime.localeCompare(b.LocalDateTime));
   let lastKey = null;
   f.forEach(r => {
-    const key = `${r.GameID}-${r.Date}-${r.PAofInning}`;
+    const key = `${r.GameUID}-${r.Inning}-${r.PAofInning}`;
     const type = r.AutoPitchType || 'undefined';
     if (lastKey === key && lastType) {
       const linkId = `${lastType}->${type}`;
@@ -1832,7 +2231,7 @@ function drawTimeline(f) {
   // map each PA to its series of counts
   const PAs = {};
   f.forEach(r=>{
-    const key = `${r.GameID}-${r.Date}-${r.PAofInning}`;
+    const key = `${r.GameUID}-${r.Inning}-${r.PAofInning}`;
     const idx = parseInt(r.PitchofPA,10);
     PAs[key] = PAs[key]||[];
     PAs[key][idx-1] = +r.Balls + +r.Strikes; // sum for y
@@ -2220,119 +2619,7 @@ function renderPitchStatsByCount(data) {
 
 
 
-function drawGrid(svgEl, radius, steps) {
-  const ns = "http://www.w3.org/2000/svg";
-
-  // concentric circles + radial tick labels (6", 12", …)
-  for (let i = 1; i <= steps; i++) {
-    const r = (radius / steps) * i;
-    // circle
-    const circle = document.createElementNS(ns, "circle");
-    circle.setAttribute("cx", radius);
-    circle.setAttribute("cy", radius);
-    circle.setAttribute("r", r);
-    circle.setAttribute("stroke", "#ccc");
-    circle.setAttribute("fill", "none");
-    svgEl.appendChild(circle);
-
-    // radial label
-    const txt = document.createElementNS(ns, "text");
-    txt.setAttribute("x", radius + 4);
-    txt.setAttribute("y", radius - r + 4);
-    txt.setAttribute("font-size", "10");
-    txt.setAttribute("fill", "#666");
-    txt.textContent = `${6 * i}"`;
-    svgEl.appendChild(txt);
-  }
-
-  // crosshairs
-  [[radius, 0, radius, 2*radius],[0, radius, 2*radius, radius]]
-    .forEach(coords => {
-      const line = document.createElementNS(ns, "line");
-      ["x1","y1","x2","y2"].forEach((att,i)=>line.setAttribute(att, coords[i]));
-      line.setAttribute("stroke","#ccc");
-      svgEl.appendChild(line);
-    });
-
-  // vertical axis label (rotated)
-  const yLabel = document.createElementNS(ns, "text");
-  yLabel.setAttribute("x", -radius + 20);
-  yLabel.setAttribute("y", radius);
-  yLabel.setAttribute("transform", `rotate(-90 ${-radius+20},${radius})`);
-  yLabel.setAttribute("text-anchor", "middle");
-  yLabel.setAttribute("font-size", "12");
-  yLabel.setAttribute("fill", "#333");
-  yLabel.textContent = "Vert Break (in)";
-  svgEl.appendChild(yLabel);
-
-  // horizontal axis tick‐marks & labels
-  // we’ll do ticks at -4,-3,-2,-1,0,1,2,3,4 → i*6 inches
-  for (let i = -steps; i <= steps; i++) {
-    const x = radius + (i / steps) * radius;
-    // tick mark
-    const tick = document.createElementNS(ns, "line");
-    tick.setAttribute("x1", x);
-    tick.setAttribute("y1", radius - 4);
-    tick.setAttribute("x2", x);
-    tick.setAttribute("y2", radius + 4);
-    tick.setAttribute("stroke", "#666");
-    svgEl.appendChild(tick);
-    // label
-    const lbl = document.createElementNS(ns, "text");
-    lbl.setAttribute("x", x);
-    lbl.setAttribute("y", radius + 16);
-    lbl.setAttribute("text-anchor", "middle");
-    lbl.setAttribute("font-size", "10");
-    lbl.setAttribute("fill", "#333");
-    lbl.textContent = `${i * 6}"`;
-    svgEl.appendChild(lbl);
-  }
-
-  // horizontal axis main label
-  const xLabel = document.createElementNS(ns, "text");
-  xLabel.setAttribute("x", radius);
-  xLabel.setAttribute("y", radius * 2 + 30);
-  xLabel.setAttribute("text-anchor", "middle");
-  xLabel.setAttribute("font-size", "12");
-  xLabel.setAttribute("fill", "#333");
-  xLabel.textContent = "Horiz Break (in)";
-  svgEl.appendChild(xLabel);
-}
-
-function drawPoints(svgEl, data, radius, maxBreak) {
-  const ns = "http://www.w3.org/2000/svg";
-  data.forEach(r => {
-    const x = parseFloat(r.HorzBreak),
-          y = parseFloat(r.InducedVertBreak);
-    if (isNaN(x)||isNaN(y)) return;
-    const cx = radius + (x/maxBreak)*radius,
-          cy = radius - (y/maxBreak)*radius,
-          dot = document.createElementNS(ns,"circle");
-    dot.setAttribute("cx", cx);
-    dot.setAttribute("cy", cy);
-    dot.setAttribute("r", 5);
-    dot.setAttribute("fill", PTYPE_COLORS[r.AutoPitchType] || "#666");
-    dot.setAttribute("opacity", 0.8);
-    svgEl.appendChild(dot);
-  });
-}
-
-function drawMovementProfile(data) {
-  const svg = document.getElementById("movementSvg");
-  while (svg.firstChild) svg.removeChild(svg.firstChild);
-  const radius = svg.clientWidth / 2;
-
-  drawGrid(svg, radius, 4);
-  drawPoints(svg, data, radius, 24);
-
-  // build legend
-  const lg = document.getElementById("movementLegend");
-  lg.innerHTML = "";  
-  Object.entries(PTYPE_COLORS).forEach(([type,color])=>{
-    const sw = `<span style="display:inline-block;width:12px;height:12px;background:${color};margin:0 4px 0 12px;"></span>`;
-    lg.innerHTML += `${sw}${type}`;
-  });
-}
+// (SVG movement chart replaced by canvas version above)
 
 
         function parseNum(s) { const n = parseFloat(s); return isNaN(n) ? null : n; }
@@ -2353,72 +2640,32 @@ function drawMovementProfile(data) {
             applyFilters();
         }
         function loadData() {
+  var player = (new URLSearchParams(location.search).get('player') || '').trim();
+  if (!player) {
+    document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">No pitcher specified. Use ?player=Name</p>');
+    return;
+  }
+  allData = [];
   Papa.parse('./data.csv', {
     download: true,
     header: true,
     skipEmptyLines: true,
-    transformHeader: header => {
-      // Only keep columns actually referenced in your dashboard scripts
-      const wanted = [
-        'Date',
-        'Pitcher',
-        'PitcherThrows',
-        'Batter',
-        'AutoPitchType',
-        'BatterSide',
-        'PlateLocSide',
-        'PlateLocHeight',
-        'HorzBreak',
-        'InducedVertBreak',
-        'Extension',
-        'RelSide',
-        'RelHeight',
-        'SpinAxis',
-        'RelSpeed',
-        'SpinRate',
-        'TaggedHitType',
-        'Distance',            // for drawSprayCanvas
-        'Direction',           // for drawSprayCanvas
-        'PositionAt110X',      // for drawParkSprayChart
-        'PositionAt110Y',      // for drawParkSprayChart
-        'RunsScored',
-        'Balls',
-        'Strikes',
-        'PitchCall',
-        'KorBB',
-        'PlayResult',
-        'Angle',
-        'ExitSpeed',
-        'Distance',
-        'PositionAt110X',
-        'PositionAt110Y',
-        'GameID',
-        'GameUID',
-        'PAofInning',
-        'Inning',
-        'Umpire',
-        'HomeNameFull',
-        'AwayNameFull',
-        'LocalDateTime',
-        'SpeedDrop',
-        'PitchUID',
-        'PlayID'
-      ];
-      return wanted.includes(header) ? header : null;
+    step: function(results) {
+      var r = results.data;
+      if (r) allData.push(r);
     },
-    complete: res => {
-      // `res.data` now contains only the fields listed above
-      data = res.data;
-
-      // Convert the Date string into a real Date object
-      allData = data.map(r => ({
-        ...r,
-        Date: new Date(r.Date)
-      }));
-
+    complete: function() {
+      allData = allData.map(function(r) {
+        var d = r.Date;
+        return Object.assign({}, r, { Date: d ? new Date(d) : d });
+      });
+      data = allData;
       initDashboard();
       initSearchHandler();
       populateSuggestions();
+    },
+    error: function() {
+      document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">Failed to load data.csv.</p>');
     }
   });
 }
@@ -2478,7 +2725,7 @@ function drawLocationHeatmap() {
   });
 }
 function renderGameLog() {
-  // 1) Filter to this pitcher’s data
+  // 1) Filter to this pitcher's data
   const rows = allData.filter(r => r.Pitcher === playerName);
 
   // 2) Group by GameUID
@@ -2717,89 +2964,52 @@ function applyFilters() {
     );
   }
 
-  // now re-render everything
-      setTimeout(() => {
+  // re-render everything
+  drawHeroStats(f);
+  drawPitchArsenalTable(f);
 
-  plotPlate(f);
-    updateSpray(f);
-  }, 400);
+  setTimeout(() => { plotPlate(f); updateSpray(f); }, 400);
 
   renderTable(f);
   renderAtBatDetails(f);
 
-
-    setTimeout(() => {
-
-  drawMovementProfile(f);
-populatePitchTypeTableFilter(f);
-    // initial render:
-    renderPitchStatsByCount(f);      
+  setTimeout(() => {
+    drawMovementProfile(f);
+    populatePitchTypeTableFilter(f);
+    renderPitchStatsByCount(f);
   }, 1000);
 
-     
-
   const metrics = computeContactPercentages(f);
-if (metrics) {
-  document.getElementById('contactMetrics').innerHTML = `
-    <table style="border-collapse:collapse;">
-      <tr>
-        <th style="border:1px solid #ccc; padding:4px;">Metric</th>
-        <th style="border:1px solid #ccc; padding:4px;">%</th>
-      </tr>
-      <tr>
-        <td style="border:1px solid #ccc; padding:4px;">Topped</td>
-        <td style="border:1px solid #ccc; padding:4px;">${metrics.ToppedPct}</td>
-      </tr>
-      <tr>
-        <td style="border:1px solid #ccc; padding:4px;">Under</td>
-        <td style="border:1px solid #ccc; padding:4px;">${metrics.UnderPct}</td>
-      </tr>
-      <tr>
-        <td style="border:1px solid #ccc; padding:4px;">Weak</td>
-        <td style="border:1px solid #ccc; padding:4px;">${metrics.WeakPct}</td>
-      </tr>
-      <tr>
-        <td style="border:1px solid #ccc; padding:4px;">HardHit</td>
-        <td style="border:1px solid #ccc; padding:4px;">${metrics.HardHitPct}</td>
-      </tr>
-    </table>
-  `;
-} else {
-  document.getElementById('contactMetrics').textContent = 'No batted-ball data.';
-}
+  const cmEl = document.getElementById('contactMetrics');
+  if (metrics) {
+    cmEl.innerHTML = [
+      ['Topped', metrics.ToppedPct], ['Under', metrics.UnderPct],
+      ['Weak Contact', metrics.WeakPct], ['Hard Hit', metrics.HardHitPct]
+    ].map(([lbl,val]) => `<div class="contact-metric"><div class="contact-metric-val">${val}</div><div class="contact-metric-lbl">${lbl}</div></div>`).join('');
+  } else {
+    cmEl.innerHTML = '';
+  }
 
-    setTimeout(() => {
+  setTimeout(() => {
+    drawReleasePoint(f); drawSpinBreakBoxes(f); drawUsageOverTime(f);
+    drawTunnelMap(f); renderCallRates(f);
+    drawRunValue(f); drawInningTrend(f); drawZoneAccuracy(f);
+  }, 100);
 
-drawReleasePoint(f); drawSpinBreakBoxes(f); drawUsageOverTime(f);
-  drawTunnelMap(f); renderCallRates(f);
-  drawRunValue(f);
-  drawInningTrend(f);
-  drawZoneAccuracy(f);
-}, 100);
+  setTimeout(() => { drawSunburst(f); }, 2800);
 
-    setTimeout(() => {
-
-  drawSunburst(f);
-
-  }, 2800);
-
-      setTimeout(() => {
-
-  drawSpinAxisRose(f);
-drawExitVelByPitch(f);
-drawSpinPercentile();
-
-drawVeloPercentile();
-drawExitVelPercentile();
-drawChasePercentile();
-drawWhiffPercentile();
+  setTimeout(() => {
+    drawSpinAxisRose(f); drawExitVelByPitch(f); drawSpinPercentile();
+    drawVeloPercentile(); drawExitVelPercentile(); drawChasePercentile(); drawWhiffPercentile();
   }, 2000);
 
-        setTimeout(() => {
-
-drawHardHitPercentile();
-drawStuffGauge(f);
-
+  setTimeout(() => {
+    [
+      () => drawHardHitPercentile(),
+      () => drawStuffGauge(f),
+      () => drawKPercentile(),
+      () => drawMetricPercentileBars()
+    ].forEach(fn => { try { fn(); } catch(e) { console.error(fn.toString().slice(6,40), e); } });
   }, 2500);
 
    setTimeout(() => {
@@ -2900,7 +3110,7 @@ function drawSaberMetrics(rows) {
   const paToPitcher = {};
   allData.forEach(r => {
     if (!r.Pitcher) return;
-    const key = `${r.GameID}|${r.Date}|${r.PAofInning}`;
+    const key = `${r.GameUID}|${r.Inning}|${r.PAofInning}`;
     paToPitcher[key] = r.Pitcher;
   });
 
@@ -2945,7 +3155,7 @@ function drawSaberMetrics(rows) {
     return acc;
   }, {pa:0,k:0,bb:0,hr:0,ab:0,h:0});
 
-  // 6) Get this pitcher’s stats (or zero if missing)
+  // 6) Get this pitcher's stats (or zero if missing)
   const me = league[playerName] || {pa:0,k:0,bb:0,hr:0,ab:0,h:0};
 
   // 7) Compute rate stats
@@ -3258,11 +3468,11 @@ function drawSaberMetrics(rows) {
         }
 
 function safeDateString(d) {
-  // if it’s already a Date and valid
+  // if it's already a Date and valid
   if (d instanceof Date && !isNaN(d)) {
     return d.toISOString().slice(0,10);
   }
-  // if it’s a non-empty string, try parsing
+  // if it's a non-empty string, try parsing
   if (typeof d === 'string' && d.trim()) {
     const d2 = new Date(d);
     if (!isNaN(d2)) return d2.toISOString().slice(0,10);
@@ -3624,6 +3834,22 @@ function populateSuggestions() {
         // Fallback: no match
         alert('No matching player or team found.');
       });
+      const mobileForm = document.getElementById('search-form-mobile');
+      if (mobileForm) {
+        mobileForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const q = (document.getElementById('search-mobile') && document.getElementById('search-mobile').value.trim()) || '';
+          const isUmp = data.some(r => r.Umpire === q);
+          if (isUmp) { window.location.href = 'ump-profiles.html?player=' + encodeURIComponent(q); return; }
+          const isPitcher = data.some(r => r.Pitcher === q);
+          if (isPitcher) { window.location.href = 'pitcher-profiles.html?player=' + encodeURIComponent(q); return; }
+          const isBatter = data.some(r => r.Batter === q);
+          if (isBatter) { window.location.href = 'batter-profiles.html?player=' + encodeURIComponent(q); return; }
+          const isTeam = data.some(r => r.HomeNameFull === q || r.AwayNameFull === q);
+          if (isTeam) { window.location.href = 'team-profiles.html?team=' + encodeURIComponent(q); return; }
+          alert('No matching player or team found.');
+        });
+      }
     }
 
 
@@ -3671,6 +3897,12 @@ function populateSuggestions() {
        
         
       });
+  </script>
+  <script>
+    (function(){ var h=document.getElementById('hamburger-btn'), s=document.getElementById('side-menu'), o=document.getElementById('overlay');
+      if(h&&s&&o){ h.addEventListener('click', function(){ s.classList.toggle('open'); h.classList.toggle('open'); o.classList.toggle('visible'); });
+      o.addEventListener('click', function(){ s.classList.remove('open'); h.classList.remove('open'); o.classList.remove('visible'); }); }
+    })();
   </script>
 </body>
 

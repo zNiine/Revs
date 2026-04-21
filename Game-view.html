@@ -5,113 +5,178 @@
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
 
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Game Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
   <style>
-    body { margin:0; padding:0; font-family:sans-serif; display:flex; flex-direction:column; height:100vh; }
+    html, body { overflow-x: auto; }
+    body { margin:0; padding:0; font-family:'Segoe UI',Arial,sans-serif; display:flex; flex-direction:column; min-height:100vh; background:#1A2332; }
     header { background:#222; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:.5em 1em; }
     header button { background:#fff; color:#000; border:none; padding:.3em .6em; cursor:pointer; border-radius:3px; font-size:1.2em; }
     header button:disabled { opacity:.4; cursor:default; }
     main { flex:1; overflow:auto; padding:1em; display:flex; gap:1em; }
-    .summary { flex:0 0 300px; display:flex; flex-direction:column; gap:1em; }
-    .card { background:#f9f9f9; padding:1em; border:1px solid #ddd; border-radius:4px; }
-    .card h2 { margin-top:0; font-size:1.2em; }
-    .card table { width:100%; border-collapse:collapse; }
-    .card th, .card td { padding:.3em .5em; text-align:left; border-bottom:1px solid #ccc; }
-    .details-button { background:#0066cc; color:#fff; border:none; padding:.2em .5em; cursor:pointer; border-radius:3px; font-size:.9em; }
+    .summary { flex:0 0 320px; display:flex; flex-direction:column; gap:1em; }
+
+    /* ── Cards ── */
+    .card {
+      background:#fff;
+      padding:1.1em 1.25em;
+      border:1px solid #e0e4ea;
+      border-radius:8px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.07);
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    .card h2 { margin:0 0 .65em; font-size:1.15em; color:#347ac0; }
+
+    /* ── Tables ── */
+    table { border-collapse:collapse; width:100%; font-size:14px; table-layout:auto; }
+    thead tr { background:#1e3a5f; color:#fff; }
+    th {
+      padding:.55em .75em;
+      text-align:center;
+      white-space:nowrap;
+      font-weight:600;
+      font-size:13px;
+      letter-spacing:0.02em;
+      border:none;
+    }
+    td {
+      padding:.5em .75em;
+      text-align:center;
+      white-space:nowrap;
+      border-bottom:1px solid #e8ecf0;
+      font-size:14px;
+    }
+    tbody tr:nth-child(even) { background:#f5f8fc; }
+    tbody tr:hover { background:#dce8f7; transition:background 0.15s; }
+    tbody tr:last-child td { border-bottom:none; }
+    tr.all-row td { font-weight:700; background:#e8edf8; border-top:2px solid #b0bdd0; }
+    td:first-child, th:first-child { text-align:left; }
+
+    .details-button { background:#0066cc; color:#fff; border:none; padding:.3em .65em; cursor:pointer; border-radius:4px; font-size:.85em; font-weight:600; }
+    .details-button:hover { background:#0052a3; }
     .detail-view { flex:1; }
-    table { border-collapse:collapse; width:100%; }
-    th, td { border:1px solid #ddd; padding:.4em .6em; text-align:center; }
-    th { background:#f4f4f4; }
+
     #menu { background: #333; font-family: sans-serif; }
     #menu ul { display: flex; margin: 0; padding: 0; list-style: none; justify-content: center; }
     #menu a { display: block; padding: 0.75em 1.5em; color: #eee; text-decoration: none; transition: background .2s; }
     #menu a:hover, #menu a.active { background: #0066cc; color: #fff; }
-    .canvas-container { position:relative; width:100%; height:400px; margin-bottom:1em; border:1px solid #ccc; }
-    canvas { width:100%; height:100%; display:block; }
-  /* full-screen semi-transparent overlay */
-  #animOverlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0;
-    width: 100vw; height: 100vh;
-    background: rgba(0,0,0,0.6);
-    z-index: 9999;
-  }
-  /* close “X” button */
-  #animClose {
-    position: absolute;
-    top: 1rem; right: 1rem;
-    color: #fff; font-size: 2rem; cursor: pointer;
-    z-index: 10000;
-  }
-  /* iframe fills the rest */
-  #animFrame {
-    position: absolute;
-    top: 3rem; bottom: 1rem; left: 1rem; right: 1rem;
-    width: calc(100% - 2rem);
-    height: calc(100% - 4rem);
-    background: #fff;
-    border-radius: 4px;
-  }
 
-      .subBtn {
-    margin: 0 .5em;
-    padding: .4em 1em;
-    border: none;
-    background: #ddd;
-    cursor: pointer;
-    border-radius: 3px;
-  }
-  .subBtn.active {
-    background: #0066cc;
-    color: #fff;
-  }
+    .canvas-container { position:relative; width:100%; height:420px; margin-bottom:1em; border:1px solid #dde; border-radius:6px; background:#fff; }
+    canvas { width:100%; height:100%; display:block; }
+
+    /* animation overlay */
+    #animOverlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.6);
+      z-index: 9999;
+    }
+    #animClose {
+      position: absolute;
+      top: 1rem; right: 1rem;
+      color: #fff; font-size: 2rem; cursor: pointer;
+      z-index: 10000;
+    }
+    #animFrame {
+      position: absolute;
+      top: 3rem; bottom: 1rem; left: 1rem; right: 1rem;
+      width: calc(100% - 2rem);
+      height: calc(100% - 4rem);
+      background: #fff;
+      border-radius: 4px;
+    }
+
+    /* subnav */
+    .subBtn {
+      margin: 0 .3em;
+      padding: .5em 1.1em;
+      border: none;
+      background: #e2e6eb;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      transition: background 0.15s, color 0.15s;
+    }
+    .subBtn.active {
+      background: #1e3a5f;
+      color: #fff;
+    }
+    .subBtn:hover:not(.active) { background:#cbd3dc; }
 
     .view { display: none; }
-  .view.active { display: block; }
-
+    .view.active { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .detail-view { overflow:auto; }
+    #animOverlay.show { display: flex !important; }
     @media (max-width: 600px) { #menu ul { flex-direction: column; } #menu a { text-align: center; border-top:1px solid #444; } #menu a:first-child { border-top:none; } }
   </style>
 </head>
 <body>
-  <header>
-    <nav id="menu">
+  <header class="app-header">
+    <a href="index.html" class="logo">ALPB</a>
+    <nav class="nav-desktop">
+      <a href="index.html">Home</a>
+      <a href="schedule.html">Standings</a>
+      <a href="games.html">Games</a>
+      <a href="leaderboards.html">Leaderboards</a>
+      <a href="park-factors.html">Park Factors</a>
+      <a href="fielding.html">Fielding</a>
+      <a href="stolen-bases.html">Base Running</a>
+      <a href="dong.html">Would it Dong?</a>
+    </nav>
+    <div class="hamburger" id="hamburger-btn" aria-label="Menu"><span></span><span></span><span></span></div>
+  </header>
+  <div id="side-menu" class="side-menu">
+    <nav>
       <ul>
         <li><a href="index.html">Home</a></li>
+        <li><a href="schedule.html">Standings</a></li>
+        <li><a href="games.html">Games</a></li>
         <li><a href="leaderboards.html">Leaderboards</a></li>
+        <li><a href="park-factors.html">Park Factors</a></li>
+        <li><a href="fielding.html">Fielding</a></li>
+        <li><a href="stolen-bases.html">Base Running</a></li>
+        <li><a href="dong.html">Would it Dong?</a></li>
       </ul>
     </nav>
-    <div>
-          <button id="summaryBtn" style="margin-left:1em;">Game Summary</button>
+  </div>
+  <div id="overlay" class="overlay"></div>
 
-      <button id="prevPitch" disabled>&lt;</button>
-      <h1 id="title" style="display:inline-block; margin:0 1em;">Loading…</h1>
-      <button id="nextPitch" disabled>&gt;</button>
+  <div class="main-container">
+    <div class="game-bar">
+      <button type="button" id="summaryBtn" class="btn btn-ghost">Game Summary</button>
+      <button type="button" id="prevPitch" class="btn btn-primary" disabled>&lt;</button>
+      <h1 id="title">Loading…</h1>
+      <button type="button" id="nextPitch" class="btn btn-primary" disabled>&gt;</button>
     </div>
-  </header>
-
-    <!-- sub-menu -->
-  <div id="subMenu" style="background:#eee; padding:.5em; text-align:center;">
+    <nav id="subMenu" class="subnav">
     <button id="btnSummary" class="subBtn active">Summary</button>
     <button id="btnMatchups" class="subBtn">Matchups</button>
     <button id="btnBreakdowns" class="subBtn">Pitcher Breakdowns</button>
+    <button id="btnBatterBreakdowns" class="subBtn">Batter Breakdowns</button>
     <button id="btnCatcher" class="subBtn">Catcher</button>
 
-    <button id="btnSpray" class="subBtn">Spray</button>
-  </div>
-<!-- wrap your entire original <main> inside viewSummary -->
-<div id="viewSummary" class="view active">
-  <main>
-    <div class="summary" id="summary"></div>
-    <div class="detail-view" id="detailView"></div>
-  </main>
-</div>
+    <button type="button" id="btnSpray" class="subBtn">Spray</button>
+    <button type="button" id="btnIllustrator" class="subBtn">Illustrator</button>
+    </nav>
+    <div id="viewSummary" class="view active">
+      <div style="padding:1em">
+        <div id="summary" style="display:flex;flex-wrap:wrap;gap:1em;margin-bottom:1em"></div>
+        <div id="detailView" class="card" style="overflow-x:auto;padding:0.5em"></div>
+      </div>
+    </div>
 
 <!-- matchups, breakdowns & spray live *outside* of the summary <main> -->
 <div id="viewMatchups" class="view"></div>
 <div id="viewBreakdowns" class="view"></div>
 <div id="viewSpray" class="view"></div>
+<div id="viewBatterBreakdowns" class="view"></div>
+<div id="viewIllustrator" class="view"></div>
 <div id="viewCatcher" class="view"></div>
 
   <!-- animation overlay (hidden by default) -->
@@ -122,6 +187,7 @@
 </body>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   <script>
         var $ = id => document.getElementById(id);
 
@@ -159,9 +225,8 @@ btnCatcher.onclick = () => switchView('catcher');
   };
 
   const probMap = {};
-const fPosIndex = {};
+var fPosIndex = {};
 
-    const DATA_CSV = 'data.csv';
 const HIT_PALETTE = {
   'Single':  '#00FF00',  // green
   'Double':  '#0000FF',  // blue
@@ -222,58 +287,116 @@ const HIT_PALETTE = {
 });
 
 
-// South Maryland Blue Crabs
-Papa.parse(DATA_CSV, {
-  header: true,
-  download: true,
-  complete: res => {
-    // Define the essential columns needed globally across all views
-    const essentialColumns = [
-      'GameUID', 'PitchUID', 'Inning', 'Top/Bottom', 'PitchNo', 'Batter', 'Pitcher',
-      'AwayNameFull', 'HomeNameFull', 'Date', 'LocalDate', 'RunsScored',
-      'PlayResult', 'PitchCall', 'KorBB', 'ExitSpeed', 'Angle', 'Distance',
-      'RelSpeed', 'AutoPitchType', 'PlateLocSide', 'PlateLocHeight', 'PlayID',
-      'PopTime', 'ExchangeTime', 'ThrowSpeed', 'PAofInning', 'BatterSide',
-      'SpinRate', 'InducedVertBreak', 'HorzBreak', 'SpeedDrop', 'VertRelAngle', 'HorzRelAngle'
-    ];
-
-    allPitches = res.data.map(row => {
-      const newRow = {};
-      essentialColumns.forEach(col => {
-        if (row.hasOwnProperty(col)) {
-          newRow[col] = row[col];
-        }
-      });
-      return newRow;
+// Stream data.csv and keep only this game's rows (low memory)
+function rowToPitch(r) {
+  return {
+    GameUID: r.GameUID,
+    PitchUID: r.PitchUID,
+    Inning: r.Inning,
+    'Top/Bottom': r['Top/Bottom'],
+    PAofInning: r.PAofInning,
+    PitchNo: r.PitchNo,
+    Batter: r.Batter,
+    Pitcher: r.Pitcher,
+    AwayNameFull: r.AwayNameFull,
+    HomeNameFull: r.HomeNameFull,
+    Date: r.Date,
+    LocalDate: r.LocalDate,
+    RunsScored: r.RunsScored,
+    PlayResult: r.PlayResult,
+    PitchCall: r.PitchCall,
+    KorBB: r.KorBB,
+    ExitSpeed: r.ExitSpeed,
+    Angle: r.Angle,
+    Distance: r.Distance,
+    RelSpeed: r.RelSpeed,
+    AutoPitchType: r.AutoPitchType,
+    PlateLocSide: r.PlateLocSide,
+    PlateLocHeight: r.PlateLocHeight,
+    PlayID: r.PlayID,
+    PopTime: r.PopTime,
+    ExchangeTime: r.ExchangeTime,
+    ThrowSpeed: r.ThrowSpeed,
+    BatterSide: r.BatterSide,
+    SpinRate: r.SpinRate,
+    InducedVertBreak: r.InducedVertBreak,
+    HorzBreak: r.HorzBreak,
+    SpeedDrop: r.SpeedDrop,
+    VertRelAngle: r.VertRelAngle,
+    Extension: r.Extension,
+    HorzRelAngle: r.HorzRelAngle,
+    HomeTeam: r.HomeTeam,
+    AwayTeam: r.AwayTeam,
+    Direction: r.Direction,
+    BatSpeed: r.BatSpeed,
+    Bearing: r.Bearing,
+    Balls: r.Balls,
+    Strikes: r.Strikes,
+    Outs: r.Outs
+  };
+}
+function loadGameData() {
+  allPitches = [];
+  function finish() { init(); }
+  if (gameUID) {
+    Papa.parse('data.csv', {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      step: function(results) {
+        var r = results.data;
+        if (r && r.GameUID === gameUID) allPitches.push(rowToPitch(r));
+      },
+      complete: finish,
+      error: function() { $('title').innerText = 'Failed to load data.csv'; }
     });
-
-    // The rest of your existing complete callback
-    buildCatchModel(DATA_CSV, FIELDER_CSV) // Note: buildCatchModel's internal parsing needs to be updated too
-      .then(model => {
-        Object.assign(probMap, model.probMap);
-        console.log('probMap keys:', Object.keys(probMap).slice(0, 10));
-        const totalPitches = allPitches.length;
-        const withProb = allPitches.filter(p => probMap.hasOwnProperty(p.PitchUID)).length;
-        console.log(`Sanity check: ${withProb} / ${totalPitches} total pitches have a probability`);
-    
-        window._catchModel = model;
-        init();
-      })
-      .catch(console.error);
-    init();
+    return;
   }
-});
+  if (startPID) {
+    Papa.parse('data.csv', {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      step: function(results) {
+        var r = results.data;
+        if (r && r.PitchUID === startPID) { gameUID = r.GameUID; }
+      },
+      complete: function() {
+        if (!gameUID) { $('title').innerText = 'Pitch not found'; return; }
+        Papa.parse('data.csv', {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          step: function(res) {
+            var r = res.data;
+            if (r && r.GameUID === gameUID) allPitches.push(rowToPitch(r));
+          },
+          complete: finish,
+          error: function() { $('title').innerText = 'Failed to load data.csv'; }
+        });
+      },
+      error: function() { $('title').innerText = 'Failed to load data.csv'; }
+    });
+    return;
+  }
+  $('title').innerText = 'Provide ?gameUID= or ?pitchUID=';
+}
+loadGameData();
 
       const btnSummary = $('btnSummary'), btnMatchups = $('btnMatchups'),
-          btnBreakdowns = $('btnBreakdowns'), btnSpray = $('btnSpray');
+          btnBreakdowns = $('btnBreakdowns'), btnSpray = $('btnSpray'),
+          btnBatterBreakdowns = $('btnBatterBreakdowns'), btnIllustrator = $('btnIllustrator');
     const viewSummary = $('viewSummary'), viewMatchups = $('viewMatchups'),
-          viewBreakdowns = $('viewBreakdowns'), viewSpray = $('viewSpray');
+          viewBreakdowns = $('viewBreakdowns'), viewSpray = $('viewSpray'),
+          viewBatterBreakdowns = $('viewBatterBreakdowns'), viewIllustrator = $('viewIllustrator');
 
 
               btnSummary.onclick = ()=>location.search = `?gameUID=${gameUID}`; 
     btnMatchups.onclick = ()=>switchView('matchups');
     btnBreakdowns.onclick = ()=>switchView('breakdowns');
     btnSpray.onclick = ()=>switchView('spray');
+    document.getElementById('btnBatterBreakdowns').onclick = ()=>switchView('batterBreakdowns');
+    document.getElementById('btnIllustrator').onclick = ()=>switchView('illustrator');
 
 // Helper: compute angle-based weight for distance importance
 function angleWeight(angle) {
@@ -747,7 +870,7 @@ function watchVideo(gameUID, pitchUID) {
 
 // hook up your existing close logic:
 document.getElementById('animClose').onclick = () => {
-  document.getElementById('animOverlay').style.display = 'none';
+  document.getElementById('animOverlay').classList.remove('show');
   document.getElementById('animFrame').src = '';
 };
 
@@ -775,7 +898,7 @@ animBtn.className   = 'details-button';
 animBtn.onclick = () => {
   document.getElementById('animFrame').src =
     'animate.html?pitchUID=' + encodeURIComponent(p.PitchUID);
-  document.getElementById('animOverlay').style.display = 'block';
+  document.getElementById('animOverlay').classList.add('show');
 };
 // and then append animBtn to your <td>
 
@@ -1028,8 +1151,9 @@ const mapY = y => originY - (y - zone.bottom) * scale;
       d===-45? ctx.moveTo(x,y):ctx.lineTo(x,y);
     }
     ctx.stroke();
-   
-    rows.filter(r=>r.PitchCall==='InPlay').forEach(r=>{
+    // draw hits when we can detect them either via PlayResult or PitchCall
+    rows.forEach(r => { /* no-op placeholder to ensure rows is iterated if needed */ });
+    rows.filter(r=> (r.PitchCall==='InPlay' || ['Single','Double','Triple','HomeRun'].includes(r.PlayResult)) ).forEach(r=>{
        const hitType = r.PlayResult || 'undefined';
 
     // spray
@@ -1068,10 +1192,9 @@ const mapY = y => originY - (y - zone.bottom) * scale;
 
 
      function switchView(view) {
-  // deactivate all buttons
-  [btnSummary, btnMatchups, btnBreakdowns, btnSpray].forEach(b => b.classList.remove('active'));
-  // hide all views
-  [viewSummary, viewMatchups, viewBreakdowns, viewSpray].forEach(v => v.classList.remove('active'));
+  // deactivate all buttons and views
+  document.querySelectorAll('.subBtn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
 const away = gamePitches[0].AwayNameFull;
       const home = gamePitches[0].HomeNameFull;
       const date = gamePitches[0].Date || gamePitches[0].LocalDate || 'Date';
@@ -1102,6 +1225,20 @@ const away = gamePitches[0].AwayNameFull;
             $('title').innerText = `${away} vs ${home} — ${date}`;
 
       renderSpray();
+      break;
+
+    case 'batterBreakdowns':
+      btnBatterBreakdowns.classList.add('active');
+      viewBatterBreakdowns.classList.add('active');
+      $('title').innerText = `${away} vs ${home} — ${date}`;
+      renderBatterBreakdowns();
+      break;
+
+    case 'illustrator':
+      btnIllustrator.classList.add('active');
+      viewIllustrator.classList.add('active');
+      $('title').innerText = `${away} vs ${home} — ${date}`;
+      renderIllustrator();
       break;
 
       case 'catcher':
@@ -1460,8 +1597,9 @@ usageCard.innerHTML = `
         <tr>
           <th>Type</th><th>Count</th><th>vs RHB</th><th>vs LHB</th>
           <th>MaxVelo</th><th>MinVelo</th><th>AvgVelo</th>
-          <th>MaxSpin</th><th>MinSpin</th><th>AvgSpin</th>
-        </tr>
+          <th>MaxSpin</th><th>MinSpin</th><th>AvgSpin</th><th>Avg Horz</th><th>Avg IVB </th>
+          <th>Avg VAA</th><th>Avg HAA</th><th>Avg Ext</th>
+          </tr>
       </thead>`;
 
     const types = [...new Set(arr.map(p => p.AutoPitchType || 'undefined'))];
@@ -1476,7 +1614,12 @@ usageCard.innerHTML = `
 
       const vels  = subset.map(p => +p.RelSpeed).filter(n => !isNaN(n));
       const spins = subset.map(p => +p.SpinRate).filter(n => !isNaN(n));
-      const avg   = a => a.length ? (a.reduce((s,x) => s+x,0)/a.length).toFixed(1) : '–';
+      const horz = subset.map(p => +p.HorzBreak).filter(n => !isNaN(n));
+      const ivb = subset.map(p => +p.InducedVertBreak).filter(n => !isNaN(n));
+      const vaa = subset.map(p => +p.VertApprAngle).filter(n => !isNaN(n));
+      const haa = subset.map(p => +p.HorzApprAngle).filter(n => !isNaN(n));
+      const ext = subset.map(p => +p.Extension).filter(n => !isNaN(n));
+      const avg   = a => a.length ? (a.reduce((s,x) => s+x,0)/a.length).toFixed(2) : '–';
 
       return `
         <tr>
@@ -1490,6 +1633,11 @@ usageCard.innerHTML = `
           <td>${spins.length?Math.max(...spins):'–'}</td>
           <td>${spins.length?Math.min(...spins):'–'}</td>
           <td>${avg(spins)}</td>
+          <td>${avg(horz)}</td>
+          <td>${avg(ivb)}</td>
+          <td>${avg(vaa)}</td>
+          <td>${avg(haa)}</td>
+          <td>${avg(ext)}</td>
         </tr>`;
     }).join('');
 
@@ -1569,33 +1717,526 @@ swingCard.innerHTML = `
   });
 }
 
-    function renderSpray() {
-  viewSpray.innerHTML = '';
-  const canvas = document.createElement('canvas');
-  canvas.className = 'canvas-container';
-  viewSpray.appendChild(canvas);
+function renderBatterBreakdowns() {
+  viewBatterBreakdowns.innerHTML = '';
+  const Z_LEFT=-17/24, Z_RIGHT=17/24, Z_BOTTOM=1.5, Z_TOP=3.5;
 
-  const hits = gamePitches.filter(p => ['Single','Double','Triple','HomeRun'].includes(p.PlayResult));
-  drawSprayCanvas(canvas, hits);
+  function computeStats(arr, totalAll) {
+    const total = arr.length;
+    const isSwing = p => p.PitchCall==='InPlay'||p.PitchCall==='StrikeSwinging'||(p.PitchCall&&p.PitchCall.startsWith('Foul'));
+    const inZone = p => { const x=parseFloat(p.PlateLocSide),y=parseFloat(p.PlateLocHeight); return !isNaN(x)&&!isNaN(y)&&x>=Z_LEFT&&x<=Z_RIGHT&&y>=Z_BOTTOM&&y<=Z_TOP; };
 
-  // legend for hit types
+    const swings    = arr.filter(isSwing).length;
+    const cstr      = arr.filter(p=>p.PitchCall==='StrikeCalled').length;
+    const whiffs    = arr.filter(p=>p.PitchCall==='StrikeSwinging').length;
+    const cstrWhiff = cstr + whiffs;
+    const k         = arr.filter(p=>p.KorBB==='Strikeout').length;
+    const bbe       = arr.filter(p=>p.PitchCall==='InPlay').length;
+    const hits      = arr.filter(p=>['Single','Double','Triple','HomeRun'].includes(p.PlayResult)).length;
+    const hr        = arr.filter(p=>p.PlayResult==='HomeRun').length;
+
+    const inPlayRows = arr.filter(p=>p.PitchCall==='InPlay');
+    const evArr  = inPlayRows.map(p=>parseFloat(p.ExitSpeed)).filter(n=>!isNaN(n));
+    const hardHit = evArr.filter(v=>v>=95).length;
+    const brls    = inPlayRows.filter(p=>{ const ev=parseFloat(p.ExitSpeed),la=parseFloat(p.Angle); return ev>=98&&la>=26&&la<=30; }).length;
+    const avgEV   = evArr.length ? (evArr.reduce((s,x)=>s+x,0)/evArr.length).toFixed(2) : '–';
+
+    const avgVeloArr = arr.map(p=>parseFloat(p.RelSpeed)).filter(n=>!isNaN(n));
+    const avgVelo = avgVeloArr.length ? (avgVeloArr.reduce((s,x)=>s+x,0)/avgVeloArr.length).toFixed(2) : '–';
+
+    const zoneRows = arr.filter(inZone);
+    const outZoneRows = arr.filter(p=>{ const x=parseFloat(p.PlateLocSide),y=parseFloat(p.PlateLocHeight); return !isNaN(x)&&!isNaN(y)&&!(x>=Z_LEFT&&x<=Z_RIGHT&&y>=Z_BOTTOM&&y<=Z_TOP); });
+    const zonePct  = total ? Math.round(zoneRows.length/total*100) : '–';
+    const zSwingPct = zoneRows.length ? Math.round(zoneRows.filter(isSwing).length/zoneRows.length*100) : '–';
+    const chasePct  = outZoneRows.length ? Math.round(outZoneRows.filter(isSwing).length/outZoneRows.length*100) : '–';
+    const strikePct = total ? Math.round((cstr+swings)/total*100) : '–';
+
+    const whiffFmt = swings ? `${(whiffs/swings*100).toFixed(1)}% (${whiffs}/${swings})` : '0';
+    const cswFmt   = total  ? `${(cstrWhiff/total*100).toFixed(1)}% (${cstrWhiff}/${total})` : '0';
+
+    return { total, avgVelo, swings, cstr, whiffs, whiffFmt, cstrWhiff, cswFmt, k, bbe, hits, hr, brls, hardHit, avgEV, zonePct, zSwingPct, chasePct, strikePct };
+  }
+
+  // group by batter
+  const byBatter = {};
+  gamePitches.forEach(p => { const b=p.Batter||'Unknown'; (byBatter[b]=byBatter[b]||[]).push(p); });
+
+  Object.entries(byBatter).forEach(([batter, pitches]) => {
+    const maxEV   = Math.max(...pitches.map(p=>parseFloat(p.ExitSpeed)||0));
+    const maxVelo = Math.max(...pitches.map(p=>parseFloat(p.RelSpeed)||0));
+    const totalPitches = pitches.length;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.marginBottom = '1.5em';
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.75em">
+        <h2 style="margin:0"><a href="batter-profiles.html?player=${encodeURIComponent(batter)}" style="color:inherit">${batter}</a></h2>
+        <div style="display:flex;gap:0.5em">
+          <div style="border:1px solid #ccc;border-radius:3px;padding:0.3em 0.7em;text-align:center;font-size:11px"><div style="color:#666">Max EV</div><div style="font-weight:bold;font-size:14px">${maxEV||'–'}</div></div>
+          <div style="border:1px solid #ccc;border-radius:3px;padding:0.3em 0.7em;text-align:center;font-size:11px"><div style="color:#666">Max Velo</div><div style="font-weight:bold;font-size:14px">${maxVelo||'–'}</div></div>
+        </div>
+      </div>`;
+
+    const types = [...new Set(pitches.map(p=>p.AutoPitchType||'undefined'))];
+    const wrap = document.createElement('div'); wrap.style.overflowX='auto';
+    const tbl  = document.createElement('table');
+    tbl.innerHTML = `<thead><tr>
+      <th>Pitch Type</th><th>Total</th><th>Avg Velo</th>
+      <th>Swings</th><th>CStr</th><th>Whiffs</th><th>CStr+Whiff</th>
+      <th>#</th><th>BBE</th><th>Hits</th><th>HR</th><th>Brls</th><th>Hard-Hit</th>
+      <th>Avg EV</th>
+      <th>Zone%</th><th>zSwing%</th><th>Chase%</th><th>Strike%</th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+
+    types.forEach(type => {
+      const arr = pitches.filter(p=>(p.AutoPitchType||'undefined')===type);
+      const s   = computeStats(arr, totalPitches);
+      const usagePct = Math.round(arr.length/totalPitches*100);
+      const tr  = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${type}</td>
+        <td>${usagePct}% (${arr.length}/${totalPitches})</td>
+        <td>${s.avgVelo}</td>
+        <td>${s.swings}</td>
+        <td>${s.cstr}</td>
+        <td>${s.whiffFmt}</td>
+        <td>${s.cswFmt}</td>
+        <td>${s.k}</td>
+        <td>${s.bbe}</td>
+        <td>${s.hits}</td>
+        <td>${s.hr}</td>
+        <td>${s.brls}</td>
+        <td>${s.hardHit}</td>
+        <td>${s.avgEV}</td>
+        <td>${s.zonePct}</td>
+        <td>${s.zSwingPct}</td>
+        <td>${s.chasePct}</td>
+        <td>${s.strikePct}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    const all = computeStats(pitches, totalPitches);
+    const allTr = document.createElement('tr');
+    allTr.className = 'all-row';
+    allTr.innerHTML = `
+      <td>ALL</td>
+      <td>${totalPitches}</td>
+      <td>${all.avgVelo}</td>
+      <td>${all.swings}</td>
+      <td>${all.cstr}</td>
+      <td>${all.whiffFmt}</td>
+      <td>${all.cswFmt}</td>
+      <td>${all.k}</td>
+      <td>${all.bbe}</td>
+      <td>${all.hits}</td>
+      <td>${all.hr}</td>
+      <td>${all.brls}</td>
+      <td>${all.hardHit}</td>
+      <td>${all.avgEV}</td>
+      <td>${all.zonePct}</td>
+      <td>${all.zSwingPct}</td>
+      <td>${all.chasePct}</td>
+      <td>${all.strikePct}</td>`;
+    tbody.appendChild(allTr);
+
+    tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+    card.appendChild(wrap);
+    viewBatterBreakdowns.appendChild(card);
+  });
+}
+
+function renderIllustrator() {
+  viewIllustrator.innerHTML = '';
+
+  const ctrl = document.createElement('div');
+  ctrl.className = 'card';
+  ctrl.style.marginBottom = '1em';
+  ctrl.innerHTML = `
+    <label style="font-weight:bold;margin-right:0.5em">Entity:</label>
+    <select id="illustratorEntity">
+      <option value="Pitcher">Pitcher</option>
+      <option value="Batter">Batter</option>
+    </select>
+    <label style="font-weight:bold;margin-left:1.5em;margin-right:0.5em">Player:</label>
+    <select id="illustratorPlayer"></select>
+    <label style="font-weight:bold;margin-left:1.5em;margin-right:0.5em">View:</label>
+    <select id="illustratorView">
+      <option value="pitchChart">Pitch Chart</option>
+      <option value="heatMap">Heat Map</option>
+      <option value="countBreakdown">Count Breakdown / Usage Tree</option>
+    </select>`;
+  viewIllustrator.appendChild(ctrl);
+
+  const out = document.createElement('div');
+  out.id = 'illustratorOut';
+  out.style.padding = '0.5em';
+  viewIllustrator.appendChild(out);
+
+  const entitySel = document.getElementById('illustratorEntity');
+  const playerSel = document.getElementById('illustratorPlayer');
+  const viewSel   = document.getElementById('illustratorView');
+
+  // pitch type palette (same as matchups)
+  const ILL_PALETTE = {
+    'Four-Seam':'#e63946','Sinker':'#FF69B4','Slider':'#0055ff',
+    'Changeup':'#2a9d00','Curveball':'#FFA500','Cutter':'#800080',
+    'Splitter':'#00AACC','Knuckleball':'#888888','undefined':'#888888'
+  };
+
+  function populatePlayers() {
+    playerSel.innerHTML = '';
+    const names = entitySel.value === 'Pitcher'
+      ? [...new Set(gamePitches.map(p=>p.Pitcher))]
+      : [...new Set(gamePitches.map(p=>p.Batter))];
+    names.forEach(n => playerSel.appendChild(new Option(n,n)));
+  }
+
+  // ---- Pitch Chart: all pitches by player on strike zone, colored by pitch type ----
+  function drawPitchChart(rows) {
+    out.innerHTML = '';
+    if (!rows.length) { out.innerHTML = '<em>No pitches found.</em>'; return; }
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:1em;align-items:flex-start';
+
+    // canvas zone
+    const canvasWrap = document.createElement('div');
+    canvasWrap.style.cssText = 'position:relative;width:420px;height:420px;border:1px solid #ccc;flex-shrink:0';
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'width:100%;height:100%;display:block';
+    canvasWrap.appendChild(canvas);
+    wrap.appendChild(canvasWrap);
+
+    // legend
     const legend = document.createElement('div');
-  legend.style.marginTop = '1em';
-  legend.innerHTML = '<strong>Hit Types:</strong> ' +
-    Object.entries(HIT_PALETTE)
-      .filter(([type]) => type !== 'undefined')
-      .map(([type, hex]) =>
-        `<span style="color:${hex}; margin-left:1em">● ${type}</span>`
-      ).join('');
-  viewSpray.appendChild(legend);
+    legend.style.cssText = 'font-size:13px';
+    const seen = [...new Set(rows.map(r=>r.AutoPitchType||'undefined'))];
+    seen.forEach(t => {
+      const c = ILL_PALETTE[t]||ILL_PALETTE.undefined;
+      legend.innerHTML += `<div style="margin:0.3em 0"><span style="display:inline-block;width:12px;height:12px;background:${c};border-radius:50%;vertical-align:middle;margin-right:0.4em"></span>${t} (${rows.filter(r=>(r.AutoPitchType||'undefined')===t).length})</div>`;
+    });
+    wrap.appendChild(legend);
+    out.appendChild(wrap);
+
+    // draw after layout so offsetWidth is correct
+    requestAnimationFrame(() => {
+      canvas.width  = canvasWrap.offsetWidth  || 420;
+      canvas.height = canvasWrap.offsetHeight || 420;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      const zone = { left:-17/24, right:17/24, bottom:1.5, top:3.5 };
+      const m = 30;
+      const availW = canvas.width-m*2, availH = canvas.height-m*2;
+      const baseS = Math.min(availW/(zone.right-zone.left), availH/(zone.top-zone.bottom));
+      const scale = baseS*0.75;
+      const pixW  = (zone.right-zone.left)*scale, pixH = (zone.top-zone.bottom)*scale;
+      const ox = (canvas.width-pixW)/2;
+      const oy = (canvas.height+pixH)/2;
+      const mapX = x => ox+(x-zone.left)*scale;
+      const mapY = y => oy-(y-zone.bottom)*scale;
+
+      // outer shadow zone (balls zone extension)
+      ctx.fillStyle='rgba(240,240,240,0.5)';
+      ctx.fillRect(mapX(zone.left)-scale*0.5, mapY(zone.top+0.5), pixW+scale, pixH+scale);
+
+      // strike zone
+      ctx.strokeStyle='#222'; ctx.lineWidth=2;
+      ctx.strokeRect(mapX(zone.left), mapY(zone.top), pixW, pixH);
+
+      // inner thirds grid
+      ctx.strokeStyle='#ccc'; ctx.lineWidth=0.5;
+      for(let i=1;i<3;i++){
+        const x=mapX(zone.left+(zone.right-zone.left)*i/3);
+        ctx.beginPath(); ctx.moveTo(x,mapY(zone.top)); ctx.lineTo(x,mapY(zone.bottom)); ctx.stroke();
+        const y=mapY(zone.bottom+(zone.top-zone.bottom)*i/3);
+        ctx.beginPath(); ctx.moveTo(mapX(zone.left),y); ctx.lineTo(mapX(zone.right),y); ctx.stroke();
+      }
+
+      // pitches
+      rows.forEach(r => {
+        const px=parseFloat(r.PlateLocSide), py=parseFloat(r.PlateLocHeight);
+        if(isNaN(px)||isNaN(py)) return;
+        const x=mapX(px), y=mapY(py);
+        const color = ILL_PALETTE[r.AutoPitchType||'undefined']||ILL_PALETTE.undefined;
+        ctx.fillStyle = color;
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(x,y,6,0,2*Math.PI); ctx.fill(); ctx.stroke();
+      });
+    });
+  }
+
+  // ---- Heat Map via Plotly ----
+  function drawHeatMap(rows) {
+    out.innerHTML = '';
+    const pts = rows.map(r=>({x:parseFloat(r.PlateLocSide),y:parseFloat(r.PlateLocHeight)}))
+                    .filter(p=>!isNaN(p.x)&&!isNaN(p.y));
+    if(!pts.length){ out.innerHTML='<em>No plate locations found.</em>'; return; }
+
+    const div = document.createElement('div');
+    div.style.cssText = 'width:500px;height:500px;max-width:100%';
+    out.appendChild(div);
+
+    Plotly.newPlot(div, [{
+      x: pts.map(p=>p.x), y: pts.map(p=>p.y),
+      type: 'histogram2dcontour',
+      contours: { coloring:'heatmap' },
+      colorscale: 'Hot',
+      reversescale: true
+    }], {
+      margin: {t:30,b:50,l:50,r:20},
+      xaxis: { title:'Plate Side', range:[-2,2], zeroline:false },
+      yaxis: { title:'Plate Height', range:[0.5,5], zeroline:false },
+      shapes: [{
+        type:'rect', x0:-17/24, x1:17/24, y0:1.5, y1:3.5,
+        line:{color:'black',width:2}, fillcolor:'rgba(0,0,0,0)'
+      }]
+    });
+  }
+
+  // ---- Count Breakdown / Usage Tree (cascading tiers with SVG connecting lines) ----
+  function drawCountBreakdown(rows) {
+    out.innerHTML = '';
+    if (!rows.length) { out.innerHTML = '<em>No data.</em>'; return; }
+
+    // Build tree: "b-s" → {pitchType: count}
+    const tree = {};
+    rows.forEach(r => {
+      const b = parseInt(r.Balls,10), s = parseInt(r.Strikes,10);
+      if(isNaN(b)||isNaN(s)) return;
+      const key = `${b}-${s}`, type = r.AutoPitchType||'undefined';
+      tree[key] = tree[key]||{};
+      tree[key][type] = (tree[key][type]||0)+1;
+    });
+
+    const maxBalls = 3, maxStrikes = 2;
+    const boxSize  = 115;
+    const spacingX = boxSize + 28;
+    const spacingY = boxSize + 44;
+
+    // Build tiers (same logic as pitcher-profiles): tier = b+s
+    const tiers = {};
+    for (let sum = 0; sum <= maxBalls+maxStrikes; sum++) {
+      tiers[sum] = [];
+      for (let b = 0; b <= maxBalls; b++) {
+        const s = sum - b;
+        if (s < 0 || s > maxStrikes) continue;
+        tiers[sum].push({ b, s, dist: tree[`${b}-${s}`]||{} });
+      }
+      tiers[sum].sort((a, bb) => bb.b - a.b); // highest balls first (left to right)
+    }
+
+    // Compute container dimensions
+    const maxTierLen = Math.max(...Object.values(tiers).map(t=>t.length));
+    const containerW = maxTierLen * spacingX + boxSize;
+    const numTiers   = maxBalls + maxStrikes + 1;
+    const containerH = numTiers * spacingY + boxSize;
+
+    // Compute pixel center positions for each node
+    const posMap = {}; // "b-s" → {x, y, cx, cy}
+    for (let sum = 0; sum <= maxBalls+maxStrikes; sum++) {
+      const tier = tiers[sum];
+      if (!tier.length) continue;
+      const rowW  = (tier.length-1)*spacingX + boxSize;
+      const startX = (containerW - rowW) / 2;
+      tier.forEach((node, i) => {
+        const x = startX + i*spacingX;
+        const y = sum*spacingY;
+        posMap[`${node.b}-${node.s}`] = { x, y, cx: x+boxSize/2, cy: y+boxSize/2 };
+      });
+    }
+
+    // Legend
+    const legend = document.createElement('div');
+    legend.style.cssText = 'margin-bottom:1em;font-size:13px;display:flex;flex-wrap:wrap;gap:0.5em 1.2em;padding:0.5em 0';
+    const allTypes = [...new Set(rows.map(r=>r.AutoPitchType||'undefined'))];
+    allTypes.forEach(t => {
+      const c = ILL_PALETTE[t]||ILL_PALETTE.undefined;
+      legend.innerHTML += `<span style="display:flex;align-items:center;gap:0.3em"><span style="width:12px;height:12px;background:${c};border-radius:50%;display:inline-block"></span>${t}</span>`;
+    });
+    out.appendChild(legend);
+
+    // Line-key explanation
+    const lineKey = document.createElement('div');
+    lineKey.style.cssText = 'margin-bottom:0.75em;font-size:12px;color:#555;display:flex;gap:1.5em';
+    lineKey.innerHTML = `
+      <span><svg width="28" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="#4a90d9" stroke-width="2" stroke-dasharray="4 3"/></svg> Ball</span>
+      <span><svg width="28" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="#e63946" stroke-width="2" stroke-dasharray="4 3"/></svg> Strike</span>`;
+    out.appendChild(lineKey);
+
+    // Scroll wrapper
+    const scroll = document.createElement('div');
+    scroll.style.cssText = 'overflow:auto';
+    out.appendChild(scroll);
+
+    // Relative container (SVG lines + donut divs)
+    const container = document.createElement('div');
+    container.style.cssText = `position:relative;width:${containerW}px;height:${containerH}px;margin:0 auto`;
+    scroll.appendChild(container);
+
+    // SVG layer for connecting lines
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width', containerW);
+    svg.setAttribute('height', containerH);
+    svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:0';
+    container.appendChild(svg);
+
+    function svgLine(x1,y1,x2,y2,color) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+      line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+      line.setAttribute('stroke',color);
+      line.setAttribute('stroke-width','2');
+      line.setAttribute('stroke-dasharray','5 3');
+      svg.appendChild(line);
+    }
+    function svgText(x,y,txt,color) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg','text');
+      el.setAttribute('x',x); el.setAttribute('y',y);
+      el.setAttribute('fill',color);
+      el.setAttribute('font-size','11');
+      el.setAttribute('font-weight','bold');
+      el.setAttribute('text-anchor','middle');
+      el.textContent = txt;
+      svg.appendChild(el);
+    }
+
+    // Draw lines before placing donuts
+    for (let sum = 0; sum <= maxBalls+maxStrikes-1; sum++) {
+      tiers[sum].forEach(node => {
+        const from = posMap[`${node.b}-${node.s}`];
+        if (!from) return;
+        const pad = boxSize/2 - 4;
+        // Ball child
+        if (node.b < maxBalls) {
+          const to = posMap[`${node.b+1}-${node.s}`];
+          if (to) {
+            svgLine(from.cx, from.cy+pad, to.cx, to.cy-pad, '#4a90d9');
+            svgText((from.cx+to.cx)/2-7, (from.cy+to.cy)/2+4, 'B', '#4a90d9');
+          }
+        }
+        // Strike child
+        if (node.s < maxStrikes) {
+          const to = posMap[`${node.b}-${node.s+1}`];
+          if (to) {
+            svgLine(from.cx, from.cy+pad, to.cx, to.cy-pad, '#e63946');
+            svgText((from.cx+to.cx)/2+7, (from.cy+to.cy)/2+4, 'S', '#e63946');
+          }
+        }
+      });
+    }
+
+    // Place donut charts over lines
+    for (let sum = 0; sum <= maxBalls+maxStrikes; sum++) {
+      tiers[sum].forEach(node => {
+        const pos    = posMap[`${node.b}-${node.s}`];
+        if (!pos) return;
+        const dist   = node.dist;
+        const labels = Object.keys(dist).length ? Object.keys(dist) : ['none'];
+        const values = Object.keys(dist).length ? labels.map(l=>dist[l]) : [1];
+        const total  = values.reduce((a,v)=>a+v,0);
+
+        const cell = document.createElement('div');
+        cell.style.cssText = `position:absolute;left:${pos.x}px;top:${pos.y}px;width:${boxSize}px;height:${boxSize}px;z-index:1`;
+        container.appendChild(cell);
+
+        Plotly.newPlot(cell, [{
+          type:'pie', labels, values,
+          hole:0.60,
+          marker:{ colors: labels.map(l=>ILL_PALETTE[l]||ILL_PALETTE.undefined), line:{color:'#fff',width:1} },
+          textinfo:'none',
+          hoverinfo:'label+percent+value',
+          sort:false
+        }], {
+          margin:{t:0,b:0,l:0,r:0},
+          showlegend:false,
+          paper_bgcolor:'rgba(0,0,0,0)',
+          plot_bgcolor:'rgba(0,0,0,0)'
+        }, {displayModeBar:false});
+
+        // Center label
+        const lbl = document.createElement('div');
+        lbl.style.cssText = `position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;line-height:1.3;z-index:2`;
+        lbl.innerHTML = `<div style="font-weight:700;font-size:14px">${node.b}-${node.s}</div><div style="font-size:11px;color:#555">${total}</div>`;
+        cell.appendChild(lbl);
+      });
+    }
+  }
+
+  function renderIllustratorView() {
+    const player = playerSel.value;
+    const viewType = viewSel.value;
+    out.innerHTML = '';
+    if (!player) { out.innerHTML = '<em>Select a player.</em>'; return; }
+
+    const rows = gamePitches.filter(r =>
+      entitySel.value === 'Pitcher' ? r.Pitcher===player : r.Batter===player
+    );
+
+    if (!rows.length) { out.innerHTML = '<em>No data for this player.</em>'; return; }
+
+    if      (viewType === 'pitchChart')     drawPitchChart(rows);
+    else if (viewType === 'heatMap')        drawHeatMap(rows);
+    else if (viewType === 'countBreakdown') drawCountBreakdown(rows);
+  }
+
+  entitySel.addEventListener('change', () => { populatePlayers(); renderIllustratorView(); });
+  playerSel.addEventListener('change', renderIllustratorView);
+  viewSel.addEventListener('change', renderIllustratorView);
+  populatePlayers();
+  renderIllustratorView();
+}
+
+    function renderSpray() {
+      viewSpray.innerHTML = '';
+
+      // controls: batter & pitcher selectors
+      const ctrl = document.createElement('div');
+      ctrl.style.marginBottom = '0.5em';
+      const batterSel = document.createElement('select'); batterSel.id = 'sprayBatterSel';
+      batterSel.appendChild(new Option('All Batters',''));
+      [...new Set(gamePitches.map(p=>p.Batter))].forEach(b=>batterSel.appendChild(new Option(b,b)));
+      const pitcherSel = document.createElement('select'); pitcherSel.id = 'sprayPitcherSel';
+      pitcherSel.appendChild(new Option('All Pitchers',''));
+      [...new Set(gamePitches.map(p=>p.Pitcher))].forEach(b=>pitcherSel.appendChild(new Option(b,b)));
+      ctrl.appendChild(document.createTextNode('Batter: ')); ctrl.appendChild(batterSel);
+      ctrl.appendChild(document.createTextNode(' Pitcher: ')); ctrl.appendChild(pitcherSel);
+      viewSpray.appendChild(ctrl);
+
+      const canvas = document.createElement('canvas');
+      canvas.className = 'canvas-container';
+      viewSpray.appendChild(canvas);
+
+      function redrawSpray(){
+        const b = batterSel.value;
+        const pit = pitcherSel.value;
+        let hits = gamePitches.filter(p => ['Single','Double','Triple','HomeRun'].includes(p.PlayResult) || p.PitchCall==='InPlay');
+        if (b) hits = hits.filter(h=>h.Batter===b);
+        if (pit) hits = hits.filter(h=>h.Pitcher===pit);
+        drawSprayCanvas(canvas, hits);
+      }
+
+      batterSel.addEventListener('change', redrawSpray);
+      pitcherSel.addEventListener('change', redrawSpray);
+
+      redrawSpray();
+
+      // legend for hit types
+      const legend = document.createElement('div');
+      legend.style.marginTop = '1em';
+      legend.innerHTML = '<strong>Hit Types:</strong> ' + Object.entries(HIT_PALETTE).filter(([type]) => type !== 'undefined').map(([type, hex]) => `<span style="color:${hex}; margin-left:1em">● ${type}</span>`).join('');
+      viewSpray.appendChild(legend);
 }
 
 // after you append animBtn to the table wrapper…
 animBtn.onclick = () => {
-  // point the iframe at your animate.html (optionally pass pitchUID)
   document.getElementById('animFrame').src =
     'animate.html?pitchUID=' + encodeURIComponent(p.PitchUID);
-  document.getElementById('animOverlay').style.display = 'block';
+  document.getElementById('animOverlay').classList.add('show');
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1603,8 +2244,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeBtn = document.getElementById('animClose')
 
   function closeOverlay() {
-    overlay.style.display = 'none'
-    document.getElementById('animFrame').src = ''
+    overlay.classList.remove('show');
+    document.getElementById('animFrame').src = '';
   }
 
   // close when you click the “X”
@@ -1660,6 +2301,12 @@ document.addEventListener('DOMContentLoaded', () => {
   
        
       });
+  </script>
+  <script>
+    (function(){ var h=document.getElementById('hamburger-btn'), s=document.getElementById('side-menu'), o=document.getElementById('overlay');
+      if(h&&s&&o){ h.addEventListener('click', function(){ s.classList.toggle('open'); h.classList.toggle('open'); o.classList.toggle('visible'); });
+      o.addEventListener('click', function(){ s.classList.remove('open'); h.classList.remove('open'); o.classList.remove('visible'); }); }
+    })();
   </script>
 </body>
 </html>
