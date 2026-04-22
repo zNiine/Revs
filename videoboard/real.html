@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Videoboard – Live</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      position: relative;
+      width: 203px;
+      height: 336px;
+      margin: 0;
+      overflow: hidden;
+      background: #0a0a0c;
+      color: #f2f2f4;
+      font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
+      line-height: 1.2;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .lineup-card {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      padding: 0 0 0 2px;
+      overflow: hidden;
+    }
+    .lineup-card__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+    .lineup-row {
+      display: grid;
+      grid-template-columns: 1fr 52px;
+      align-items: center;
+      gap: 0 8px;
+      padding: 3px 0;
+    }
+    .lineup-row__name {
+      min-width: 0;
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      font-weight: 700;
+      font-size: 26px;
+      color: #F2B233;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .lineup-row__pos {
+      text-align: right;
+      font-weight: 700;
+      font-size: 18px;
+      color: #fff;
+      letter-spacing: 0.02em;
+    }
+    .lineup-row--current {
+      background: #F2B233;
+      border-radius: 2px;
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+    .lineup-row--current .lineup-row__name,
+    .lineup-row--current .lineup-row__pos {
+      color: #000;
+    }
+
+    .lineup-card__foot {
+      flex-shrink: 0; padding: 2px;
+      font-size: 11px; color: rgba(255, 200, 120, 0.85);
+    }
+    .lineup-card__foot:empty { display: none; }
+
+    .lineup-card--idle .lineup-card__rows {
+      display: flex; align-items: center; justify-content: center;
+      color: #F2B233; font-weight: 700; font-size: 13px; text-align: center;
+    }
+    .lineup-placeholder {
+      display: flex; align-items: center; justify-content: center;
+      padding: 10px; text-align: center;
+      color: #F2B233; font-weight: 700; font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div id="panel-lineup"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
+      authDomain: "revs-2c987.firebaseapp.com",
+      projectId: "revs-2c987",
+      storageBucket: "revs-2c987.firebasestorage.app",
+      messagingSenderId: "181256684157",
+      appId: "1:181256684157:web:a9e1c5dfd767658e2ba714",
+      databaseURL: "https://revs-2c987-default-rtdb.firebaseio.com"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const FB = (path) => ref(db, `/${path}`);
+
+    const lineupEl = document.getElementById("panel-lineup");
+
+    let lineup = { home: [], away: [] };
+    let gameState = { inningHalf: "TOP", homeBatterIdx: 0, awayBatterIdx: 0 };
+
+    function lastName(full) {
+      if (!full) return "";
+      const parts = full.trim().split(/\s+/);
+      if (parts.length === 1) return parts[0];
+      const suffixes = ["jr.", "jr", "sr.", "sr", "ii", "iii", "iv"];
+      if (suffixes.includes(parts[parts.length - 1].toLowerCase()) && parts.length >= 3) {
+        return parts[parts.length - 2] + " " + parts[parts.length - 1];
+      }
+      return parts[parts.length - 1];
+    }
+
+    function escapeHtml(s) {
+      return String(s || "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function toArray(val) {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      // Firebase may return object with numeric keys
+      return Object.keys(val).sort((a, b) => Number(a) - Number(b)).map(k => val[k]);
+    }
+
+    function renderLineup() {
+      const half = gameState.inningHalf || "TOP";
+      const side = half === "TOP" ? "away" : "home";
+      const players = toArray(lineup[side]);
+      const currentIdx = side === "home" ? gameState.homeBatterIdx : gameState.awayBatterIdx;
+
+      if (!players.length) {
+        lineupEl.innerHTML = `
+          <div class="lineup-card lineup-card--idle">
+            <div class="lineup-card__rows">Waiting for lineup…</div>
+          </div>`;
+        return;
+      }
+
+      const rowsHtml = players.map((p, i) => {
+        const isCurrent = i === (currentIdx % players.length);
+        const rowClass = isCurrent ? " lineup-row--current" : "";
+        return `
+          <div class="lineup-row${rowClass}">
+            <div class="lineup-row__name">${escapeHtml(lastName(p.name))}</div>
+            <div class="lineup-row__pos">${escapeHtml(p.position)}</div>
+          </div>`;
+      }).join("");
+
+      lineupEl.innerHTML = `
+        <div class="lineup-card">
+          <div class="lineup-card__rows">${rowsHtml}</div>
+        </div>`;
+    }
+
+    onValue(FB("lineup"), (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        lineup.home = toArray(val.home) || [];
+        lineup.away = toArray(val.away) || [];
+      }
+      renderLineup();
+    });
+
+    onValue(FB("game_state"), (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        gameState.inningHalf    = val.inningHalf    ?? "TOP";
+        gameState.homeBatterIdx = val.homeBatterIdx ?? 0;
+        gameState.awayBatterIdx = val.awayBatterIdx ?? 0;
+        gameState.currentInning = val.currentInning ?? "";
+      }
+      renderLineup();
+    });
+  </script>
+</body>
+</html>
