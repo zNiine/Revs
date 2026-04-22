@@ -160,6 +160,7 @@
 
     onValue(FB("lineup"), (snapshot) => {
       const val = snapshot.val();
+      console.log("[LINEUP fired] gameState at this moment:", JSON.stringify(gameState));
       if (val) {
         lineup.home = toArray(val.home) || [];
         lineup.away = toArray(val.away) || [];
@@ -169,12 +170,14 @@
 
     onValue(FBS("game_state"), (snapshot) => {
       const val = snapshot.val();
+      console.log("[GAME_STATE fired] raw val:", JSON.stringify(val));
       if (val) {
         gameState.inningHalf    = val.inningHalf    ?? "TOP";
         gameState.homeBatterIdx = val.homeBatterIdx ?? 0;
         gameState.awayBatterIdx = val.awayBatterIdx ?? 0;
         gameState.currentInning = val.currentInning ?? "";
       }
+      console.log("[GAME_STATE applied]", JSON.stringify(gameState));
       renderLineup();
     });
   </script>
