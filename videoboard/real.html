@@ -96,7 +96,8 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const FB = (path) => ref(db, `/${path}`);
+    const FB  = (path) => ref(db, `/${path}`);
+    const FBS = (path) => ref(db, `/scoreboard/${path}`);
 
     const lineupEl = document.getElementById("panel-lineup");
 
@@ -166,7 +167,7 @@
       renderLineup();
     });
 
-    onValue(FB("game_state"), (snapshot) => {
+    onValue(FBS("game_state"), (snapshot) => {
       const val = snapshot.val();
       if (val) {
         gameState.inningHalf    = val.inningHalf    ?? "TOP";
