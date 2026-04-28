@@ -1,0 +1,2302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Film Room — TrackMan Scout</title>
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
+<style>
+/* ── Reset & tokens ───────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d1117;
+  --bg2:       #161b22;
+  --bg3:       #1f2937;
+  --border:    #30363d;
+  --accent:    #c9a84c;
+  --accent2:   #e6c65a;
+  --red:       #e05252;
+  --green:     #3fb950;
+  --blue:      #58a6ff;
+  --muted:     #8b949e;
+  --text:      #e6edf3;
+  --text2:     #c9d1d9;
+  --sidebar-w: 260px;
+  --tray-h:    168px;
+  --radius:    6px;
+}
+
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Layout shell ─────────────────────────────────────────────────── */
+#app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr var(--sidebar-w);
+  grid-template-rows: 44px 1fr var(--tray-h);
+  grid-template-areas:
+    "header header header"
+    "left   center right"
+    "tray   tray   tray";
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Header ───────────────────────────────────────────────────────── */
+#header {
+  grid-area: header;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  z-index: 100;
+}
+#header .logo {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--accent);
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+#header .subtitle { color: var(--muted); font-size: 12px; }
+#header .spacer { flex: 1; }
+#header .pill {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+#pitch-count-badge { color: var(--accent); font-weight: 700; }
+
+/* ── Left sidebar — filters ───────────────────────────────────────── */
+#left-sidebar {
+  grid-area: left;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+#left-sidebar::-webkit-scrollbar { width: 4px; }
+#left-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.sidebar-header {
+  padding: 10px 12px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sidebar-header button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+}
+
+.filter-section { border-bottom: 1px solid var(--border); }
+.filter-section-title {
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.filter-section-title .chevron { transition: transform .2s; }
+.filter-section-title.collapsed .chevron { transform: rotate(-90deg); }
+.filter-section-body { padding: 6px 10px 10px; }
+.filter-section-body.hidden { display: none; }
+
+.filter-group { margin-bottom: 8px; }
+.filter-label {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 3px;
+}
+select, input[type=text], input[type=number] {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 12px;
+  outline: none;
+  appearance: none;
+}
+select:focus, input:focus {
+  border-color: var(--accent);
+}
+select option { background: var(--bg3); }
+
+.range-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.range-row input { text-align: center; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  transition: opacity .15s, background .15s;
+  white-space: nowrap;
+}
+.btn:hover { opacity: .85; }
+.btn:active { opacity: .7; }
+.btn-accent { background: var(--accent); color: #000; }
+.btn-ghost { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-green { background: var(--green); color: #000; }
+.btn-blue { background: var(--blue); color: #000; }
+.btn-full { width: 100%; }
+.btn-sm { padding: 4px 8px; font-size: 11px; }
+
+/* ── Center ───────────────────────────────────────────────────────── */
+#center {
+  grid-area: center;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Video area */
+#video-area {
+  background: #000;
+  position: relative;
+  flex-shrink: 0;
+}
+#main-video {
+  width: 100%;
+  display: block;
+  max-height: 50vh;
+  background: #000;
+}
+
+/* Fullscreen — expand container, video fills it, HUD stays */
+#video-area:fullscreen,
+#video-area:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+#video-area:fullscreen #main-video,
+#video-area:-webkit-full-screen #main-video {
+  flex: 1;
+  max-height: none;
+  height: 100%;
+  object-fit: contain;
+}
+/* ── Fullscreen panel cards ───────────────────────────────────────── */
+#video-area:fullscreen .hud-zone,
+#video-area:-webkit-full-screen .hud-zone {
+  gap: 0;
+  pointer-events: none;
+}
+
+/* Left panel — matchup */
+#video-area:fullscreen #hud-tl,
+#video-area:-webkit-full-screen #hud-tl {
+  top: 50%;
+  left: 0;
+  bottom: auto;
+  right: auto;
+  transform: translateY(-50%);
+  width: 10%;
+  min-width: 110px;
+  background: rgba(10,14,20,.78);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.07);
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+  padding: 16px 12px;
+  align-items: flex-start;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* Right panel — pitch metrics */
+#video-area:fullscreen #hud-tr,
+#video-area:-webkit-full-screen #hud-tr {
+  top: 50%;
+  right: 0;
+  bottom: auto;
+  left: auto;
+  transform: translateY(-50%);
+  width: 10%;
+  min-width: 110px;
+  background: rgba(10,14,20,.78);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.07);
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  padding: 16px 12px;
+  align-items: flex-start;
+  gap: 0;
+}
+
+/* Bottom-right panel — batted ball */
+#video-area:fullscreen #hud-br,
+#video-area:-webkit-full-screen #hud-br {
+  bottom: 56px;
+  right: 0;
+  top: auto;
+  left: auto;
+  width: 10%;
+  min-width: 110px;
+  background: rgba(10,14,20,.78);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.07);
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  padding: 12px 12px;
+  align-items: flex-start;
+  gap: 0;
+}
+
+/* Hide bl zone in fullscreen — unused */
+#video-area:fullscreen #hud-bl,
+#video-area:-webkit-full-screen #hud-bl {
+  display: none;
+}
+
+/* Chips inside panels become full-width card rows */
+#video-area:fullscreen .hud-zone .hud-chip,
+#video-area:-webkit-full-screen .hud-zone .hud-chip {
+  background: transparent;
+  border-radius: 0;
+  padding: 7px 0;
+  font-size: 13px;
+  font-weight: 700;
+  width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  line-height: 1.3;
+}
+#video-area:fullscreen .hud-zone .hud-chip:last-child,
+#video-area:-webkit-full-screen .hud-zone .hud-chip:last-child {
+  border-bottom: none;
+}
+#video-area:fullscreen .hud-zone .hud-chip .hud-sub,
+#video-area:-webkit-full-screen .hud-zone .hud-chip .hud-sub {
+  font-size: 8px;
+  letter-spacing: .07em;
+  margin-bottom: 2px;
+  color: rgba(255,255,255,.4);
+}
+#video-area:fullscreen .hud-zone .hud-chip.big,
+#video-area:-webkit-full-screen .hud-zone .hud-chip.big {
+  font-size: 20px;
+  padding: 8px 0 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+  margin-bottom: 2px;
+  letter-spacing: .03em;
+}
+
+#video-area:fullscreen #video-overlay,
+#video-area:-webkit-full-screen #video-overlay {
+  padding: 12px 18px;
+}
+#video-area:fullscreen #hud-settings-wrap,
+#video-area:-webkit-full-screen #hud-settings-wrap {
+  position: static;
+}
+#video-area:fullscreen #hud-settings-panel,
+#video-area:-webkit-full-screen #hud-settings-panel {
+  bottom: calc(100% + 8px);
+  right: 0;
+}
+#video-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 14px;
+  background: linear-gradient(transparent, rgba(0,0,0,.8));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#video-info-badge {
+  flex: 1;
+  font-size: 11px;
+  color: #ccc;
+}
+#video-info-badge strong { color: var(--accent); }
+
+/* ── Video HUD overlay ────────────────────────────────────────────── */
+.hud-zone {
+  position: absolute;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+#hud-tl { top: 10px; left: 12px; }
+#hud-tr { top: 10px; right: 12px; align-items: flex-end; }
+#hud-bl { bottom: 44px; left: 12px; }
+#hud-br { bottom: 44px; right: 12px; align-items: flex-end; }
+
+.hud-chip {
+  background: rgba(0,0,0,.62);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+.hud-chip.accent { color: var(--accent); }
+.hud-chip.blue   { color: var(--blue); }
+.hud-chip.green  { color: var(--green); }
+.hud-chip.red    { color: var(--red); }
+.hud-chip.big {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  padding: 4px 10px;
+}
+.hud-chip .hud-sub {
+  font-size: 9px;
+  font-weight: 400;
+  color: rgba(255,255,255,.55);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  display: block;
+  line-height: 1.2;
+}
+
+/* ── HUD settings popover ─────────────────────────────────────────── */
+#hud-settings-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+#hud-settings-panel {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  width: 230px;
+  z-index: 500;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+}
+#hud-settings-panel.open { display: block; }
+#hud-settings-panel h3 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.hud-settings-group { margin-bottom: 8px; }
+.hud-settings-group-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.hud-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 11px;
+  color: var(--text2);
+  cursor: pointer;
+  user-select: none;
+}
+.hud-toggle-row:hover { color: var(--text); }
+/* pill toggle */
+.hud-toggle {
+  width: 30px; height: 16px;
+  background: var(--border);
+  border-radius: 8px;
+  position: relative;
+  transition: background .15s;
+  flex-shrink: 0;
+}
+.hud-toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 12px; height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .15s;
+}
+.hud-toggle.on { background: var(--accent); }
+.hud-toggle.on::after { transform: translateX(14px); }
+
+/* Pitch list */
+#pitch-list-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+#pitch-list-area::-webkit-scrollbar { width: 4px; }
+#pitch-list-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+#pitch-list-header {
+  position: sticky;
+  top: 0;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 36px 60px 70px 90px 90px 68px 80px 80px 58px;
+  padding: 6px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  z-index: 10;
+  gap: 2px;
+}
+
+.pitch-row {
+  display: grid;
+  grid-template-columns: 36px 60px 70px 90px 90px 68px 80px 80px 58px;
+  padding: 6px 8px;
+  gap: 2px;
+  border-bottom: 1px solid rgba(48,54,61,.5);
+  cursor: pointer;
+  transition: background .1s;
+  align-items: center;
+  font-size: 11px;
+}
+.pitch-row:hover { background: var(--bg3); }
+.pitch-row.active { background: #1f2d1f; border-left: 3px solid var(--green); }
+.pitch-row .cell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pitch-row .cell.num { color: var(--muted); font-size: 10px; }
+.pitch-row .cell.name { color: var(--text2); }
+.pitch-row .cell.vel { color: var(--accent); font-weight: 700; }
+.pitch-row .cell.type { }
+.pitch-row .cell.call { }
+.pitch-row .cell.result { }
+
+.tag { display: inline-block; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; }
+.tag-ff { background:#2a3a5a; color:#58a6ff; }
+.tag-sl { background:#3a2a2a; color:#e05252; }
+.tag-ch { background:#2a3a2a; color:#3fb950; }
+.tag-cb { background:#3a2a4a; color:#c078e6; }
+.tag-si { background:#2a4a3a; color:#44c996; }
+.tag-ct { background:#4a3a2a; color:#e6813c; }
+.tag-sw { background:#2a2a3a; color:#8b8bf5; }
+.tag-ot { background:#3a3a2a; color:#c9c96a; }
+
+.call-tag { border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; }
+.call-StrikeCalled, .call-StrikeSwinging { background:#3a2020; color:#e05252; }
+.call-BallCalled, .call-HitByPitch { background:#202a3a; color:#58a6ff; }
+.call-InPlay { background:#1f3a1f; color:#3fb950; }
+.call-FoulBall, .call-FoulTip { background:#3a3a20; color:#c9c96a; }
+
+#no-results {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+  display: none;
+}
+
+/* ── Right sidebar — TrackMan data ────────────────────────────────── */
+#right-sidebar {
+  grid-area: right;
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+#right-sidebar::-webkit-scrollbar { width: 4px; }
+#right-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+#tm-panel { padding: 10px; flex: 1; }
+#tm-empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 30px 10px;
+  font-size: 12px;
+}
+
+.tm-section { margin-bottom: 12px; }
+.tm-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.tm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+.tm-row { display: flex; flex-direction: column; }
+.tm-label { font-size: 9px; text-transform: uppercase; color: var(--muted); letter-spacing: .05em; }
+.tm-value { font-size: 14px; font-weight: 700; color: var(--text); }
+.tm-value.accent { color: var(--accent); }
+.tm-value.blue { color: var(--blue); }
+.tm-value.green { color: var(--green); }
+.tm-value.red { color: var(--red); }
+
+.tm-full-row { grid-column: 1 / -1; }
+.tm-full-row .tm-value { font-size: 12px; }
+
+/* Pitch type indicator */
+#pitch-type-indicator {
+  text-align: center;
+  padding: 8px;
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  background: var(--bg3);
+}
+
+/* ── Editor / timeline tray ───────────────────────────────────────── */
+#tray {
+  grid-area: tray;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#tray-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#tray-header .tray-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+}
+#tray-header .spacer { flex: 1; }
+#tray-clips-count {
+  background: var(--accent);
+  color: #000;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+#tray-clips {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+#tray-clips::-webkit-scrollbar { height: 4px; }
+#tray-clips::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.tray-clip {
+  flex-shrink: 0;
+  width: 178px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  cursor: default;
+  position: relative;
+  transition: border-color .15s;
+  font-size: 10px;
+}
+.tray-clip:hover { border-color: var(--accent); }
+.tray-clip.playing { border-color: var(--green); background: #1a2f1a; }
+.tray-clip .clip-num {
+  font-size: 9px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.tray-clip .clip-pitcher { font-weight: 700; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tray-clip .clip-type { color: var(--accent); font-size: 10px; }
+.tray-clip .clip-vel { color: var(--muted); }
+.tray-clip .clip-remove {
+  position: absolute;
+  top: 3px; right: 3px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity .15s;
+  line-height: 1;
+}
+.tray-clip:hover .clip-remove { opacity: 1; }
+.tray-clip .clip-order-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 3px;
+  padding: 1px 4px;
+  cursor: pointer;
+  font-size: 9px;
+  margin-top: 4px;
+}
+/* Trim controls inside tray card */
+.trim-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 5px;
+  border-top: 1px solid var(--border);
+  padding-top: 5px;
+}
+.trim-field { display: flex; flex-direction: column; gap: 2px; }
+.trim-label { font-size: 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.trim-input-row { display: flex; gap: 2px; align-items: center; }
+.trim-input-row input[type=number] {
+  width: 52px;
+  padding: 2px 4px;
+  font-size: 10px;
+  border-radius: 3px;
+}
+.trim-grab {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: 3px;
+  padding: 1px 3px;
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1.4;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.trim-grab:hover { background: var(--accent); color: #000; }
+.tray-empty {
+  color: var(--muted);
+  font-size: 12px;
+  width: 100%;
+  text-align: center;
+}
+
+/* ── Export modal ─────────────────────────────────────────────────── */
+#modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.75);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+#modal-overlay.open { display: flex; }
+#modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 420px;
+  max-width: 95vw;
+  padding: 24px;
+}
+#modal h2 { font-size: 16px; margin-bottom: 6px; }
+#modal p { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+#modal-status {
+  background: var(--bg3);
+  border-radius: var(--radius);
+  padding: 12px;
+  font-size: 12px;
+  min-height: 60px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── Mobile filter drawer ─────────────────────────────────────────── */
+#mobile-filter-btn {
+  display: none;
+  position: fixed;
+  top: 50px;
+  left: 12px;
+  z-index: 200;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+#filter-drawer-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 300;
+}
+#filter-drawer-overlay.open { display: block; }
+#filter-drawer {
+  position: fixed;
+  top: 0; left: -100%;
+  width: 300px;
+  height: 100vh;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  z-index: 400;
+  overflow-y: auto;
+  transition: left .25s;
+  display: flex;
+  flex-direction: column;
+}
+#filter-drawer.open { left: 0; }
+#filter-drawer-close {
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+#filter-drawer-close span { font-weight: 700; color: var(--text); }
+#filter-drawer-close button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 44px 1fr var(--tray-h);
+    grid-template-areas:
+      "header"
+      "center"
+      "tray";
+    overflow: hidden;
+  }
+  #left-sidebar, #right-sidebar { display: none; }
+  #mobile-filter-btn { display: block; }
+  #pitch-list-header { display: none; }
+  .pitch-row {
+    display: block;
+    padding: 10px 12px;
+  }
+  .pitch-row .cell { display: inline; }
+  .pitch-row .cell::after { content: " · "; color: var(--border); }
+  .pitch-row .cell:last-child::after { content: ""; }
+  #main-video { max-height: 38vh; }
+  #video-area { position: sticky; top: 0; z-index: 50; }
+
+  /* Mobile TrackMan — append below pitch list on mobile */
+  #mobile-tm { display: block; }
+}
+@media (min-width: 901px) {
+  #mobile-tm { display: none; }
+}
+
+#mobile-tm {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 10px;
+}
+#mobile-tm-toggle {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+}
+#mobile-tm-body { padding-top: 10px; display: none; }
+#mobile-tm-body.open { display: block; }
+
+/* ── Misc helpers ─────────────────────────────────────────────────── */
+.kbd {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-family: monospace;
+  color: var(--muted);
+}
+
+#keyboard-hint {
+  padding: 6px 10px;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* drag indicator */
+.tray-clip.drag-over { border-color: var(--blue); }
+
+/* Loading state */
+#loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  gap: 16px;
+}
+#loading-overlay .big-spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+#loading-overlay p { color: var(--muted); font-size: 13px; }
+#loading-overlay .logo-big { font-size: 22px; font-weight: 900; color: var(--accent); }
+
+/* Notification toast */
+#toast {
+  position: fixed;
+  bottom: calc(var(--tray-h) + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0;
+  transition: opacity .25s, transform .25s;
+  pointer-events: none;
+  z-index: 800;
+  white-space: nowrap;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="logo-big">⚾ Film Room</div>
+  <div class="big-spinner"></div>
+  <p id="loading-msg">Loading data.csv…</p>
+</div>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<!-- Mobile filter drawer -->
+<button id="mobile-filter-btn" onclick="openFilterDrawer()">⚙ Filters</button>
+<div id="filter-drawer-overlay" onclick="closeFilterDrawer()"></div>
+<div id="filter-drawer">
+  <div id="filter-drawer-close">
+    <span>Filters</span>
+    <button onclick="closeFilterDrawer()">×</button>
+  </div>
+  <div id="filter-drawer-body"><!-- populated by JS --></div>
+</div>
+
+<!-- Export modal -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h2>Export Merged Video</h2>
+    <p>Clips will be POSTed to <code>/api/render-highlight</code>. The backend uses FFmpeg concat to merge them and returns a download URL.</p>
+    <div id="modal-status">
+      <span>Select clips and click Export Merged Video.</span>
+    </div>
+    <div id="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-ghost" onclick="exportEditList()" id="modal-fallback-btn">↓ Download JSON (Fallback)</button>
+      <button class="btn btn-accent" onclick="startExport()" id="modal-export-btn">Export Merged Video</button>
+    </div>
+  </div>
+</div>
+
+<!-- App shell -->
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <div class="logo">⚾ Film Room</div>
+    <div class="subtitle">TrackMan Scout</div>
+    <div class="spacer"></div>
+    <div class="pill"><span id="pitch-count-badge">0</span> pitches</div>
+  </div>
+
+  <!-- Left sidebar: Filters -->
+  <div id="left-sidebar">
+    <div class="sidebar-header">
+      Filters
+      <button onclick="clearAllFilters()">Clear all</button>
+    </div>
+    <div id="filter-body"><!-- populated by buildFilterUI() --></div>
+  </div>
+
+  <!-- Center -->
+  <div id="center">
+    <!-- Video player -->
+    <div id="video-area">
+      <video id="main-video" controls controlsList="nofullscreen" preload="metadata" playsinline>
+        <source id="video-source" src="" type="video/mp4" />
+      </video>
+
+      <!-- HUD stat zones -->
+      <div class="hud-zone" id="hud-tl"></div>
+      <div class="hud-zone" id="hud-tr"></div>
+      <div class="hud-zone" id="hud-bl"></div>
+      <div class="hud-zone" id="hud-br"></div>
+
+      <!-- HUD settings popover -->
+      <div id="hud-settings-wrap">
+        <div id="hud-settings-panel">
+          <h3>Overlay Settings</h3>
+
+          <div class="hud-settings-group">
+            <div class="hud-settings-group-label">Matchup (top-left)</div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('pitcher')">
+              Pitcher <div class="hud-toggle" id="hud-tog-pitcher"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('batter')">
+              Batter <div class="hud-toggle" id="hud-tog-batter"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('inning')">
+              Inning / Top-Bottom <div class="hud-toggle" id="hud-tog-inning"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('count')">
+              Count &amp; Outs <div class="hud-toggle" id="hud-tog-count"></div>
+            </div>
+          </div>
+
+          <div class="hud-settings-group">
+            <div class="hud-settings-group-label">Pitch metrics (top-right)</div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('pitchType')">
+              Pitch Type <div class="hud-toggle" id="hud-tog-pitchType"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('velocity')">
+              Velocity <div class="hud-toggle" id="hud-tog-velocity"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('spinRate')">
+              Spin Rate <div class="hud-toggle" id="hud-tog-spinRate"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('ivb')">
+              IVB <div class="hud-toggle" id="hud-tog-ivb"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('hbreak')">
+              H-Break <div class="hud-toggle" id="hud-tog-hbreak"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('pitchCall')">
+              Pitch Call <div class="hud-toggle" id="hud-tog-pitchCall"></div>
+            </div>
+          </div>
+
+          <div class="hud-settings-group">
+            <div class="hud-settings-group-label">Batted ball (bottom-right)</div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('exitSpeed')">
+              Exit Speed <div class="hud-toggle" id="hud-tog-exitSpeed"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('launchAngle')">
+              Launch Angle <div class="hud-toggle" id="hud-tog-launchAngle"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('distance')">
+              Distance <div class="hud-toggle" id="hud-tog-distance"></div>
+            </div>
+            <div class="hud-toggle-row" onclick="toggleHudSetting('playResult')">
+              Play Result <div class="hud-toggle" id="hud-tog-playResult"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="video-overlay">
+        <div id="video-info-badge">Select a pitch to begin</div>
+        <div id="video-timecode" style="font-size:11px;font-family:monospace;color:var(--accent);letter-spacing:.04em;flex-shrink:0">0.0s</div>
+        <button class="btn btn-sm btn-ghost" onclick="prevPitch()" title="Previous (←)">◀</button>
+        <button class="btn btn-sm btn-green" onclick="addCurrentToEditor()" title="Add to editor (A)">+ Edit</button>
+        <button class="btn btn-sm btn-blue" onclick="addAtBatToEditor()" title="Add all pitches from this at-bat">+ AB</button>
+        <button class="btn btn-sm btn-ghost" onclick="nextPitch()" title="Next (→)">▶</button>
+        <button class="btn btn-sm btn-ghost" onclick="toggleHudSettingsPanel(event)" title="Overlay settings">⚙</button>
+        <button class="btn btn-sm btn-ghost" id="fs-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+      </div>
+    </div>
+
+    <!-- Keyboard hints -->
+    <div id="keyboard-hint">
+      <span><span class="kbd">←</span><span class="kbd">→</span> Prev/Next</span>
+      <span><span class="kbd">Space</span> Play/Pause</span>
+      <span><span class="kbd">A</span> Add to editor</span>
+    </div>
+
+    <!-- Pitch list -->
+    <div id="pitch-list-area">
+      <div id="pitch-list-header">
+        <div>#</div>
+        <div>Inn/Ct</div>
+        <div>Pitcher</div>
+        <div>Batter</div>
+        <div>Batter Team</div>
+        <div>Type</div>
+        <div>Call</div>
+        <div>Result</div>
+        <div>Velo</div>
+      </div>
+      <div id="pitch-list"></div>
+      <div id="no-results">No pitches match the current filters.</div>
+
+      <!-- Mobile TrackMan -->
+      <div id="mobile-tm">
+        <button id="mobile-tm-toggle" onclick="toggleMobileTm()">
+          <span>TrackMan Data</span><span id="mobile-tm-chevron">▼</span>
+        </button>
+        <div id="mobile-tm-body">
+          <div id="mobile-tm-content"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right sidebar: TrackMan -->
+  <div id="right-sidebar">
+    <div class="sidebar-header">TrackMan Data</div>
+    <div id="tm-panel">
+      <div id="tm-empty">Select a pitch to view TrackMan data.</div>
+      <div id="tm-content" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Editor tray -->
+  <div id="tray">
+    <div id="tray-header">
+      <div class="tray-title">Edit Reel</div>
+      <span id="tray-clips-count">0</span>
+      <div class="spacer"></div>
+      <button class="btn btn-sm btn-ghost" onclick="playEditReel()" id="play-reel-btn">▶ Play Reel</button>
+      <button class="btn btn-sm btn-accent" onclick="openModal()" id="export-merge-btn">⬆ Export Merged</button>
+      <button class="btn btn-sm btn-ghost" onclick="exportEditList()">↓ JSON</button>
+      <button class="btn btn-sm btn-danger" onclick="clearEditor()">✕ Clear</button>
+    </div>
+    <div id="tray-clips">
+      <div class="tray-empty">Add clips with the "+ Edit" button or press <span class="kbd">A</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+
+/* ════════════════════════════════════════════════════════════════════
+   CONFIG
+   ════════════════════════════════════════════════════════════════════ */
+
+// Set your Cloudflare R2 public bucket base URL here.
+// Videos are stored at: R2_PUBLIC_BASE_URL/{GameUID}/{PlayID}.mp4
+const R2_PUBLIC_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev";
+
+// Backend endpoint for FFmpeg concat merge.
+// See comments at bottom of file for expected backend implementation.
+const RENDER_API = "https://alpb.turinglytics.com/api/render-highlight";
+
+/* ════════════════════════════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════════════════════════════ */
+let allPitches = [];        // parsed rows from data.csv
+let filtered = [];          // after filters
+let currentIdx = -1;        // index in filtered[]
+let editClips = [];         // clips in editor
+let reelPlaying = false;
+let reelIdx = 0;
+let dragSrcIdx = null;
+
+/* ════════════════════════════════════════════════════════════════════
+   BOOT
+   ════════════════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
+  authDomain: "revs-2c987.firebaseapp.com",
+  projectId: "revs-2c987",
+  storageBucket: "revs-2c987.firebasestorage.app",
+  messagingSenderId: "181256684157",
+  appId: "1:181256684157:web:a9e1c5dfd767658e2ba714",
+  measurementId: "G-2050889X0C"
+};
+firebase.initializeApp(firebaseConfig);
+
+window.addEventListener("DOMContentLoaded", () => {
+  setLoading("Checking authentication…");
+
+  firebase.auth().onAuthStateChanged(async user => {
+    if (!user) {
+      window.location.href = "login.html";
+      return;
+    }
+
+    try {
+      setLoading("Loading data.csv…");
+      const res = await fetch("./data.csv");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      setLoading("Parsing…");
+      allPitches = parseCSV(text);
+      setLoading("Building UI…");
+      buildFilterUI();
+      applyFilters();
+      hideLoading();
+      syncHudToggles();
+      bindKeys();
+    } catch (e) {
+      document.getElementById("loading-msg").textContent = "Error loading data.csv: " + e.message;
+      document.querySelector(".big-spinner").style.display = "none";
+    }
+  });
+});
+
+/* ════════════════════════════════════════════════════════════════════
+   CSV PARSER
+   Handles quoted fields (including commas and newlines inside quotes).
+   Normalizes "Top/Bottom" → "TopBottom" so the rest of the app is clean.
+   ════════════════════════════════════════════════════════════════════ */
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuote = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+
+    if (inQuote) {
+      if (ch === '"' && next === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQuote = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"') { inQuote = true; }
+      else if (ch === ',') { row.push(field); field = ""; }
+      else if (ch === '\n' || (ch === '\r' && next === '\n')) {
+        if (ch === '\r') i++;
+        row.push(field); field = "";
+        rows.push(row); row = [];
+      } else { field += ch; }
+    }
+  }
+  // last field/row
+  if (field || row.length) { row.push(field); rows.push(row); }
+
+  if (rows.length < 2) return [];
+
+  // Header normalization
+  const headers = rows[0].map(h => {
+    h = h.trim();
+    if (h === "Top/Bottom") return "TopBottom";
+    return h;
+  });
+
+  return rows.slice(1)
+    .filter(r => r.some(f => f.trim()))
+    .map(r => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = (r[i] ?? "").trim(); });
+      return obj;
+    })
+    .filter(p => p.PlayID || p.GameUID);
+}
+
+function hideLoading() {
+  document.getElementById("loading-overlay").style.display = "none";
+}
+function setLoading(msg) {
+  document.getElementById("loading-msg").textContent = msg;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   FILTERS UI
+   ════════════════════════════════════════════════════════════════════ */
+const FILTER_SECTIONS = [
+  {
+    label: "Game / Identity",
+    fields: [
+      { key: "search", label: "Search (Pitcher, Batter, PlayID)", type: "text", placeholder: "name or PlayID…" },
+      { key: "GameUID", label: "Game", type: "select" },
+      { key: "Date", label: "Date", type: "select" },
+      { key: "PitcherTeam", label: "Pitcher Team", type: "select" },
+      { key: "BatterTeam", label: "Batter Team", type: "select" },
+      { key: "Pitcher", label: "Pitcher", type: "select" },
+      { key: "PitcherThrows", label: "Pitcher Throws", type: "select" },
+      { key: "Batter", label: "Batter", type: "select" },
+      { key: "BatterSide", label: "Batter Side", type: "select" },
+    ]
+  },
+  {
+    label: "Pitch",
+    fields: [
+      { key: "TaggedPitchType", label: "Pitch Type (Tagged)", type: "select" },
+      { key: "AutoPitchType", label: "Pitch Type (Auto)", type: "select" },
+      { key: "PitchCall", label: "Pitch Call", type: "select" },
+      { key: "PlayResult", label: "Play Result", type: "select" },
+      { key: "TaggedHitType", label: "Hit Type", type: "select" },
+    ]
+  },
+  {
+    label: "Situation",
+    fields: [
+      { key: "Inning", label: "Inning", type: "select" },
+      { key: "TopBottom", label: "Top / Bottom", type: "select" },
+      { key: "Outs", label: "Outs", type: "select" },
+      { key: "Count", label: "Count (B-S)", type: "select" },
+    ]
+  },
+  {
+    label: "Metrics",
+    fields: [
+      { key: "RelSpeed", label: "Velocity (mph)", type: "range", unit: "mph" },
+      { key: "SpinRate", label: "Spin Rate (rpm)", type: "range" },
+      { key: "InducedVertBreak", label: "IVB (in)", type: "range" },
+      { key: "HorzBreak", label: "Horizontal Break (in)", type: "range" },
+      { key: "ExitSpeed", label: "Exit Speed (mph)", type: "range" },
+      { key: "Angle", label: "Launch Angle (°)", type: "range" },
+      { key: "Distance", label: "Distance (ft)", type: "range" },
+    ]
+  }
+];
+
+// Global filter state
+const filterState = {};
+
+function buildFilterUI() {
+  const html = buildFilterHTML();
+  document.getElementById("filter-body").innerHTML = html;
+  document.getElementById("filter-drawer-body").innerHTML = html;
+  wireFilters("filter-body");
+  wireFilters("filter-drawer-body");
+  populateSelects();
+}
+
+function buildFilterHTML() {
+  return FILTER_SECTIONS.map(sec => `
+    <div class="filter-section">
+      <div class="filter-section-title" onclick="toggleSection(this)">
+        ${sec.label} <span class="chevron">▾</span>
+      </div>
+      <div class="filter-section-body">
+        ${sec.fields.map(f => buildFieldHTML(f)).join("")}
+      </div>
+    </div>
+  `).join("");
+}
+
+function buildFieldHTML(f) {
+  if (f.type === "range") {
+    return `
+      <div class="filter-group">
+        <label class="filter-label">${f.label}</label>
+        <div class="range-row">
+          <input type="number" data-filter="${f.key}_min" placeholder="Min" step="0.1" oninput="onFilterChange(this)" />
+          <input type="number" data-filter="${f.key}_max" placeholder="Max" step="0.1" oninput="onFilterChange(this)" />
+        </div>
+      </div>`;
+  }
+  if (f.type === "text") {
+    return `
+      <div class="filter-group">
+        <label class="filter-label">${f.label}</label>
+        <input type="text" data-filter="${f.key}" placeholder="${f.placeholder||""}" oninput="onFilterChange(this)" />
+      </div>`;
+  }
+  return `
+    <div class="filter-group">
+      <label class="filter-label">${f.label}</label>
+      <select data-filter="${f.key}" onchange="onFilterChange(this)">
+        <option value="">All</option>
+      </select>
+    </div>`;
+}
+
+function wireFilters(containerId) {
+  // nothing extra needed — events are inline
+}
+
+function populateSelects() {
+  // Collect unique values for each select key
+  const keys = ["GameUID","Date","Pitcher","PitcherThrows","Batter","BatterSide","PitcherTeam","BatterTeam",
+    "TaggedPitchType","AutoPitchType","PitchCall","PlayResult","TaggedHitType",
+    "Inning","TopBottom","Outs"];
+
+  const maps = {};
+  keys.forEach(k => maps[k] = new Set());
+
+  allPitches.forEach(p => {
+    keys.forEach(k => { if (p[k] != null && p[k] !== "") maps[k].add(String(p[k])); });
+    // synthetic Count field
+    const cnt = `${p.Balls ?? "?"}-${p.Strikes ?? "?"}`;
+    if (!maps["Count"]) maps["Count"] = new Set();
+    maps["Count"].add(cnt);
+  });
+
+  // Count
+  keys.push("Count");
+  allPitches.forEach(p => {
+    const cnt = `${p.Balls ?? "?"}-${p.Strikes ?? "?"}`;
+    maps["Count"].add(cnt);
+  });
+
+  function fillSelects(containerId) {
+    keys.forEach(k => {
+      document.querySelectorAll(`#${containerId} select[data-filter="${k}"]`).forEach(sel => {
+        const vals = Array.from(maps[k] || []).sort((a,b) => {
+          const na = parseFloat(a), nb = parseFloat(b);
+          return (!isNaN(na) && !isNaN(nb)) ? na - nb : a.localeCompare(b);
+        });
+        vals.forEach(v => {
+          const opt = document.createElement("option");
+          opt.value = v;
+          opt.textContent = v;
+          sel.appendChild(opt);
+        });
+      });
+    });
+  }
+
+  fillSelects("filter-body");
+  fillSelects("filter-drawer-body");
+}
+
+function toggleSection(titleEl) {
+  titleEl.classList.toggle("collapsed");
+  titleEl.nextElementSibling.classList.toggle("hidden");
+}
+
+function onFilterChange(el) {
+  const key = el.dataset.filter;
+  filterState[key] = el.value;
+  // Mirror the changed value to the other panel (sidebar ↔ drawer)
+  document.querySelectorAll(`[data-filter="${key}"]`).forEach(other => {
+    if (other !== el) other.value = el.value;
+  });
+  applyFilters();
+}
+
+function getFilterValues() {
+  return filterState;
+}
+
+function clearAllFilters() {
+  document.querySelectorAll("[data-filter]").forEach(el => {
+    if (el.tagName === "SELECT") el.value = "";
+    else el.value = "";
+    filterState[el.dataset.filter] = "";
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  const f = getFilterValues();
+  const search = (f.search || "").toLowerCase().trim();
+
+  filtered = allPitches.filter(p => {
+    // Text search
+    if (search) {
+      const haystack = [p.Pitcher, p.Batter, p.PlayID, p.GameUID].join(" ").toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    // Selects
+    const selectKeys = ["GameUID","Date","Pitcher","PitcherThrows","Batter","BatterSide","PitcherTeam","BatterTeam",
+      "TaggedPitchType","AutoPitchType","PitchCall","PlayResult","TaggedHitType",
+      "Inning","TopBottom","Outs"];
+    for (const k of selectKeys) {
+      if (f[k]) {
+        if (k === "Date") {
+          if (String(p[k] || "") !== f[k]) return false;
+        } else {
+          if (String(p[k] || "") !== f[k]) return false;
+        }
+      }
+    }
+    // Count
+    if (f["Count"]) {
+      const cnt = `${p.Balls ?? "?"}-${p.Strikes ?? "?"}`;
+      if (cnt !== f["Count"]) return false;
+    }
+    // Ranges
+    const rangeKeys = ["RelSpeed","SpinRate","InducedVertBreak","HorzBreak","ExitSpeed","Angle","Distance"];
+    for (const k of rangeKeys) {
+      const minV = parseFloat(f[`${k}_min`]);
+      const maxV = parseFloat(f[`${k}_max`]);
+      const val = parseFloat(p[k]);
+      if (!isNaN(minV) && (isNaN(val) || val < minV)) return false;
+      if (!isNaN(maxV) && (isNaN(val) || val > maxV)) return false;
+    }
+    return true;
+  });
+
+  renderPitchList();
+  document.getElementById("pitch-count-badge").textContent = filtered.length;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PITCH LIST
+   ════════════════════════════════════════════════════════════════════ */
+function pitchTypeClass(type) {
+  if (!type) return "tag-ot";
+  const t = type.toLowerCase();
+  if (t.includes("four") || t === "ff" || t === "fa") return "tag-ff";
+  if (t.includes("slider") || t === "sl") return "tag-sl";
+  if (t.includes("change") || t === "ch") return "tag-ch";
+  if (t.includes("curve") || t === "cb" || t === "cu") return "tag-cb";
+  if (t.includes("sinker") || t === "si") return "tag-si";
+  if (t.includes("cutter") || t === "ct" || t === "fc") return "tag-ct";
+  if (t.includes("sweep") || t === "sw" || t === "st") return "tag-sw";
+  return "tag-ot";
+}
+
+function callClass(call) {
+  if (!call) return "";
+  const c = call.replace(/\s/g,"");
+  return `call-${c}`;
+}
+
+function renderPitchList() {
+  const list = document.getElementById("pitch-list");
+  const noRes = document.getElementById("no-results");
+
+  if (filtered.length === 0) {
+    list.innerHTML = "";
+    noRes.style.display = "block";
+    return;
+  }
+  noRes.style.display = "none";
+
+  const frag = document.createDocumentFragment();
+  filtered.forEach((p, i) => {
+    const inn = `${p.Inning ?? "?"}${p.TopBottom === "Top" ? "▲" : p.TopBottom === "Bottom" ? "▼" : ""}`;
+    const cnt = `${p.Balls ?? "?"}-${p.Strikes ?? "?"} / ${p.Outs ?? "?"}o`;
+    const type = p.TaggedPitchType || p.AutoPitchType || "—";
+    const vel = p.RelSpeed ? `${parseFloat(p.RelSpeed).toFixed(1)}` : "—";
+    const call = p.PitchCall || "—";
+    const result = p.PlayResult || "—";
+
+    const row = document.createElement("div");
+    row.className = "pitch-row";
+    row.dataset.idx = i;
+    if (i === currentIdx) row.classList.add("active");
+
+    row.innerHTML = `
+      <div class="cell num">${i + 1}</div>
+      <div class="cell">${inn}<br><small style="color:var(--muted)">${cnt}</small></div>
+      <div class="cell name">${p.Pitcher || "—"}</div>
+      <div class="cell name">${p.Batter || "—"}</div>
+      <div class="cell name" style="color:var(--muted)">${p.BatterTeam || "—"}</div>
+      <div class="cell"><span class="tag ${pitchTypeClass(type)}">${type}</span></div>
+      <div class="cell"><span class="call-tag ${callClass(call)}">${call}</span></div>
+      <div class="cell">${result}</div>
+      <div class="cell vel">${vel}</div>
+    `;
+    row.addEventListener("click", () => selectPitch(i));
+    frag.appendChild(row);
+  });
+
+  list.innerHTML = "";
+  list.appendChild(frag);
+}
+
+function selectPitch(idx) {
+  currentIdx = idx;
+  const p = filtered[idx];
+  if (!p) return;
+
+  // Highlight row
+  document.querySelectorAll(".pitch-row").forEach(r => r.classList.remove("active"));
+  const activeRow = document.querySelector(`.pitch-row[data-idx="${idx}"]`);
+  if (activeRow) {
+    activeRow.classList.add("active");
+    activeRow.scrollIntoView({ block: "nearest" });
+  }
+
+  // Load video
+  loadVideo(p);
+
+  // TrackMan panel
+  renderTmPanel(p);
+
+  // Stop reel if user clicks manually
+  if (reelPlaying) stopReel();
+}
+
+function getVideoUrl(p) {
+  if (p.url) return p.url;
+  return `${R2_PUBLIC_BASE_URL}/${p.GameUID}/${p.PlayID}.mp4`;
+}
+
+function loadVideo(p) {
+  const video = document.getElementById("main-video");
+  const src = document.getElementById("video-source");
+  const badge = document.getElementById("video-info-badge");
+
+  const url = getVideoUrl(p);
+  src.src = url;
+  video.load();
+  video.play().catch(() => {});
+
+  const type = p.TaggedPitchType || p.AutoPitchType || "—";
+  const vel = p.RelSpeed ? `${parseFloat(p.RelSpeed).toFixed(1)} mph` : "";
+  badge.innerHTML = `<strong>${p.Pitcher || "?"}</strong> → ${p.Batter || "?"} &nbsp;|&nbsp; ${type} ${vel} &nbsp;|&nbsp; #${p.PlayID || "?"}`;
+}
+
+function prevPitch() {
+  if (filtered.length === 0) return;
+  const next = currentIdx <= 0 ? filtered.length - 1 : currentIdx - 1;
+  selectPitch(next);
+}
+
+function nextPitch() {
+  if (filtered.length === 0) return;
+  const next = currentIdx >= filtered.length - 1 ? 0 : currentIdx + 1;
+  selectPitch(next);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TRACKMAN PANEL
+   ════════════════════════════════════════════════════════════════════ */
+function fmt(v, dec = 1, suffix = "") {
+  const n = parseFloat(v);
+  return isNaN(n) ? "—" : n.toFixed(dec) + suffix;
+}
+function fmtStr(v) { return v != null && v !== "" ? String(v) : "—"; }
+
+function buildTmHTML(p) {
+  const type = p.TaggedPitchType || p.AutoPitchType || "—";
+  return `
+    <div id="pitch-type-indicator">${type}</div>
+    <div class="tm-section">
+      <div class="tm-section-title">Matchup</div>
+      <div class="tm-grid">
+        <div class="tm-row tm-full-row"><div class="tm-label">Pitcher</div><div class="tm-value">${fmtStr(p.Pitcher)}</div></div>
+        <div class="tm-row tm-full-row"><div class="tm-label">Batter</div><div class="tm-value">${fmtStr(p.Batter)}</div></div>
+        <div class="tm-row"><div class="tm-label">Inning</div><div class="tm-value">${fmtStr(p.Inning)} ${p.TopBottom === "Top" ? "▲" : p.TopBottom === "Bottom" ? "▼" : ""}</div></div>
+        <div class="tm-row"><div class="tm-label">Count</div><div class="tm-value">${p.Balls ?? "?"}–${p.Strikes ?? "?"}, ${p.Outs ?? "?"}o</div></div>
+        <div class="tm-row tm-full-row"><div class="tm-label">Call</div><div class="tm-value">${fmtStr(p.PitchCall)}</div></div>
+        <div class="tm-row tm-full-row"><div class="tm-label">Play Result</div><div class="tm-value">${fmtStr(p.PlayResult)}</div></div>
+      </div>
+    </div>
+    <div class="tm-section">
+      <div class="tm-section-title">Pitch Metrics</div>
+      <div class="tm-grid">
+        <div class="tm-row"><div class="tm-label">Velocity</div><div class="tm-value accent">${fmt(p.RelSpeed)} <small>mph</small></div></div>
+        <div class="tm-row"><div class="tm-label">Spin Rate</div><div class="tm-value blue">${fmt(p.SpinRate, 0)} <small>rpm</small></div></div>
+        <div class="tm-row"><div class="tm-label">IVB</div><div class="tm-value">${fmt(p.InducedVertBreak)}"</div></div>
+        <div class="tm-row"><div class="tm-label">H-Break</div><div class="tm-value">${fmt(p.HorzBreak)}"</div></div>
+        <div class="tm-row"><div class="tm-label">Loc Height</div><div class="tm-value">${fmt(p.PlateLocHeight)}</div></div>
+        <div class="tm-row"><div class="tm-label">Loc Side</div><div class="tm-value">${fmt(p.PlateLocSide)}</div></div>
+      </div>
+    </div>
+    <div class="tm-section">
+      <div class="tm-section-title">Batted Ball</div>
+      <div class="tm-grid">
+        <div class="tm-row"><div class="tm-label">Exit Velo</div><div class="tm-value red">${fmt(p.ExitSpeed)} <small>mph</small></div></div>
+        <div class="tm-row"><div class="tm-label">Launch Angle</div><div class="tm-value">${fmt(p.Angle)}°</div></div>
+        <div class="tm-row tm-full-row"><div class="tm-label">Distance</div><div class="tm-value">${fmt(p.Distance, 0)} <small>ft</small></div></div>
+        <div class="tm-row tm-full-row"><div class="tm-label">Hit Type</div><div class="tm-value">${fmtStr(p.TaggedHitType)}</div></div>
+      </div>
+    </div>
+    <div class="tm-section">
+      <div class="tm-section-title">IDs</div>
+      <div class="tm-grid">
+        <div class="tm-row tm-full-row"><div class="tm-label">PlayID</div><div class="tm-value" style="font-size:11px;word-break:break-all">${fmtStr(p.PlayID)}</div></div>
+        <div class="tm-row tm-full-row"><div class="tm-label">UTC DateTime</div><div class="tm-value" style="font-size:11px">${fmtStr(p.UTCDateTime)}</div></div>
+        <div class="tm-row tm-full-row"><div class="tm-label">GameUID</div><div class="tm-value" style="font-size:10px;word-break:break-all;color:var(--muted)">${fmtStr(p.GameUID)}</div></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTmPanel(p) {
+  const html = buildTmHTML(p);
+  document.getElementById("tm-content").innerHTML = html;
+  document.getElementById("tm-content").style.display = "block";
+  document.getElementById("tm-empty").style.display = "none";
+  document.getElementById("mobile-tm-content").innerHTML = html;
+  renderHud(p);
+}
+
+function toggleMobileTm() {
+  const body = document.getElementById("mobile-tm-body");
+  const chev = document.getElementById("mobile-tm-chevron");
+  const open = body.classList.toggle("open");
+  chev.textContent = open ? "▲" : "▼";
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   VIDEO HUD OVERLAY
+   ════════════════════════════════════════════════════════════════════ */
+
+const HUD_DEFAULTS = {
+  pitcher:     true,
+  batter:      true,
+  inning:      true,
+  count:       true,
+  pitchType:   true,
+  velocity:    true,
+  spinRate:    true,
+  ivb:         false,
+  hbreak:      false,
+  pitchCall:   true,
+  exitSpeed:   true,
+  launchAngle: true,
+  distance:    true,
+  playResult:  true,
+};
+
+let hudSettings = loadHudSettings();
+let _lastHudPitch = null;
+
+function loadHudSettings() {
+  try {
+    const saved = localStorage.getItem("filmroom_hud");
+    return saved ? { ...HUD_DEFAULTS, ...JSON.parse(saved) } : { ...HUD_DEFAULTS };
+  } catch { return { ...HUD_DEFAULTS }; }
+}
+
+function saveHudSettings() {
+  localStorage.setItem("filmroom_hud", JSON.stringify(hudSettings));
+}
+
+function toggleHudSetting(key) {
+  hudSettings[key] = !hudSettings[key];
+  saveHudSettings();
+  syncHudToggles();
+  if (_lastHudPitch) renderHud(_lastHudPitch);
+}
+
+function syncHudToggles() {
+  Object.keys(hudSettings).forEach(k => {
+    const el = document.getElementById(`hud-tog-${k}`);
+    if (el) el.classList.toggle("on", hudSettings[k]);
+  });
+}
+
+function toggleHudSettingsPanel(e) {
+  e.stopPropagation();
+  document.getElementById("hud-settings-panel").classList.toggle("open");
+}
+
+// Close panel when clicking outside
+document.addEventListener("click", e => {
+  const panel = document.getElementById("hud-settings-panel");
+  if (panel && panel.classList.contains("open")) {
+    if (!panel.contains(e.target)) panel.classList.remove("open");
+  }
+});
+
+function chip(text, cls = "", sub = "") {
+  const s = sub ? `<span class="hud-sub">${sub}</span>` : "";
+  return `<div class="hud-chip${cls ? " " + cls : ""}">${s}${text}</div>`;
+}
+
+function renderHud(p) {
+  _lastHudPitch = p;
+  const s = hudSettings;
+
+  // Top-left: matchup
+  const tlParts = [];
+  if (s.pitcher && p.Pitcher)   tlParts.push(chip(p.Pitcher, "", "Pitcher"));
+  if (s.batter  && p.Batter)    tlParts.push(chip(p.Batter,  "", "Batter"));
+  if (s.inning  && p.Inning)    tlParts.push(chip(`${p.Inning} ${p.TopBottom === "Top" ? "▲" : "▼"}`, "", "Inning"));
+  if (s.count)                  tlParts.push(chip(`${p.Balls ?? "?"}–${p.Strikes ?? "?"} &nbsp; ${p.Outs ?? "?"}o`, "", "Count / Outs"));
+  document.getElementById("hud-tl").innerHTML = tlParts.join("");
+
+  // Top-right: pitch metrics
+  const trParts = [];
+  const type = p.TaggedPitchType || p.AutoPitchType;
+  if (s.pitchType && type)      trParts.push(chip(type, "big accent"));
+  if (s.velocity  && p.RelSpeed)  trParts.push(chip(`${parseFloat(p.RelSpeed).toFixed(1)} <small>mph</small>`, "accent", "Velocity"));
+  if (s.spinRate  && p.SpinRate)  trParts.push(chip(`${parseFloat(p.SpinRate).toFixed(0)} <small>rpm</small>`, "blue", "Spin"));
+  if (s.ivb    && p.InducedVertBreak) trParts.push(chip(`${parseFloat(p.InducedVertBreak).toFixed(1)}"`, "", "IVB"));
+  if (s.hbreak && p.HorzBreak)   trParts.push(chip(`${parseFloat(p.HorzBreak).toFixed(1)}"`, "", "H-Break"));
+  if (s.pitchCall && p.PitchCall) trParts.push(chip(p.PitchCall, ""));
+  document.getElementById("hud-tr").innerHTML = trParts.join("");
+
+  // Bottom-right: batted ball (only if data present)
+  const brParts = [];
+  if (s.exitSpeed   && p.ExitSpeed) brParts.push(chip(`${parseFloat(p.ExitSpeed).toFixed(1)} <small>mph</small>`, "red", "Exit Velo"));
+  if (s.launchAngle && p.Angle)     brParts.push(chip(`${parseFloat(p.Angle).toFixed(1)}°`, "", "Launch Angle"));
+  if (s.distance    && p.Distance)  brParts.push(chip(`${parseFloat(p.Distance).toFixed(0)} <small>ft</small>`, "", "Distance"));
+  if (s.playResult  && p.PlayResult && p.PlayResult !== "Undefined") brParts.push(chip(p.PlayResult, "green"));
+  document.getElementById("hud-br").innerHTML = brParts.join("");
+
+  // Bottom-left: intentionally empty (reserved)
+  document.getElementById("hud-bl").innerHTML = "";
+}
+
+function clearHud() {
+  ["hud-tl","hud-tr","hud-bl","hud-br"].forEach(id => {
+    document.getElementById(id).innerHTML = "";
+  });
+  _lastHudPitch = null;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   EDITOR TRAY
+   ════════════════════════════════════════════════════════════════════ */
+function addCurrentToEditor() {
+  if (currentIdx < 0 || !filtered[currentIdx]) { toast("No pitch selected"); return; }
+  const p = filtered[currentIdx];
+  if (editClips.find(c => c.PlayID === p.PlayID)) { toast("Already in reel"); return; }
+  editClips.push({ ...p, _url: getVideoUrl(p), trimStart: 0, trimEnd: null });
+  renderTray();
+  toast("Added to reel");
+}
+
+function addAtBatToEditor() {
+  if (currentIdx < 0 || !filtered[currentIdx]) { toast("No pitch selected"); return; }
+  const ref = filtered[currentIdx];
+
+  // Group by: same game, same plate appearance.
+  // PAofInning is the most reliable key; fall back to matching
+  // Pitcher + Batter + Inning + TopBottom within the same game.
+  const sameAB = p =>
+    p.GameUID === ref.GameUID &&
+    p.Inning  === ref.Inning  &&
+    p.TopBottom === ref.TopBottom &&
+    (ref.PAofInning
+      ? p.PAofInning === ref.PAofInning
+      : p.Pitcher === ref.Pitcher && p.Batter === ref.Batter);
+
+  // Pull from allPitches (not filtered) so we get the full AB even if
+  // some pitches are hidden by the current filter.
+  const abPitches = allPitches
+    .filter(sameAB)
+    .sort((a, b) => {
+      const na = parseFloat(a.PitchofPA ?? a.PitchNo ?? 0);
+      const nb = parseFloat(b.PitchofPA ?? b.PitchNo ?? 0);
+      return na - nb;
+    });
+
+  if (abPitches.length === 0) { toast("No pitches found for this AB"); return; }
+
+  let added = 0;
+  abPitches.forEach(p => {
+    if (!editClips.find(c => c.PlayID === p.PlayID)) {
+      editClips.push({ ...p, _url: getVideoUrl(p), trimStart: 0, trimEnd: null });
+      added++;
+    }
+  });
+
+  renderTray();
+  toast(added > 0 ? `Added ${added} pitch${added !== 1 ? "es" : ""} (${abPitches.length}-pitch AB)` : "All AB pitches already in reel");
+}
+
+function removeClip(idx) {
+  editClips.splice(idx, 1);
+  renderTray();
+}
+
+function renderTray() {
+  const container = document.getElementById("tray-clips");
+  document.getElementById("tray-clips-count").textContent = editClips.length;
+
+  if (editClips.length === 0) {
+    container.innerHTML = `<div class="tray-empty">Add clips with the "+ Edit" button or press <span class="kbd">A</span></div>`;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  editClips.forEach((c, i) => {
+    const div = document.createElement("div");
+    div.className = "tray-clip";
+    div.draggable = true;
+    div.dataset.i = i;
+    if (reelPlaying && reelIdx === i) div.classList.add("playing");
+
+    const type = c.TaggedPitchType || c.AutoPitchType || "—";
+    const vel = c.RelSpeed ? `${parseFloat(c.RelSpeed).toFixed(1)} mph` : "";
+
+    const tsIn  = c.trimStart != null ? c.trimStart : 0;
+    const tsOut = c.trimEnd   != null ? c.trimEnd   : "";
+
+    div.innerHTML = `
+      <button class="clip-remove" onclick="removeClip(${i})" title="Remove">×</button>
+      <div class="clip-num">#${i + 1} · ${c.PlayID ? c.PlayID.slice(0,8) : "?"}</div>
+      <div class="clip-pitcher">${c.Pitcher || "?"}</div>
+      <div class="clip-type">${type}</div>
+      <div class="clip-vel">${vel}</div>
+      <div class="trim-row">
+        <div class="trim-field">
+          <div class="trim-label">In (s)</div>
+          <div class="trim-input-row">
+            <input type="number" min="0" step="0.1" value="${tsIn}"
+              oninput="setTrim(${i},'trimStart',this.value)" />
+            <button class="trim-grab" onclick="grabTime(${i},'trimStart')" title="Set to current time">↙</button>
+          </div>
+        </div>
+        <div class="trim-field">
+          <div class="trim-label">Out (s)</div>
+          <div class="trim-input-row">
+            <input type="number" min="0" step="0.1" placeholder="end" value="${tsOut}"
+              oninput="setTrim(${i},'trimEnd',this.value)" />
+            <button class="trim-grab" onclick="grabTime(${i},'trimEnd')" title="Set to current time">↙</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:2px;margin-top:5px">
+        <button class="clip-order-btn" onclick="moveClip(${i},-1)" ${i===0?"disabled":""}>◀</button>
+        <button class="clip-order-btn" onclick="moveClip(${i},1)" ${i===editClips.length-1?"disabled":""}>▶</button>
+        <button class="clip-order-btn" style="flex:1" onclick="previewClip(${i})">▶</button>
+      </div>
+    `;
+
+    // Drag events
+    div.addEventListener("dragstart", e => { dragSrcIdx = i; e.dataTransfer.effectAllowed = "move"; });
+    div.addEventListener("dragover", e => { e.preventDefault(); div.classList.add("drag-over"); });
+    div.addEventListener("dragleave", () => div.classList.remove("drag-over"));
+    div.addEventListener("drop", e => {
+      e.preventDefault();
+      div.classList.remove("drag-over");
+      if (dragSrcIdx !== null && dragSrcIdx !== i) {
+        const moved = editClips.splice(dragSrcIdx, 1)[0];
+        editClips.splice(i, 0, moved);
+        dragSrcIdx = null;
+        renderTray();
+      }
+    });
+
+    frag.appendChild(div);
+  });
+  container.innerHTML = "";
+  container.appendChild(frag);
+}
+
+function moveClip(idx, dir) {
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= editClips.length) return;
+  [editClips[idx], editClips[newIdx]] = [editClips[newIdx], editClips[idx]];
+  renderTray();
+}
+
+function setTrim(idx, field, val) {
+  const n = parseFloat(val);
+  editClips[idx][field] = isNaN(n) ? null : n;
+  // Don't re-render tray (would lose input focus); data is already stored.
+}
+
+function grabTime(idx, field) {
+  const video = document.getElementById("main-video");
+  const t = parseFloat(video.currentTime.toFixed(2));
+  editClips[idx][field] = t;
+  // Update just the matching input value without full re-render
+  const card = document.querySelector(`.tray-clip[data-i="${idx}"]`);
+  if (card) {
+    const inputs = card.querySelectorAll("input[type=number]");
+    // inputs[0] = trimStart, inputs[1] = trimEnd
+    if (field === "trimStart" && inputs[0]) inputs[0].value = t;
+    if (field === "trimEnd"   && inputs[1]) inputs[1].value = t;
+  }
+  toast(`Clip ${idx + 1} ${field === "trimStart" ? "In" : "Out"} set to ${t}s`);
+}
+
+function previewClip(idx) {
+  const c = editClips[idx];
+  playTrimmedClip(c, () => toast(`Clip ${idx + 1} finished`));
+  toast(`Playing clip ${idx + 1}: ${c.Pitcher || "?"}`);
+}
+
+function clearEditor() {
+  if (editClips.length === 0) return;
+  editClips = [];
+  stopReel();
+  renderTray();
+  toast("Edit reel cleared");
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PLAY REEL
+   ════════════════════════════════════════════════════════════════════ */
+
+// Loads and plays one clip respecting trimStart/trimEnd.
+// Calls onDone() when the clip finishes (either at trimEnd or natural end).
+function playTrimmedClip(c, onDone) {
+  const video = document.getElementById("main-video");
+  const src   = document.getElementById("video-source");
+
+  // Tear down any previous trim state
+  if (video._trimHandler) {
+    video.removeEventListener("timeupdate", video._trimHandler);
+    video._trimHandler = null;
+  }
+  video.onended = null;
+
+  const start = (c.trimStart != null && c.trimStart >= 0) ? c.trimStart : 0;
+  const end   = (c.trimEnd   != null && c.trimEnd   > start) ? c.trimEnd : null;
+
+  // Always reload so canplay fires reliably regardless of whether the URL changed
+  src.src = c._url;
+  video.load();
+
+  function onCanPlay() {
+    video.removeEventListener("canplay", onCanPlay);
+    video.currentTime = start;
+    video.play().catch(() => {});
+
+    if (end !== null) {
+      video._trimHandler = () => {
+        if (video.currentTime >= end) {
+          video.pause();
+          video.removeEventListener("timeupdate", video._trimHandler);
+          video._trimHandler = null;
+          video.onended = null;
+          onDone();
+        }
+      };
+      video.addEventListener("timeupdate", video._trimHandler);
+    }
+
+    video.onended = () => {
+      if (video._trimHandler) {
+        video.removeEventListener("timeupdate", video._trimHandler);
+        video._trimHandler = null;
+      }
+      onDone();
+    };
+  }
+
+  video.addEventListener("canplay", onCanPlay);
+}
+
+function playEditReel() {
+  if (editClips.length === 0) { toast("Add clips to the reel first"); return; }
+  reelPlaying = true;
+  reelIdx = 0;
+  playReelNext();
+}
+
+function playReelNext() {
+  if (!reelPlaying || reelIdx >= editClips.length) {
+    stopReel();
+    toast("Reel finished");
+    return;
+  }
+  const c = editClips[reelIdx];
+  renderTray();
+  playTrimmedClip(c, () => {
+    reelIdx++;
+    playReelNext();
+  });
+}
+
+function stopReel() {
+  reelPlaying = false;
+  reelIdx = 0;
+  const video = document.getElementById("main-video");
+  video._trimHandler && video.removeEventListener("timeupdate", video._trimHandler);
+  video._trimHandler = null;
+  video.onended = null;
+  renderTray();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   EXPORT
+   ════════════════════════════════════════════════════════════════════ */
+function exportEditList() {
+  if (editClips.length === 0) { toast("No clips in reel"); return; }
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    clips: editClips.map((c, i) => ({
+      order: i + 1,
+      playId: c.PlayID,
+      gameUid: c.GameUID,
+      url: c._url,
+      r2Key: c.r2Key || null,
+      start: c.trimStart ?? 0,
+      end: c.trimEnd ?? null,
+      pitcher: c.Pitcher,
+      batter: c.Batter,
+      pitchType: c.TaggedPitchType || c.AutoPitchType,
+      pitchCall: c.PitchCall,
+      playResult: c.PlayResult,
+      relSpeed: c.RelSpeed,
+    }))
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `edit-reel-${Date.now()}.json`;
+  a.click();
+  toast("Edit list downloaded");
+  closeModal();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   EXPORT MERGED VIDEO — backend handoff
+   ════════════════════════════════════════════════════════════════════ */
+/*
+  BACKEND EXPECTATION (FFmpeg):
+
+  The frontend POSTs a JSON payload to POST /api/render-highlight:
+  {
+    "gameUid": "...",
+    "clips": [
+      { "playId": "...", "url": "...", "r2Key": "...", "start": 0, "end": null }
+    ]
+  }
+
+  The backend should:
+  1. Download each clip from Cloudflare R2 (using r2Key or url).
+  2. Write each clip to a temp directory.
+  3. Build an FFmpeg concat demux file:
+       file '/tmp/clip1.mp4'
+       file '/tmp/clip2.mp4'
+       ...
+  4. Run: ffmpeg -f concat -safe 0 -i concat.txt -c copy output.mp4
+     Or for re-encode: ffmpeg -f concat -safe 0 -i concat.txt -c:v libx264 -c:a aac output.mp4
+  5. Upload output.mp4 back to R2.
+  6. Return: { "status": "complete", "url": "https://..." }
+
+  On error return: { "status": "error", "message": "..." }
+*/
+
+function openModal() {
+  if (editClips.length === 0) { toast("No clips in reel"); return; }
+  resetModalState();
+  document.getElementById("modal-overlay").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("modal-overlay").classList.remove("open");
+  resetModalState();
+}
+
+function resetModalState() {
+  const statusEl = document.getElementById("modal-status");
+  const count = editClips.length;
+  statusEl.innerHTML = `<span>Ready to export <strong>${count}</strong> clip${count !== 1 ? "s" : ""}.</span>`;
+  document.getElementById("modal-export-btn").disabled = false;
+  document.getElementById("modal-fallback-btn").disabled = false;
+}
+
+async function startExport() {
+  if (editClips.length === 0) { toast("No clips"); return; }
+
+  const statusEl = document.getElementById("modal-status");
+  const exportBtn = document.getElementById("modal-export-btn");
+  const fallbackBtn = document.getElementById("modal-fallback-btn");
+
+  exportBtn.disabled = true;
+  fallbackBtn.disabled = true;
+  statusEl.innerHTML = `<div class="spinner"></div><span>Sending to render server…</span>`;
+
+  const payload = {
+    gameUid: editClips[0].GameUID || null,
+    clips: editClips.map(c => ({
+      playId: c.PlayID,
+      url: c._url,
+      r2Key: c.r2Key || null,
+      start: c.trimStart ?? 0,
+      end: c.trimEnd ?? null
+    }))
+  };
+
+  try {
+    const res = await fetch(RENDER_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error(`Server responded ${res.status}`);
+
+    statusEl.innerHTML = `<div class="spinner"></div><span>Rendering… (this may take a moment)</span>`;
+
+    const data = await res.json();
+
+    if (data.status === "complete" && data.url) {
+      statusEl.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+          <div style="color:var(--green);font-weight:700">✓ Render complete!</div>
+          <a href="${data.url}" target="_blank" style="color:var(--blue)">${data.url}</a>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <a href="${data.url}" target="_blank" class="btn btn-green btn-sm">▶ Watch</a>
+            <a href="${data.url}" download class="btn btn-accent btn-sm">↓ Download</a>
+          </div>
+        </div>`;
+    } else if (data.status === "error") {
+      throw new Error(data.message || "Render failed");
+    } else {
+      // Unexpected response
+      statusEl.innerHTML = `<span style="color:var(--muted)">Unexpected response: ${JSON.stringify(data)}</span>`;
+    }
+
+    exportBtn.disabled = false;
+    fallbackBtn.disabled = false;
+
+  } catch (err) {
+    statusEl.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+        <div style="color:var(--red);font-weight:700">✗ Export failed</div>
+        <div style="color:var(--muted);font-size:11px">${err.message}</div>
+        <div style="color:var(--muted);font-size:11px">Use "Download JSON" as a fallback to render locally with FFmpeg.</div>
+      </div>`;
+    exportBtn.disabled = false;
+    fallbackBtn.disabled = false;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MOBILE DRAWER
+   ════════════════════════════════════════════════════════════════════ */
+function openFilterDrawer() {
+  document.getElementById("filter-drawer").classList.add("open");
+  document.getElementById("filter-drawer-overlay").classList.add("open");
+}
+function closeFilterDrawer() {
+  document.getElementById("filter-drawer").classList.remove("open");
+  document.getElementById("filter-drawer-overlay").classList.remove("open");
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+   ════════════════════════════════════════════════════════════════════ */
+function bindKeys() {
+  // Live timecode in overlay
+  document.getElementById("main-video").addEventListener("timeupdate", () => {
+    const v = document.getElementById("main-video");
+    document.getElementById("video-timecode").textContent = v.currentTime.toFixed(1) + "s";
+  });
+
+  document.addEventListener("keydown", e => {
+    // Don't fire if typing in an input
+    if (["INPUT","SELECT","TEXTAREA"].includes(e.target.tagName)) return;
+
+    switch (e.code) {
+      case "ArrowLeft":  e.preventDefault(); prevPitch(); break;
+      case "ArrowRight": e.preventDefault(); nextPitch(); break;
+      case "Space":
+        e.preventDefault();
+        const vid = document.getElementById("main-video");
+        vid.paused ? vid.play() : vid.pause();
+        break;
+      case "KeyA":
+        e.preventDefault();
+        addCurrentToEditor();
+        break;
+      case "KeyF":
+        e.preventDefault();
+        toggleFullscreen();
+        break;
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   FULLSCREEN
+   ════════════════════════════════════════════════════════════════════ */
+function toggleFullscreen() {
+  const area = document.getElementById("video-area");
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    (area.requestFullscreen || area.webkitRequestFullscreen).call(area);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  }
+}
+
+// Update button icon and re-render HUD when fullscreen state changes
+document.addEventListener("fullscreenchange", onFullscreenChange);
+document.addEventListener("webkitfullscreenchange", onFullscreenChange);
+function onFullscreenChange() {
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  document.getElementById("fs-btn").textContent = isFs ? "✕" : "⛶";
+  // Re-render HUD so zone positions recalculate after layout change
+  if (_lastHudPitch) renderHud(_lastHudPitch);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TOAST
+   ════════════════════════════════════════════════════════════════════ */
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+</script>
+</body>
+</html>
