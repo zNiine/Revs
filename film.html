@@ -6,6 +6,7 @@
 <title>Film Room — TrackMan Scout</title>
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-analytics-compat.js"></script>
 <style>
 /* ── Reset & tokens ───────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1200,6 +1201,25 @@ const firebaseConfig = {
   measurementId: "G-2050889X0C"
 };
 firebase.initializeApp(firebaseConfig);
+const analytics = firebase.analytics();
+
+// ── Analytics helpers ────────────────────────────────────────────────
+let _sessionStart = Date.now();
+let _pitchesViewed = 0;
+let _clipsAdded = 0;
+
+function logEvent(name, params = {}) {
+  try { analytics.logEvent(name, params); } catch (_) {}
+}
+
+// Fire session_end with duration + activity summary on tab close / navigate away
+window.addEventListener("beforeunload", () => {
+  logEvent("film_session_end", {
+    duration_seconds: Math.round((Date.now() - _sessionStart) / 1000),
+    pitches_viewed:   _pitchesViewed,
+    clips_added:      _clipsAdded,
+  });
+});
 
 window.addEventListener("DOMContentLoaded", () => {
   setLoading("Checking authentication…");
@@ -1209,6 +1229,15 @@ window.addEventListener("DOMContentLoaded", () => {
       window.location.href = "login.html";
       return;
     }
+
+    // Identify the user so every event is tied to their account
+    analytics.setUserId(user.uid);
+    analytics.setUserProperties({ email: user.email });
+
+    logEvent("film_room_open", {
+      user_email: user.email,
+      timestamp:  new Date().toISOString(),
+    });
 
     try {
       setLoading("Loading data.csv…");
@@ -1599,6 +1628,17 @@ function selectPitch(idx) {
 
   // Stop reel if user clicks manually
   if (reelPlaying) stopReel();
+
+  _pitchesViewed++;
+  logEvent("pitch_viewed", {
+    pitcher:    p.Pitcher   || null,
+    batter:     p.Batter    || null,
+    pitch_type: p.AutoPitchType || p.TaggedPitchType || null,
+    pitch_call: p.PitchCall || null,
+    velocity:   parseFloat(p.RelSpeed) || null,
+    game_uid:   p.GameUID   || null,
+    play_id:    p.PlayID    || null,
+  });
 }
 
 function getVideoUrl(p) {
@@ -1823,6 +1863,9 @@ function addCurrentToEditor() {
   editClips.push({ ...p, _url: getVideoUrl(p), trimStart: 0, trimEnd: null });
   renderTray();
   toast("Added to reel");
+  _clipsAdded++;
+  logEvent("clip_added", { play_id: p.PlayID, pitcher: p.Pitcher, batter: p.Batter,
+    pitch_type: p.AutoPitchType || p.TaggedPitchType || null });
 }
 
 function addAtBatToEditor() {
@@ -1862,6 +1905,11 @@ function addAtBatToEditor() {
 
   renderTray();
   toast(added > 0 ? `Added ${added} pitch${added !== 1 ? "es" : ""} (${abPitches.length}-pitch AB)` : "All AB pitches already in reel");
+  if (added > 0) {
+    _clipsAdded += added;
+    logEvent("ab_added", { pitcher: ref.Pitcher, batter: ref.Batter,
+      pitch_count: abPitches.length, clips_added: added, game_uid: ref.GameUID });
+  }
 }
 
 function removeClip(idx) {
@@ -2045,6 +2093,7 @@ function playEditReel() {
   reelPlaying = true;
   reelIdx = 0;
   playReelNext();
+  logEvent("reel_played", { clip_count: editClips.length });
 }
 
 function playReelNext() {
@@ -2100,6 +2149,7 @@ function exportEditList() {
   a.download = `edit-reel-${Date.now()}.json`;
   a.click();
   toast("Edit list downloaded");
+  logEvent("export_json", { clip_count: editClips.length });
   closeModal();
 }
 
@@ -2161,6 +2211,7 @@ async function startExport() {
   exportBtn.disabled = true;
   fallbackBtn.disabled = true;
   statusEl.innerHTML = `<div class="spinner"></div><span>Sending to render server…</span>`;
+  logEvent("export_merge_started", { clip_count: editClips.length });
 
   const payload = {
     gameUid: editClips[0].GameUID || null,
@@ -2271,6 +2322,7 @@ function toggleFullscreen() {
   const area = document.getElementById("video-area");
   if (!document.fullscreenElement && !document.webkitFullscreenElement) {
     (area.requestFullscreen || area.webkitRequestFullscreen).call(area);
+    logEvent("fullscreen_entered");
   } else {
     (document.exitFullscreen || document.webkitExitFullscreen).call(document);
   }
