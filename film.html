@@ -1549,7 +1549,7 @@ function renderPitchList() {
   filtered.forEach((p, i) => {
     const inn = `${p.Inning ?? "?"}${p.TopBottom === "Top" ? "▲" : p.TopBottom === "Bottom" ? "▼" : ""}`;
     const cnt = `${p.Balls ?? "?"}-${p.Strikes ?? "?"} / ${p.Outs ?? "?"}o`;
-    const type = p.TaggedPitchType || p.AutoPitchType || "—";
+    const type = p.AutoPitchType || p.TaggedPitchType || "—";
     const vel = p.RelSpeed ? `${parseFloat(p.RelSpeed).toFixed(1)}` : "—";
     const call = p.PitchCall || "—";
     const result = p.PlayResult || "—";
@@ -1616,7 +1616,7 @@ function loadVideo(p) {
   video.load();
   video.play().catch(() => {});
 
-  const type = p.TaggedPitchType || p.AutoPitchType || "—";
+  const type = p.AutoPitchType || p.TaggedPitchType || "—";
   const vel = p.RelSpeed ? `${parseFloat(p.RelSpeed).toFixed(1)} mph` : "";
   badge.innerHTML = `<strong>${p.Pitcher || "?"}</strong> → ${p.Batter || "?"} &nbsp;|&nbsp; ${type} ${vel} &nbsp;|&nbsp; #${p.PlayID || "?"}`;
 }
@@ -1643,7 +1643,7 @@ function fmt(v, dec = 1, suffix = "") {
 function fmtStr(v) { return v != null && v !== "" ? String(v) : "—"; }
 
 function buildTmHTML(p) {
-  const type = p.TaggedPitchType || p.AutoPitchType || "—";
+  const type = p.AutoPitchType || p.TaggedPitchType || "—";
   return `
     <div id="pitch-type-indicator">${type}</div>
     <div class="tm-section">
@@ -1785,7 +1785,7 @@ function renderHud(p) {
 
   // Top-right: pitch metrics
   const trParts = [];
-  const type = p.TaggedPitchType || p.AutoPitchType;
+  const type = p.AutoPitchType || p.TaggedPitchType;
   if (s.pitchType && type)      trParts.push(chip(type, "big accent"));
   if (s.velocity  && p.RelSpeed)  trParts.push(chip(`${parseFloat(p.RelSpeed).toFixed(1)} <small>mph</small>`, "accent", "Velocity"));
   if (s.spinRate  && p.SpinRate)  trParts.push(chip(`${parseFloat(p.SpinRate).toFixed(0)} <small>rpm</small>`, "blue", "Spin"));
