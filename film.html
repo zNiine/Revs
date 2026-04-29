@@ -207,16 +207,25 @@ select option { background: var(--bg3); }
   background: #000;
 }
 
-/* Fullscreen — expand container, video fills it, HUD stays */
+/* Fullscreen — native (:fullscreen) and iOS CSS fallback (.fs)
+   Every rule covers both so the HUD panel cards work identically. */
 #video-area:fullscreen,
-#video-area:-webkit-full-screen {
+#video-area:-webkit-full-screen,
+#video-area.fs {
   width: 100vw;
   height: 100vh;
   display: flex;
   flex-direction: column;
 }
+/* .fs uses fixed positioning to cover the screen on iOS */
+#video-area.fs {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
 #video-area:fullscreen #main-video,
-#video-area:-webkit-full-screen #main-video {
+#video-area:-webkit-full-screen #main-video,
+#video-area.fs #main-video {
   flex: 1;
   max-height: none;
   height: 100%;
@@ -224,14 +233,16 @@ select option { background: var(--bg3); }
 }
 /* ── Fullscreen panel cards ───────────────────────────────────────── */
 #video-area:fullscreen .hud-zone,
-#video-area:-webkit-full-screen .hud-zone {
+#video-area:-webkit-full-screen .hud-zone,
+#video-area.fs .hud-zone {
   gap: 0;
   pointer-events: none;
 }
 
 /* Left panel — matchup */
 #video-area:fullscreen #hud-tl,
-#video-area:-webkit-full-screen #hud-tl {
+#video-area:-webkit-full-screen #hud-tl,
+#video-area.fs #hud-tl {
   top: 50%;
   left: 0;
   bottom: auto;
@@ -252,7 +263,8 @@ select option { background: var(--bg3); }
 
 /* Right panel — pitch metrics */
 #video-area:fullscreen #hud-tr,
-#video-area:-webkit-full-screen #hud-tr {
+#video-area:-webkit-full-screen #hud-tr,
+#video-area.fs #hud-tr {
   top: 50%;
   right: 0;
   bottom: auto;
@@ -272,7 +284,8 @@ select option { background: var(--bg3); }
 
 /* Bottom-right panel — batted ball */
 #video-area:fullscreen #hud-br,
-#video-area:-webkit-full-screen #hud-br {
+#video-area:-webkit-full-screen #hud-br,
+#video-area.fs #hud-br {
   bottom: 56px;
   right: 0;
   top: auto;
@@ -291,13 +304,15 @@ select option { background: var(--bg3); }
 
 /* Hide bl zone in fullscreen — unused */
 #video-area:fullscreen #hud-bl,
-#video-area:-webkit-full-screen #hud-bl {
+#video-area:-webkit-full-screen #hud-bl,
+#video-area.fs #hud-bl {
   display: none;
 }
 
 /* Chips inside panels become full-width card rows */
 #video-area:fullscreen .hud-zone .hud-chip,
-#video-area:-webkit-full-screen .hud-zone .hud-chip {
+#video-area:-webkit-full-screen .hud-zone .hud-chip,
+#video-area.fs .hud-zone .hud-chip {
   background: transparent;
   border-radius: 0;
   padding: 7px 0;
@@ -310,18 +325,21 @@ select option { background: var(--bg3); }
   line-height: 1.3;
 }
 #video-area:fullscreen .hud-zone .hud-chip:last-child,
-#video-area:-webkit-full-screen .hud-zone .hud-chip:last-child {
+#video-area:-webkit-full-screen .hud-zone .hud-chip:last-child,
+#video-area.fs .hud-zone .hud-chip:last-child {
   border-bottom: none;
 }
 #video-area:fullscreen .hud-zone .hud-chip .hud-sub,
-#video-area:-webkit-full-screen .hud-zone .hud-chip .hud-sub {
+#video-area:-webkit-full-screen .hud-zone .hud-chip .hud-sub,
+#video-area.fs .hud-zone .hud-chip .hud-sub {
   font-size: 8px;
   letter-spacing: .07em;
   margin-bottom: 2px;
   color: rgba(255,255,255,.4);
 }
 #video-area:fullscreen .hud-zone .hud-chip.big,
-#video-area:-webkit-full-screen .hud-zone .hud-chip.big {
+#video-area:-webkit-full-screen .hud-zone .hud-chip.big,
+#video-area.fs .hud-zone .hud-chip.big {
   font-size: 20px;
   padding: 8px 0 10px;
   text-align: left;
@@ -331,15 +349,18 @@ select option { background: var(--bg3); }
 }
 
 #video-area:fullscreen #video-overlay,
-#video-area:-webkit-full-screen #video-overlay {
+#video-area:-webkit-full-screen #video-overlay,
+#video-area.fs #video-overlay {
   padding: 12px 18px;
 }
 #video-area:fullscreen #hud-settings-wrap,
-#video-area:-webkit-full-screen #hud-settings-wrap {
+#video-area:-webkit-full-screen #hud-settings-wrap,
+#video-area.fs #hud-settings-wrap {
   position: static;
 }
 #video-area:fullscreen #hud-settings-panel,
-#video-area:-webkit-full-screen #hud-settings-panel {
+#video-area:-webkit-full-screen #hud-settings-panel,
+#video-area.fs #hud-settings-panel {
   bottom: calc(100% + 8px);
   right: 0;
 }
@@ -981,10 +1002,20 @@ select option { background: var(--bg3); }
 <div id="modal-overlay">
   <div id="modal">
     <h2>Export Merged Video</h2>
-    <p>Clips will be POSTed to <code>/api/render-highlight</code>. The backend uses FFmpeg concat to merge them and returns a download URL.</p>
+    <p>Clips will be POSTed to <code>/api/render-highlight</code>. The backend uses FFmpeg to merge and optionally burn stats onto each clip.</p>
     <div id="modal-status">
       <span>Select clips and click Export Merged Video.</span>
     </div>
+
+    <!-- Burn overlay toggle -->
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text)">Burn stats overlay onto video</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Uses your current HUD settings. Backend burns text into frames via FFmpeg <code>drawtext</code>.</div>
+      </div>
+      <div class="hud-toggle" id="burn-overlay-toggle" onclick="toggleBurnOverlay()" style="cursor:pointer;flex-shrink:0;margin-left:12px"></div>
+    </div>
+
     <div id="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-ghost" onclick="exportEditList()" id="modal-fallback-btn">↓ Download JSON (Fallback)</button>
@@ -2159,28 +2190,95 @@ function exportEditList() {
 /*
   BACKEND EXPECTATION (FFmpeg):
 
-  The frontend POSTs a JSON payload to POST /api/render-highlight:
+  POST /api/render-highlight receives:
   {
     "gameUid": "...",
+    "burnOverlay": true,          // if true, burn stats text onto each clip
     "clips": [
-      { "playId": "...", "url": "...", "r2Key": "...", "start": 0, "end": null }
+      {
+        "playId": "...",
+        "url": "...",
+        "r2Key": "...",
+        "start": 2.5,             // trim in (seconds), 0 = no trim
+        "end": 8.0,               // trim out (seconds), null = play to end
+        "overlay": {              // only present when burnOverlay=true
+          "tl": ["Craig Stem", "Ethan Skender", "1 ▲", "0-0  0 outs"],
+          "tr": ["Sinker", "93.6 mph", "1970 rpm", "BallCalled"],
+          "br": ["EV: 95.2 mph", "LA: 12°", "350 ft", "Single"]
+        }
+      }
     ]
   }
 
-  The backend should:
-  1. Download each clip from Cloudflare R2 (using r2Key or url).
-  2. Write each clip to a temp directory.
-  3. Build an FFmpeg concat demux file:
-       file '/tmp/clip1.mp4'
-       file '/tmp/clip2.mp4'
-       ...
-  4. Run: ffmpeg -f concat -safe 0 -i concat.txt -c copy output.mp4
-     Or for re-encode: ffmpeg -f concat -safe 0 -i concat.txt -c:v libx264 -c:a aac output.mp4
-  5. Upload output.mp4 back to R2.
-  6. Return: { "status": "complete", "url": "https://..." }
+  STEP 1 — trim each clip (re-encode so keyframes align cleanly):
+    ffmpeg -ss {start} -to {end} -i clip.mp4 -c:v libx264 -c:a aac \
+           -avoid_negative_ts 1 /tmp/trimmed_N.mp4
+    (skip if start=0 and end=null)
 
-  On error return: { "status": "error", "message": "..." }
+  STEP 2 — burn overlay text (only when burnOverlay=true):
+    Build a -vf drawtext filter chain from the overlay lines.
+    Each zone has a fixed screen position:
+      tl = top-left     x=W*0.01,  y=H*0.03  (stack lines downward)
+      tr = top-right    x=W*0.99-tw, y=H*0.03 (right-align, tw = text width)
+      br = bottom-right x=W*0.99-tw, y=H*0.88 (stack lines downward)
+
+    Example for a single drawtext filter (chain multiple with comma):
+      -vf "drawtext=text='Sinker':x=w*0.99-tw:y=h*0.03:
+                   fontsize=h/22:fontcolor=white:
+                   box=1:boxcolor=black@0.55:boxborderw=8,
+           drawtext=text='93.6 mph':x=w*0.99-tw:y=h*0.03+h/18:
+                   fontsize=h/28:fontcolor=#c9a84c:
+                   box=1:boxcolor=black@0.55:boxborderw=6"
+
+    Tips:
+    - Use fontsize relative to frame height (h/22) so it scales for any resolution
+    - escape colons/backslashes in text with \: and \\
+    - A bundled font like DejaVuSans works without system font config:
+        fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+
+  STEP 3 — concat the processed clips:
+    Write a concat list file, then:
+    ffmpeg -f concat -safe 0 -i concat.txt -c copy output.mp4
+
+  STEP 4 — upload output.mp4 to R2, return:
+    { "status": "complete", "url": "https://..." }
+
+  On error: { "status": "error", "message": "..." }
 */
+
+// ── Burn overlay toggle state ────────────────────────────────────────
+let burnOverlayEnabled = false;
+
+function toggleBurnOverlay() {
+  burnOverlayEnabled = !burnOverlayEnabled;
+  document.getElementById("burn-overlay-toggle").classList.toggle("on", burnOverlayEnabled);
+}
+
+// Build the overlay text lines for one clip, respecting current HUD settings
+function buildClipOverlay(c) {
+  const s = hudSettings;
+  const tl = [], tr = [], br = [];
+
+  if (s.pitcher  && c.Pitcher)    tl.push(c.Pitcher);
+  if (s.batter   && c.Batter)     tl.push(c.Batter);
+  if (s.inning   && c.Inning)     tl.push(`${c.Inning} ${c.TopBottom === "Top" ? "▲" : "▼"}`);
+  if (s.count)                    tl.push(`${c.Balls ?? "?"}-${c.Strikes ?? "?"}  ${c.Outs ?? "?"}o`);
+
+  const type = c.AutoPitchType || c.TaggedPitchType;
+  if (s.pitchType && type)        tr.push(type);
+  if (s.velocity  && c.RelSpeed)  tr.push(`${parseFloat(c.RelSpeed).toFixed(1)} mph`);
+  if (s.spinRate  && c.SpinRate)  tr.push(`${parseFloat(c.SpinRate).toFixed(0)} rpm`);
+  if (s.ivb    && c.InducedVertBreak) tr.push(`IVB ${parseFloat(c.InducedVertBreak).toFixed(1)}"`);
+  if (s.hbreak && c.HorzBreak)    tr.push(`HB ${parseFloat(c.HorzBreak).toFixed(1)}"`);
+  if (s.pitchCall && c.PitchCall) tr.push(c.PitchCall);
+
+  if (s.exitSpeed   && c.ExitSpeed) br.push(`EV: ${parseFloat(c.ExitSpeed).toFixed(1)} mph`);
+  if (s.launchAngle && c.Angle)     br.push(`LA: ${parseFloat(c.Angle).toFixed(1)}°`);
+  if (s.distance    && c.Distance)  br.push(`${parseFloat(c.Distance).toFixed(0)} ft`);
+  if (s.playResult  && c.PlayResult && c.PlayResult !== "Undefined") br.push(c.PlayResult);
+
+  return { tl, tr, br };
+}
 
 function openModal() {
   if (editClips.length === 0) { toast("No clips in reel"); return; }
@@ -2199,6 +2297,8 @@ function resetModalState() {
   statusEl.innerHTML = `<span>Ready to export <strong>${count}</strong> clip${count !== 1 ? "s" : ""}.</span>`;
   document.getElementById("modal-export-btn").disabled = false;
   document.getElementById("modal-fallback-btn").disabled = false;
+  // Sync burn toggle visual state
+  document.getElementById("burn-overlay-toggle").classList.toggle("on", burnOverlayEnabled);
 }
 
 async function startExport() {
@@ -2211,17 +2311,22 @@ async function startExport() {
   exportBtn.disabled = true;
   fallbackBtn.disabled = true;
   statusEl.innerHTML = `<div class="spinner"></div><span>Sending to render server…</span>`;
-  logEvent("export_merge_started", { clip_count: editClips.length });
+  logEvent("export_merge_started", { clip_count: editClips.length, burn_overlay: burnOverlayEnabled });
 
   const payload = {
     gameUid: editClips[0].GameUID || null,
-    clips: editClips.map(c => ({
-      playId: c.PlayID,
-      url: c._url,
-      r2Key: c.r2Key || null,
-      start: c.trimStart ?? 0,
-      end: c.trimEnd ?? null
-    }))
+    burnOverlay: burnOverlayEnabled,
+    clips: editClips.map(c => {
+      const clip = {
+        playId: c.PlayID,
+        url: c._url,
+        r2Key: c.r2Key || null,
+        start: c.trimStart ?? 0,
+        end: c.trimEnd ?? null,
+      };
+      if (burnOverlayEnabled) clip.overlay = buildClipOverlay(c);
+      return clip;
+    })
   };
 
   try {
@@ -2320,23 +2425,61 @@ function bindKeys() {
    ════════════════════════════════════════════════════════════════════ */
 function toggleFullscreen() {
   const area = document.getElementById("video-area");
-  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-    (area.requestFullscreen || area.webkitRequestFullscreen).call(area);
+  const isNativeFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const isSimFs = area.classList.contains("fs");
+
+  if (!isNativeFs && !isSimFs) {
+    // Try native fullscreen (desktop + Android Chrome)
+    const req = area.requestFullscreen || area.webkitRequestFullscreen;
+    if (req) {
+      req.call(area).catch(() => enterSimulatedFs(area));
+    } else {
+      // iOS Safari — no requestFullscreen on divs, use CSS fallback
+      enterSimulatedFs(area);
+    }
     logEvent("fullscreen_entered");
+  } else if (isSimFs) {
+    exitSimulatedFs(area);
   } else {
     (document.exitFullscreen || document.webkitExitFullscreen).call(document);
   }
 }
 
-// Update button icon and re-render HUD when fullscreen state changes
+function enterSimulatedFs(area) {
+  area.classList.add("fs");
+  document.body.style.overflow = "hidden";
+  updateFsButton(true);
+  if (_lastHudPitch) renderHud(_lastHudPitch);
+}
+
+function exitSimulatedFs(area) {
+  area.classList.remove("fs");
+  document.body.style.overflow = "";
+  updateFsButton(false);
+  if (_lastHudPitch) renderHud(_lastHudPitch);
+}
+
+function updateFsButton(isFs) {
+  const btn = document.getElementById("fs-btn");
+  if (btn) btn.textContent = isFs ? "✕" : "⛶";
+}
+
+// Native fullscreen change (desktop / Android)
 document.addEventListener("fullscreenchange", onFullscreenChange);
 document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 function onFullscreenChange() {
   const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  document.getElementById("fs-btn").textContent = isFs ? "✕" : "⛶";
-  // Re-render HUD so zone positions recalculate after layout change
+  updateFsButton(isFs);
   if (_lastHudPitch) renderHud(_lastHudPitch);
 }
+
+// Let Escape exit simulated fullscreen too
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    const area = document.getElementById("video-area");
+    if (area.classList.contains("fs")) exitSimulatedFs(area);
+  }
+});
 
 /* ════════════════════════════════════════════════════════════════════
    TOAST
