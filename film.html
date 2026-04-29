@@ -1360,9 +1360,9 @@ const FILTER_SECTIONS = [
       { key: "Date", label: "Date", type: "select" },
       { key: "PitcherTeam", label: "Pitcher Team", type: "select" },
       { key: "BatterTeam", label: "Batter Team", type: "select" },
-      { key: "Pitcher", label: "Pitcher", type: "select" },
+      { key: "Pitcher", label: "Pitcher", type: "autocomplete" },
       { key: "PitcherThrows", label: "Pitcher Throws", type: "select" },
-      { key: "Batter", label: "Batter", type: "select" },
+      { key: "Batter", label: "Batter", type: "autocomplete" },
       { key: "BatterSide", label: "Batter Side", type: "select" },
     ]
   },
@@ -1442,6 +1442,16 @@ function buildFieldHTML(f) {
         <input type="text" data-filter="${f.key}" placeholder="${f.placeholder||""}" oninput="onFilterChange(this)" />
       </div>`;
   }
+  if (f.type === "autocomplete") {
+    return `
+      <div class="filter-group">
+        <label class="filter-label">${f.label}</label>
+        <input type="text" data-filter="${f.key}" placeholder="Type to search…"
+          list="dl-${f.key}" autocomplete="off"
+          oninput="onFilterChange(this)"
+          onchange="onFilterChange(this)" />
+      </div>`;
+  }
   return `
     <div class="filter-group">
       <label class="filter-label">${f.label}</label>
@@ -1455,8 +1465,10 @@ function wireFilters(containerId) {
   // nothing extra needed — events are inline
 }
 
+// Keys that use <datalist> autocomplete instead of <select>
+const AUTOCOMPLETE_KEYS = new Set(["Pitcher", "Batter"]);
+
 function populateSelects() {
-  // Collect unique values for each select key
   const keys = ["GameUID","Date","Pitcher","PitcherThrows","Batter","BatterSide","PitcherTeam","BatterTeam",
     "TaggedPitchType","AutoPitchType","PitchCall","PlayResult","TaggedHitType",
     "Inning","TopBottom","Outs"];
@@ -1466,27 +1478,39 @@ function populateSelects() {
 
   allPitches.forEach(p => {
     keys.forEach(k => { if (p[k] != null && p[k] !== "") maps[k].add(String(p[k])); });
-    // synthetic Count field
-    const cnt = `${p.Balls ?? "?"}-${p.Strikes ?? "?"}`;
-    if (!maps["Count"]) maps["Count"] = new Set();
-    maps["Count"].add(cnt);
   });
 
-  // Count
+  // Synthetic Count field
   keys.push("Count");
-  allPitches.forEach(p => {
-    const cnt = `${p.Balls ?? "?"}-${p.Strikes ?? "?"}`;
-    maps["Count"].add(cnt);
+  maps["Count"] = new Set();
+  allPitches.forEach(p => maps["Count"].add(`${p.Balls ?? "?"}-${p.Strikes ?? "?"}`));
+
+  const sorted = k => Array.from(maps[k] || []).sort((a, b) => {
+    const na = parseFloat(a), nb = parseFloat(b);
+    return (!isNaN(na) && !isNaN(nb)) ? na - nb : a.localeCompare(b);
   });
 
-  function fillSelects(containerId) {
+  // Build one shared <datalist> per autocomplete key, appended to <body>
+  // Both sidebar and drawer inputs reference the same datalist by ID.
+  AUTOCOMPLETE_KEYS.forEach(k => {
+    const existing = document.getElementById(`dl-${k}`);
+    if (existing) existing.remove();
+    const dl = document.createElement("datalist");
+    dl.id = `dl-${k}`;
+    sorted(k).forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      dl.appendChild(opt);
+    });
+    document.body.appendChild(dl);
+  });
+
+  // Fill <select> dropdowns in both panels (skip autocomplete keys)
+  ["filter-body", "filter-drawer-body"].forEach(containerId => {
     keys.forEach(k => {
+      if (AUTOCOMPLETE_KEYS.has(k)) return;
       document.querySelectorAll(`#${containerId} select[data-filter="${k}"]`).forEach(sel => {
-        const vals = Array.from(maps[k] || []).sort((a,b) => {
-          const na = parseFloat(a), nb = parseFloat(b);
-          return (!isNaN(na) && !isNaN(nb)) ? na - nb : a.localeCompare(b);
-        });
-        vals.forEach(v => {
+        sorted(k).forEach(v => {
           const opt = document.createElement("option");
           opt.value = v;
           opt.textContent = v;
@@ -1494,10 +1518,7 @@ function populateSelects() {
         });
       });
     });
-  }
-
-  fillSelects("filter-body");
-  fillSelects("filter-drawer-body");
+  });
 }
 
 function toggleSection(titleEl) {
@@ -1539,17 +1560,16 @@ function applyFilters() {
       if (!haystack.includes(search)) return false;
     }
     // Selects
-    const selectKeys = ["GameUID","Date","Pitcher","PitcherThrows","Batter","BatterSide","PitcherTeam","BatterTeam",
+    const selectKeys = ["GameUID","Date","PitcherThrows","BatterSide","PitcherTeam","BatterTeam",
       "TaggedPitchType","AutoPitchType","PitchCall","PlayResult","TaggedHitType",
       "Inning","TopBottom","Outs"];
     for (const k of selectKeys) {
-      if (f[k]) {
-        if (k === "Date") {
-          if (String(p[k] || "") !== f[k]) return false;
-        } else {
-          if (String(p[k] || "") !== f[k]) return false;
-        }
-      }
+      if (f[k] && String(p[k] || "") !== f[k]) return false;
+    }
+    // Autocomplete fields — partial case-insensitive match
+    for (const k of AUTOCOMPLETE_KEYS) {
+      const query = (f[k] || "").trim().toLowerCase();
+      if (query && !String(p[k] || "").toLowerCase().includes(query)) return false;
     }
     // Count
     if (f["Count"]) {
