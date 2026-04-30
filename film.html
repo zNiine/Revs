@@ -1396,6 +1396,17 @@ const FILTER_SECTIONS = [
       { key: "Angle", label: "Launch Angle (°)", type: "range" },
       { key: "Distance", label: "Distance (ft)", type: "range" },
     ]
+  },
+  {
+    label: "Catcher / Steal",
+    fields: [
+      { key: "Catcher", label: "Catcher", type: "autocomplete" },
+      { key: "hasPopTime", label: "Has Pop Time only", type: "select" },
+      { key: "ThrowBase", label: "Throw To", type: "select" },
+      { key: "PopTime", label: "Pop Time — max (s)", type: "range" },
+      { key: "ThrowSpeed", label: "Throw Speed (mph)", type: "range" },
+      { key: "ExchangeTime", label: "Exchange Time — max (s)", type: "range" },
+    ]
   }
 ];
 
@@ -1466,10 +1477,10 @@ function wireFilters(containerId) {
 }
 
 // Keys that use <datalist> autocomplete instead of <select>
-const AUTOCOMPLETE_KEYS = new Set(["Pitcher", "Batter"]);
+const AUTOCOMPLETE_KEYS = new Set(["Pitcher", "Batter", "Catcher"]);
 
 function populateSelects() {
-  const keys = ["GameUID","Date","Pitcher","PitcherThrows","Batter","BatterSide","PitcherTeam","BatterTeam",
+  const keys = ["GameUID","Date","Pitcher","PitcherThrows","Batter","BatterSide","Catcher","PitcherTeam","BatterTeam",
     "TaggedPitchType","AutoPitchType","PitchCall","PlayResult","TaggedHitType",
     "Inning","TopBottom","Outs"];
 
@@ -1517,6 +1528,17 @@ function populateSelects() {
           sel.appendChild(opt);
         });
       });
+    });
+
+    // Static options for synthetic filters
+    document.querySelectorAll(`#${containerId} select[data-filter="hasPopTime"]`).forEach(sel => {
+      sel.innerHTML = `<option value="">All pitches</option>
+                       <option value="yes">Has pop time only</option>`;
+    });
+    document.querySelectorAll(`#${containerId} select[data-filter="ThrowBase"]`).forEach(sel => {
+      sel.innerHTML = `<option value="">All</option>
+                       <option value="2nd">2nd Base</option>
+                       <option value="3rd">3rd Base</option>`;
     });
   });
 }
@@ -1577,13 +1599,35 @@ function applyFilters() {
       if (cnt !== f["Count"]) return false;
     }
     // Ranges
-    const rangeKeys = ["RelSpeed","SpinRate","InducedVertBreak","HorzBreak","ExitSpeed","Angle","Distance"];
+    const rangeKeys = ["RelSpeed","SpinRate","InducedVertBreak","HorzBreak","ExitSpeed","Angle","Distance","ThrowSpeed","ExchangeTime"];
     for (const k of rangeKeys) {
       const minV = parseFloat(f[`${k}_min`]);
       const maxV = parseFloat(f[`${k}_max`]);
       const val = parseFloat(p[k]);
       if (!isNaN(minV) && (isNaN(val) || val < minV)) return false;
       if (!isNaN(maxV) && (isNaN(val) || val > maxV)) return false;
+    }
+    // Pop time — must be a real reading (>1.0s) for the max filter to apply
+    if (f["hasPopTime"] === "yes") {
+      if (parseFloat(p.PopTime) < 1.0) return false;
+    }
+    if (f["PopTime_max"]) {
+      const pt = parseFloat(p.PopTime);
+      const maxPt = parseFloat(f["PopTime_max"]);
+      if (isNaN(pt) || pt < 1.0 || pt > maxPt) return false;
+    }
+    if (f["PopTime_min"]) {
+      const pt = parseFloat(p.PopTime);
+      const minPt = parseFloat(f["PopTime_min"]);
+      if (isNaN(pt) || pt < 1.0 || pt < minPt) return false;
+    }
+    // Throw base — inferred from BasePositionX
+    // BasePositionX ≈ 127 = 2nd base (127.28 ft diagonal), ≈ 60–90 = 3rd base
+    if (f["ThrowBase"]) {
+      const bx = parseFloat(p.BasePositionX);
+      if (isNaN(bx) || bx < 1) return false;
+      if (f["ThrowBase"] === "2nd" && bx < 110) return false;
+      if (f["ThrowBase"] === "3rd" && bx >= 110) return false;
     }
     return true;
   });
