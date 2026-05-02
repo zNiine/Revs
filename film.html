@@ -382,6 +382,37 @@ select option { background: var(--bg3); }
 }
 #video-info-badge strong { color: var(--accent); }
 
+/* ── Camera switcher ──────────────────────────────────────────────── */
+#cam-switcher {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+  background: rgba(0,0,0,.55);
+  padding: 4px 6px;
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+}
+.cam-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.25);
+  color: rgba(255,255,255,.6);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  padding: 3px 9px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.cam-btn:hover:not(:disabled) { background: rgba(255,255,255,.15); color: #fff; }
+.cam-btn.active { background: var(--accent); border-color: var(--accent); color: #000; }
+.cam-btn:disabled { opacity: .35; cursor: not-allowed; }
+
 /* ── Video HUD overlay ────────────────────────────────────────────── */
 .hud-zone {
   position: absolute;
@@ -1119,12 +1150,20 @@ select option { background: var(--bg3); }
         </div>
       </div>
 
+      <!-- Camera angle switcher -->
+      <div id="cam-switcher">
+        <button class="cam-btn active" data-cam="broadcast" onclick="switchAngle('broadcast')">Broadcast</button>
+        <button class="cam-btn" data-cam="trackman" onclick="switchAngle('trackman')">TrackMan</button>
+        <button class="cam-btn" data-cam="1b" id="cam-btn-1b" onclick="switchAngle('1b')" disabled title="Coming soon">1B Cam</button>
+        <button class="cam-btn" data-cam="3b" id="cam-btn-3b" onclick="switchAngle('3b')" disabled title="Coming soon">3B Cam</button>
+      </div>
+
       <div id="video-overlay">
         <div id="video-info-badge">Select a pitch to begin</div>
         <div id="video-timecode" style="font-size:11px;font-family:monospace;color:var(--accent);letter-spacing:.04em;flex-shrink:0">0.0s</div>
         <button class="btn btn-sm btn-ghost" onclick="prevPitch()" title="Previous (←)">◀</button>
-        <button class="btn btn-sm btn-green" onclick="addCurrentToEditor()" title="Add to editor (A)">+ Edit</button>
-        <button class="btn btn-sm btn-blue" onclick="addAtBatToEditor()" title="Add all pitches from this at-bat">+ AB</button>
+        <button id="btn-add-edit" class="btn btn-sm btn-green" onclick="addCurrentToEditor()" title="Add to editor (A)">+ Edit</button>
+        <button id="btn-add-ab" class="btn btn-sm btn-blue" onclick="addAtBatToEditor()" title="Add all pitches from this at-bat">+ AB</button>
         <button class="btn btn-sm btn-ghost" onclick="nextPitch()" title="Next (→)">▶</button>
         <button class="btn btn-sm btn-ghost" onclick="toggleHudSettingsPanel(event)" title="Overlay settings">⚙</button>
         <button class="btn btn-sm btn-ghost" id="fs-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
@@ -1204,6 +1243,14 @@ select option { background: var(--bg3); }
 // Videos are stored at: R2_PUBLIC_BASE_URL/{GameUID}/{PlayID}.mp4
 const R2_PUBLIC_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev";
 
+// TrackMan camera — Cloudflare Worker endpoint
+const TRACKMAN_WORKER = "https://helloworld.idkconflict1.workers.dev/stream_video";
+
+// Additional camera angles — set base URL when feeds go live (same R2 pattern: {base}/{GameUID}/{PlayID}.mp4)
+// Leave empty string to keep the button disabled until ready.
+const CAM_1B_BASE_URL = "";
+const CAM_3B_BASE_URL = "";
+
 // Backend endpoint for FFmpeg concat merge.
 // See comments at bottom of file for expected backend implementation.
 const RENDER_API = "https://alpb.turinglytics.com/api/render-highlight";
@@ -1218,6 +1265,7 @@ let editClips = [];         // clips in editor
 let reelPlaying = false;
 let reelIdx = 0;
 let dragSrcIdx = null;
+let currentAngle = 'broadcast'; // active camera angle: broadcast | trackman | 1b | 3b
 
 /* ════════════════════════════════════════════════════════════════════
    BOOT
@@ -1282,6 +1330,7 @@ window.addEventListener("DOMContentLoaded", () => {
       applyFilters();
       hideLoading();
       syncHudToggles();
+      initCamSwitcher();
       bindKeys();
     } catch (e) {
       document.getElementById("loading-msg").textContent = "Error loading data.csv: " + e.message;
@@ -1736,9 +1785,24 @@ function selectPitch(idx) {
   });
 }
 
+// Returns broadcast URL — used for edit reel clips (always broadcast)
 function getVideoUrl(p) {
   if (p.url) return p.url;
   return `${R2_PUBLIC_BASE_URL}/${p.GameUID}/${p.PlayID}.mp4`;
+}
+
+// Returns URL for current camera angle — used only for the viewer
+function getViewUrl(p) {
+  switch (currentAngle) {
+    case 'trackman':
+      return `${TRACKMAN_WORKER}?session_id=${encodeURIComponent(p.GameUID)}&track_id=${encodeURIComponent(p.PlayID)}`;
+    case '1b':
+      return CAM_1B_BASE_URL ? `${CAM_1B_BASE_URL}/${p.GameUID}/${p.PlayID}.mp4` : getVideoUrl(p);
+    case '3b':
+      return CAM_3B_BASE_URL ? `${CAM_3B_BASE_URL}/${p.GameUID}/${p.PlayID}.mp4` : getVideoUrl(p);
+    default:
+      return getVideoUrl(p);
+  }
 }
 
 function loadVideo(p) {
@@ -1746,7 +1810,7 @@ function loadVideo(p) {
   const src = document.getElementById("video-source");
   const badge = document.getElementById("video-info-badge");
 
-  const url = getVideoUrl(p);
+  const url = getViewUrl(p);
   src.src = url;
   video.load();
   video.play().catch(() => {});
@@ -1754,6 +1818,41 @@ function loadVideo(p) {
   const type = p.AutoPitchType || p.TaggedPitchType || "—";
   const vel = p.RelSpeed ? `${parseFloat(p.RelSpeed).toFixed(1)} mph` : "";
   badge.innerHTML = `<strong>${p.Pitcher || "?"}</strong> → ${p.Batter || "?"} &nbsp;|&nbsp; ${type} ${vel} &nbsp;|&nbsp; #${p.PlayID || "?"}`;
+}
+
+function initCamSwitcher() {
+  const btn1b = document.getElementById('cam-btn-1b');
+  const btn3b = document.getElementById('cam-btn-3b');
+  if (btn1b) btn1b.disabled = !CAM_1B_BASE_URL;
+  if (btn3b) btn3b.disabled = !CAM_3B_BASE_URL;
+}
+
+function switchAngle(angle) {
+  // Enable/disable 1B and 3B buttons based on config
+  const btn1b = document.getElementById('cam-btn-1b');
+  const btn3b = document.getElementById('cam-btn-3b');
+  if (btn1b) btn1b.disabled = !CAM_1B_BASE_URL;
+  if (btn3b) btn3b.disabled = !CAM_3B_BASE_URL;
+
+  // Bail if button is disabled (e.g. called before config is set)
+  if ((angle === '1b' && !CAM_1B_BASE_URL) || (angle === '3b' && !CAM_3B_BASE_URL)) return;
+
+  currentAngle = angle;
+
+  // Update pill active state
+  document.querySelectorAll('.cam-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.cam === angle);
+  });
+
+  // Hide edit reel buttons for non-broadcast angles (those feeds aren't downloadable)
+  const isBroadcast = angle === 'broadcast';
+  document.getElementById('btn-add-edit').style.display = isBroadcast ? '' : 'none';
+  document.getElementById('btn-add-ab').style.display   = isBroadcast ? '' : 'none';
+
+  // Reload the current pitch in the new angle
+  if (currentIdx >= 0 && filtered[currentIdx]) {
+    loadVideo(filtered[currentIdx]);
+  }
 }
 
 function prevPitch() {
