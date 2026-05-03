@@ -868,6 +868,15 @@ select option { background: var(--bg3); }
 #mob-tabs-wrap > #mob-reel-panel { display: none; }
 .pr-card { display: none; }
 
+/* #mob-tabs-wrap is a flex passthrough on desktop so #pitch-list-area can scroll */
+#mob-tabs-wrap {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* ── Mobile TrackMan (desktop: shown in right sidebar) ───────────── */
 #mobile-tm { display: none; }
 @media (min-width: 901px) {
