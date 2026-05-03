@@ -1450,9 +1450,7 @@ let reelPlaying = false;
 let reelIdx = 0;
 let dragSrcIdx = null;
 let currentAngle = 'broadcast'; // active camera angle: broadcast | trackman | 1b | 3b
-let renderOffset = 0;
-const RENDER_PAGE = 60;
-let pitchSentinelObs = null;
+
 
 /* ════════════════════════════════════════════════════════════════════
    BOOT
@@ -1964,42 +1962,14 @@ function renderPitchList() {
   if (filtered.length === 0) {
     list.innerHTML = "";
     noRes.style.display = "block";
-    if (pitchSentinelObs) { pitchSentinelObs.disconnect(); pitchSentinelObs = null; }
     return;
   }
   noRes.style.display = "none";
 
-  // Disconnect old observer before rebuilding
-  if (pitchSentinelObs) { pitchSentinelObs.disconnect(); pitchSentinelObs = null; }
-
-  renderOffset = Math.min(RENDER_PAGE, filtered.length);
   const frag = document.createDocumentFragment();
-  for (let i = 0; i < renderOffset; i++) frag.appendChild(buildPitchRow(filtered[i], i));
-
-  // Sentinel triggers more rows when scrolled into view
-  const sentinel = document.createElement("div");
-  sentinel.id = "pitch-sentinel";
-  sentinel.style.height = "1px";
-  frag.appendChild(sentinel);
-
+  filtered.forEach((p, i) => frag.appendChild(buildPitchRow(p, i)));
   list.innerHTML = "";
   list.appendChild(frag);
-
-  pitchSentinelObs = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting) appendMorePitches();
-  }, { root: document.getElementById("pitch-list-area"), threshold: 0 });
-  pitchSentinelObs.observe(sentinel);
-}
-
-function appendMorePitches() {
-  if (renderOffset >= filtered.length) return;
-  const end = Math.min(renderOffset + RENDER_PAGE, filtered.length);
-  const list = document.getElementById("pitch-list");
-  const sentinel = document.getElementById("pitch-sentinel");
-  const frag = document.createDocumentFragment();
-  for (let i = renderOffset; i < end; i++) frag.appendChild(buildPitchRow(filtered[i], i));
-  renderOffset = end;
-  list.insertBefore(frag, sentinel);
 }
 
 function selectPitch(idx) {
