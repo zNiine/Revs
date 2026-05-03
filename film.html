@@ -555,6 +555,8 @@ select option { background: var(--bg3); }
   transition: background .1s;
   align-items: center;
   font-size: 11px;
+  height: 44px;
+  overflow: hidden;
 }
 .pitch-row:hover { background: var(--bg3); }
 .pitch-row.active { background: #1f2d1f; border-left: 3px solid var(--green); }
@@ -973,7 +975,8 @@ select option { background: var(--bg3); }
     border-bottom: 1px solid rgba(48,54,61,.6);
     cursor: pointer;
     transition: background .1s;
-    min-height: 56px;
+    height: 76px;
+    overflow: hidden;
   }
   .pitch-row:hover, .pitch-row:active { background: var(--bg3); }
   .pitch-row.active { background: #1a2f1a; border-left: 3px solid var(--green); }
@@ -1526,6 +1529,29 @@ window.addEventListener("DOMContentLoaded", () => {
       syncHudToggles();
       initCamSwitcher();
       bindKeys();
+
+      // Virtual scroll: re-render visible window on scroll
+      const _vsEl = document.getElementById("pitch-list-area");
+      _vsEl.addEventListener("scroll", () => {
+        if (!vsRafPending) {
+          vsRafPending = true;
+          requestAnimationFrame(() => {
+            renderWindow(_vsEl.scrollTop);
+            vsRafPending = false;
+          });
+        }
+      }, { passive: true });
+
+      // Re-render on resize/orientation change (row height may change)
+      window.addEventListener("resize", () => {
+        if (!vsResizeRaf) {
+          vsResizeRaf = true;
+          requestAnimationFrame(() => {
+            renderWindow(document.getElementById("pitch-list-area").scrollTop);
+            vsResizeRaf = false;
+          });
+        }
+      });
     } catch (e) {
       document.getElementById("loading-msg").textContent = "Error loading data.csv: " + e.message;
       document.querySelector(".big-spinner").style.display = "none";
@@ -1964,21 +1990,52 @@ function buildPitchRow(p, i) {
   return row;
 }
 
-function renderPitchList() {
-  const list = document.getElementById("pitch-list");
-  const noRes = document.getElementById("no-results");
+// ── Virtual scroll ──────────────────────────────────────────────────
+const VS_BUFFER = 8; // extra rows rendered above and below viewport
+let vsRafPending = false;
+let vsResizeRaf  = false;
+
+function getRowH() {
+  return window.innerWidth <= 768 ? 76 : 44;
+}
+
+function renderWindow(scrollTop) {
+  const list   = document.getElementById("pitch-list");
+  const noRes  = document.getElementById("no-results");
+  const area   = document.getElementById("pitch-list-area");
+  const header = document.getElementById("pitch-list-header");
 
   if (filtered.length === 0) {
     list.innerHTML = "";
+    list.style.paddingTop = list.style.paddingBottom = "";
     noRes.style.display = "block";
     return;
   }
   noRes.style.display = "none";
 
+  const rowH    = getRowH();
+  const headerH = header ? header.offsetHeight : 0;
+  const listTop = Math.max(0, scrollTop - headerH);
+  const viewH   = area.clientHeight;
+
+  const start = Math.max(0, Math.floor(listTop / rowH) - VS_BUFFER);
+  const end   = Math.min(filtered.length, Math.ceil((listTop + viewH) / rowH) + VS_BUFFER);
+
   const frag = document.createDocumentFragment();
-  filtered.forEach((p, i) => frag.appendChild(buildPitchRow(p, i)));
+  for (let i = start; i < end; i++) {
+    frag.appendChild(buildPitchRow(filtered[i], i));
+  }
+
+  list.style.paddingTop    = (start * rowH) + "px";
+  list.style.paddingBottom = ((filtered.length - end) * rowH) + "px";
   list.innerHTML = "";
   list.appendChild(frag);
+}
+
+function renderPitchList() {
+  const area = document.getElementById("pitch-list-area");
+  area.scrollTop = 0;
+  renderWindow(0);
 }
 
 function selectPitch(idx) {
@@ -1986,13 +2043,19 @@ function selectPitch(idx) {
   const p = filtered[idx];
   if (!p) return;
 
-  // Highlight row
-  document.querySelectorAll(".pitch-row").forEach(r => r.classList.remove("active"));
-  const activeRow = document.querySelector(`.pitch-row[data-idx="${idx}"]`);
-  if (activeRow) {
-    activeRow.classList.add("active");
-    activeRow.scrollIntoView({ block: "nearest" });
+  // Scroll the pitch list so the selected row is in view, then re-render
+  const _vsArea   = document.getElementById("pitch-list-area");
+  const _vsHeader = document.getElementById("pitch-list-header");
+  const _vsRowH   = getRowH();
+  const _vsHdrH   = _vsHeader ? _vsHeader.offsetHeight : 0;
+  const rowTop    = _vsHdrH + idx * _vsRowH;
+  const rowBot    = rowTop + _vsRowH;
+  if (rowTop < _vsArea.scrollTop) {
+    _vsArea.scrollTop = rowTop;
+  } else if (rowBot > _vsArea.scrollTop + _vsArea.clientHeight) {
+    _vsArea.scrollTop = rowBot - _vsArea.clientHeight;
   }
+  renderWindow(_vsArea.scrollTop);
 
   // Load video
   loadVideo(p);
