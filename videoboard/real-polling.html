@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Videoboard – Live (Polling)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      position: relative;
+      width: 203px;
+      height: 336px;
+      margin: 0;
+      overflow: hidden;
+      background: #0a0a0c;
+      color: #f2f2f4;
+      font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
+      line-height: 1.2;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .lineup-card {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      padding: 0 0 0 2px;
+      overflow: hidden;
+    }
+    .lineup-card__rows { flex: 1; min-height: 0; overflow: hidden; }
+
+    .lineup-row {
+      display: grid;
+      grid-template-columns: 1fr 52px;
+      align-items: center;
+      gap: 0 8px;
+      padding: 3px 0;
+    }
+    .lineup-row__name {
+      min-width: 0;
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      font-weight: 700;
+      font-size: 26px;
+      color: #F2B233;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .lineup-row__pos {
+      text-align: right;
+      font-weight: 700;
+      font-size: 18px;
+      color: #fff;
+      letter-spacing: 0.02em;
+    }
+    .lineup-row--current {
+      background: #F2B233;
+      border-radius: 2px;
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+    .lineup-row--current .lineup-row__name,
+    .lineup-row--current .lineup-row__pos {
+      color: #000;
+    }
+
+    .lineup-card__foot {
+      flex-shrink: 0; padding: 2px;
+      font-size: 11px; color: rgba(255, 200, 120, 0.85);
+    }
+    .lineup-card__foot:empty { display: none; }
+
+    .lineup-card--idle .lineup-card__rows {
+      display: flex; align-items: center; justify-content: center;
+      color: #F2B233; font-weight: 700; font-size: 13px; text-align: center;
+    }
+    .lineup-placeholder {
+      display: flex; align-items: center; justify-content: center;
+      padding: 10px; text-align: center;
+      color: #F2B233; font-weight: 700; font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div id="panel-lineup"></div>
+
+  <script>
+    const FB_BASE    = "https://revs-2c987-default-rtdb.firebaseio.com";
+    const ISCORE_URL = (id) => `https://api.microservices.iscoresports.com/api/public/games/${id}/lineup`;
+    const POLL_MS    = 3000;
+
+    let state = {
+      gameId:    null,
+      lastGameId: null,
+      batterId:  null,
+      lineup:    { HOME: null, AWAY: null },
+      lastSide:  null
+    };
+
+    const lineupEl = document.getElementById("panel-lineup");
+
+    function escapeHtml(s) {
+      return String(s || "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    async function fetchJson(url) {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}: ${url}`);
+      return r.json();
+    }
+
+    async function poll() {
+      try {
+        const [gameId, batterId] = await Promise.all([
+          fetchJson(`${FB_BASE}/iscore/gameId.json`),
+          fetchJson(`${FB_BASE}/iscore/batterId.json`)
+        ]);
+
+        state.gameId   = gameId;
+        state.batterId = batterId;
+
+        if (state.gameId && state.gameId !== state.lastGameId) {
+          const raw = await fetchJson(ISCORE_URL(state.gameId));
+          console.log("[raw lineup]", JSON.stringify(raw).slice(0, 500));
+          state.lineup    = { HOME: raw.HOME ?? null, AWAY: raw.AWAY ?? null };
+          state.lastGameId = state.gameId;
+        }
+        console.log("[state]", state.gameId, state.batterId, "HOME slots:", state.lineup.HOME?.payload?.slots?.length, "AWAY slots:", state.lineup.AWAY?.payload?.slots?.length);
+      } catch (e) {
+        console.error("[poll error]", e);
+      }
+
+      renderLineup();
+    }
+
+    function battingSlots(side) {
+      const slots = state.lineup[side]?.payload?.slots ?? [];
+      return slots.filter(sl => sl.player && sl.slot >= 1 && sl.slot <= 9);
+    }
+
+    function renderLineup() {
+      const { batterId, lineup } = state;
+
+      if (!lineup.HOME && !lineup.AWAY) {
+        lineupEl.innerHTML = `
+          <div class="lineup-card lineup-card--idle">
+            <div class="lineup-card__rows">Waiting for lineup…</div>
+          </div>`;
+        return;
+      }
+
+      // Determine which side is batting by finding batterId in each lineup
+      let side = state.lastSide;
+      if (batterId) {
+        for (const s of ["HOME", "AWAY"]) {
+          const slots = lineup[s]?.payload?.slots ?? [];
+          if (slots.some(sl => sl.player_id === batterId)) {
+            side = s;
+            break;
+          }
+        }
+      }
+      if (!side) side = "HOME";
+      state.lastSide = side;
+
+      const slots = battingSlots(side);
+
+      if (!slots.length) {
+        lineupEl.innerHTML = `
+          <div class="lineup-card lineup-card--idle">
+            <div class="lineup-card__rows">Waiting for lineup…</div>
+          </div>`;
+        return;
+      }
+
+      const rowsHtml = slots.map(sl => {
+        const isCurrent = batterId && sl.player_id === batterId;
+        const rowClass  = isCurrent ? " lineup-row--current" : "";
+        const name      = sl.player?.lastName ?? "";
+        const pos       = sl.position ?? "";
+        return `
+          <div class="lineup-row${rowClass}">
+            <div class="lineup-row__name">${escapeHtml(name)}</div>
+            <div class="lineup-row__pos">${escapeHtml(pos)}</div>
+          </div>`;
+      }).join("");
+
+      lineupEl.innerHTML = `
+        <div class="lineup-card">
+          <div class="lineup-card__rows">${rowsHtml}</div>
+        </div>`;
+    }
+
+    poll();
+    setInterval(poll, POLL_MS);
+  </script>
+</body>
+</html>
