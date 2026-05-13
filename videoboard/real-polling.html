@@ -262,24 +262,6 @@
       "Staten Island Ferry Hawks", "Long Island Ducks",
     ]);
 
-    const MLB_ABBR = {
-      "Baltimore Orioles":      "BAL",  "Philadelphia Phillies":  "PHI",
-      "Pittsburgh Pirates":     "PIT",  "Washington Nationals":   "WSH",
-      "Boston Red Sox":         "BOS",  "New York Yankees":       "NYY",
-      "Cincinnati Reds":        "CIN",  "Los Angeles Dodgers":    "LAD",
-      "New York Mets":          "NYM",  "Atlanta Braves":         "ATL",
-      "Miami Marlins":          "MIA",  "Toronto Blue Jays":      "TOR",
-      "Tampa Bay Rays":         "TB",   "Chicago White Sox":      "CWS",
-      "Chicago Cubs":           "CHC",  "Cleveland Guardians":    "CLE",
-      "Detroit Tigers":         "DET",  "Kansas City Royals":     "KC",
-      "Minnesota Twins":        "MIN",  "Houston Astros":         "HOU",
-      "Los Angeles Angels":     "LAA",  "Oakland Athletics":      "OAK",
-      "Seattle Mariners":       "SEA",  "Texas Rangers":          "TEX",
-      "Arizona Diamondbacks":   "ARI",  "Colorado Rockies":       "COL",
-      "San Diego Padres":       "SD",   "San Francisco Giants":   "SF",
-      "St. Louis Cardinals":    "STL",  "Milwaukee Brewers":      "MIL",
-    };
-
     let state = {
       mode:       "lineup",
       gameId:     null,
@@ -290,11 +272,9 @@
     };
 
     let leagueData   = new Map();
-    let mlbData      = new Map();
     let ootGameData  = new Map();
     let ootGameOrder = [];
     let otsInterval  = null;
-    let mlbInterval  = null;
     let rotateIndex    = 0;
     let rotateInterval = null;
 
@@ -425,9 +405,7 @@
     function startOtsPolling() {
       if (otsInterval) return;
       refreshOts();
-      refreshMlb();
       otsInterval    = setInterval(refreshOts, OTS_POLL_MS);
-      mlbInterval    = setInterval(refreshMlb, OTS_POLL_MS);
       rotateInterval = setInterval(() => {
         if (ootGameOrder.length > 2) {
           rotateIndex = (rotateIndex + 2) % ootGameOrder.length;
@@ -438,20 +416,17 @@
 
     function stopOtsPolling() {
       if (otsInterval)    { clearInterval(otsInterval);    otsInterval    = null; }
-      if (mlbInterval)    { clearInterval(mlbInterval);    mlbInterval    = null; }
       if (rotateInterval) { clearInterval(rotateInterval); rotateInterval = null; }
       leagueData.clear();
-      mlbData.clear();
       ootGameData.clear();
       ootGameOrder = [];
       rotateIndex  = 0;
     }
 
-    // merge both sources, live first, then scheduled, then final
+    // live first, then scheduled, then final
     function mergeGames() {
       const all = [];
       for (const [, g] of leagueData) all.push(g);
-      for (const [, g] of mlbData)    all.push(g);
       all.sort((a, b) => ({ 2: 0, 1: 1, 3: 2 }[a.status] ?? 3) - ({ 2: 0, 1: 1, 3: 2 }[b.status] ?? 3));
       ootGameData.clear();
       ootGameOrder = all.map(g => g.id);
@@ -525,71 +500,6 @@
       mergeGames();
     }
 
-    const MLB_TARGET = new Set([
-      "Baltimore Orioles", "Philadelphia Phillies", "Pittsburgh Pirates",
-      "Washington Nationals", "Boston Red Sox", "New York Yankees",
-      "Cincinnati Reds", "Los Angeles Dodgers",
-    ]);
-
-    // --- MLB games (direct StatsAPI) ---
-    async function refreshMlb() {
-      const today = new Date().toISOString().slice(0, 10);
-      let data;
-      try {
-        data = await fetchJson(`https://statsapi.mlb.com/api/v1/schedule/games?sportId=1&date=${today}`);
-      } catch (e) {
-        console.warn("[mlb] fetch failed:", e.message);
-        return;
-      }
-
-      mlbData.clear();
-
-      for (const dateBlock of data.dates ?? []) {
-        for (const game of dateBlock.games ?? []) {
-          const awayTeam  = game.teams.away;
-          const homeTeam  = game.teams.home;
-          const awayName  = awayTeam.team.name;
-          const homeName  = homeTeam.team.name;
-          const awayScore = awayTeam.score ?? 0;
-          const homeScore = homeTeam.score ?? 0;
-
-          if (!MLB_TARGET.has(awayName) && !MLB_TARGET.has(homeName)) continue;
-
-          // only show Dodgers if winning or tied
-          if (awayName === "Los Angeles Dodgers" && awayScore < homeScore) continue;
-          if (homeName === "Los Angeles Dodgers" && homeScore < awayScore) continue;
-
-          const id        = `mlb-${game.gamePk}`;
-          const awayShort = MLB_ABBR[awayName] || awayName.slice(0, 3).toUpperCase();
-          const homeShort = MLB_ABBR[homeName] || homeName.slice(0, 3).toUpperCase();
-          const awayLogo  = `https://www.mlbstatic.com/team-logos/team-cap-on-dark/${awayTeam.team.id}.svg`;
-          const homeLogo  = `https://www.mlbstatic.com/team-logos/team-cap-on-dark/${homeTeam.team.id}.svg`;
-
-          const rawStatus = game.status.detailedState;
-          let status;
-          if (rawStatus === "In Progress" || rawStatus === "Warmup") {
-            status = 2;
-          } else if (rawStatus === "Final" || rawStatus === "Game Over" || rawStatus === "Completed Early") {
-            status = 3;
-          } else {
-            status = 1;
-          }
-
-          mlbData.set(id, {
-            id, source: "mlb",
-            status,
-            awayShort, homeShort,
-            awayLogo, homeLogo,
-            awayRuns:  awayScore,
-            homeRuns:  homeScore,
-            startTime: status === 1 ? new Date(game.gameDate) : null,
-          });
-        }
-      }
-
-      mergeGames();
-    }
-
     // --- scores render ---
     function renderScores() {
       const pair = [0, 1].map(i => {
@@ -607,8 +517,8 @@
       const blocks = pair.map(g => {
         if (!g) return `<div class="game-block"></div>`;
 
-        const awayLogoSrc = g.source === "mlb" ? escapeHtml(g.awayLogo) : `logos/${escapeHtml(g.awayShort)}.png`;
-        const homeLogoSrc = g.source === "mlb" ? escapeHtml(g.homeLogo) : `logos/${escapeHtml(g.homeShort)}.png`;
+        const awayLogoSrc = `logos/${escapeHtml(g.awayShort)}.png`;
+        const homeLogoSrc = `logos/${escapeHtml(g.homeShort)}.png`;
 
         if (g.status === 1) {
           const timeStr = g.startTime instanceof Date
