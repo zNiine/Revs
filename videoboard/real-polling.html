@@ -123,11 +123,12 @@
     }
     .leaders-header {
       text-align: center;
-      font-size: 13px; font-weight: 700;
-      letter-spacing: 0.08em; text-transform: uppercase;
+      font-size: 28px; font-weight: 800;
+      letter-spacing: 0.04em; text-transform: uppercase;
       color: #F2B233;
-      padding: 4px 0 6px;
+      padding: 4px 0 4px;
       flex-shrink: 0;
+      line-height: 1;
     }
     .leaders-rows { flex: 1; display: flex; flex-direction: column; }
     .leader-row {
@@ -150,7 +151,7 @@
     .leader-info { min-width: 0; }
     .leader-name {
       font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
-      font-size: 23px; font-weight: 700;
+      font-size: 27px; font-weight: 700;
       color: #F2B233;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
@@ -177,19 +178,20 @@
     }
     .standings-header {
       text-align: center;
-      font-size: 13px; font-weight: 700;
-      letter-spacing: 0.08em; text-transform: uppercase;
+      font-size: 28px; font-weight: 800;
+      letter-spacing: 0.04em; text-transform: uppercase;
       color: #F2B233;
       padding: 4px 0 2px;
       flex-shrink: 0;
+      line-height: 1;
     }
     .standings-colheads {
       display: grid;
-      grid-template-columns: 1fr 30px 30px 38px;
+      grid-template-columns: 1fr 34px 34px 42px;
       gap: 0 4px;
-      padding: 0 4px 3px;
-      font-size: 10px; font-weight: 700;
-      color: rgba(255,255,255,0.35);
+      padding: 2px 4px 3px;
+      font-size: 22px; font-weight: 700;
+      color: #fff;
       letter-spacing: 0.06em; text-transform: uppercase;
       flex-shrink: 0;
     }
@@ -199,7 +201,7 @@
     .standings-rows { flex: 1; display: flex; flex-direction: column; }
     .standing-row {
       display: grid;
-      grid-template-columns: 1fr 30px 30px 38px;
+      grid-template-columns: 1fr 34px 34px 42px;
       align-items: center;
       gap: 0 4px;
       padding: 4px 4px;
@@ -209,19 +211,19 @@
     .standing-row--york { background: rgba(100, 180, 255, 0.15); }
     .standing-team {
       font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
-      font-size: 26px; font-weight: 700;
+      font-size: 28px; font-weight: 700;
       color: #F2B233;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .standing-row--york .standing-team { color: #7ecfff; }
     .standing-wl {
-      font-size: 19px; font-weight: 800;
+      font-size: 26px; font-weight: 800;
       font-variant-numeric: tabular-nums;
       color: #fff;
       text-align: center;
     }
     .standing-gb {
-      font-size: 19px; font-weight: 800;
+      font-size: 26px; font-weight: 800;
       font-variant-numeric: tabular-nums;
       color: rgba(255,255,255,0.65);
       text-align: right;
@@ -725,7 +727,7 @@
           <div class="leader-row${isYork ? " leader-row--york" : ""}">
             <span class="leader-rank">${i + 1}</span>
             <div class="leader-info">
-              <div class="leader-name">${escapeHtml(item.lastName)}</div>
+              <div class="leader-name">${escapeHtml((item.firstName?.[0] ? item.firstName[0] + ". " : "") + (item.lastName ?? ""))}</div>
               <div class="leader-team">${escapeHtml(abbr)}</div>
             </div>
             <span class="leader-val">${escapeHtml(val)}</span>
@@ -798,7 +800,7 @@
 
       leadersEl.innerHTML = `
         <div class="standings-wrap">
-          <div class="standings-header">North Standings</div>
+          <div class="standings-header">North</div>
           <div class="standings-colheads">
             <span></span>
             <span>W</span>
