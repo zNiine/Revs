@@ -19,7 +19,7 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    #panel-lineup, #panel-scores {
+    #panel-lineup, #panel-scores, #panel-leaders {
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
@@ -114,16 +114,131 @@
       flex: 1; color: rgba(255,255,255,0.3);
       font-size: 14px; text-align: center; padding: 16px;
     }
+
+    /* --- leaders --- */
+    .leaders-wrap {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      padding: 2px;
+    }
+    .leaders-header {
+      text-align: center;
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: #F2B233;
+      padding: 4px 0 6px;
+      flex-shrink: 0;
+    }
+    .leaders-rows { flex: 1; display: flex; flex-direction: column; }
+    .leader-row {
+      display: grid;
+      grid-template-columns: 22px 1fr 46px;
+      align-items: center;
+      gap: 0 6px;
+      padding: 4px 4px;
+      flex: 1;
+      border-radius: 3px;
+    }
+    .leader-row--york {
+      background: rgba(100, 180, 255, 0.15);
+    }
+    .leader-rank {
+      font-size: 13px; font-weight: 700;
+      color: rgba(255,255,255,0.35);
+      text-align: center;
+    }
+    .leader-info { min-width: 0; }
+    .leader-name {
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      font-size: 23px; font-weight: 700;
+      color: #F2B233;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .leader-row--york .leader-name { color: #7ecfff; }
+    .leader-team {
+      font-size: 11px; font-weight: 600;
+      color: rgba(255,255,255,0.45);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .leader-row--york .leader-team { color: rgba(126,207,255,0.7); }
+    .leader-val {
+      font-size: 26px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #fff;
+      text-align: right;
+      letter-spacing: -0.02em;
+    }
+
+    /* --- standings --- */
+    .standings-wrap {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      padding: 2px;
+    }
+    .standings-header {
+      text-align: center;
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: #F2B233;
+      padding: 4px 0 2px;
+      flex-shrink: 0;
+    }
+    .standings-colheads {
+      display: grid;
+      grid-template-columns: 1fr 30px 30px 38px;
+      gap: 0 4px;
+      padding: 0 4px 3px;
+      font-size: 10px; font-weight: 700;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.06em; text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .standings-colheads span:nth-child(2),
+    .standings-colheads span:nth-child(3) { text-align: center; }
+    .standings-colheads span:nth-child(4) { text-align: right; }
+    .standings-rows { flex: 1; display: flex; flex-direction: column; }
+    .standing-row {
+      display: grid;
+      grid-template-columns: 1fr 30px 30px 38px;
+      align-items: center;
+      gap: 0 4px;
+      padding: 4px 4px;
+      flex: 1;
+      border-radius: 3px;
+    }
+    .standing-row--york { background: rgba(100, 180, 255, 0.15); }
+    .standing-team {
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      font-size: 26px; font-weight: 700;
+      color: #F2B233;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .standing-row--york .standing-team { color: #7ecfff; }
+    .standing-wl {
+      font-size: 19px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #fff;
+      text-align: center;
+    }
+    .standing-gb {
+      font-size: 19px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255,255,255,0.65);
+      text-align: right;
+    }
+    .standing-row--york .standing-gb { color: rgba(126,207,255,0.85); }
   </style>
 </head>
 <body>
   <div id="panel-lineup"></div>
   <div id="panel-scores"></div>
+  <div id="panel-leaders"></div>
 
   <script>
     const FB_BASE     = "https://revs-2c987-default-rtdb.firebaseio.com";
     const API_BASE    = "https://api.microservices.iscoresports.com";
     const LEAGUE_ID   = "df9fb9cc-0fdb-4b79-8a3c-ad5d7b415a56";
+    const SEASON_ID   = "9843025b-3dd7-4b1b-8776-a6b53a3bdb7a";
     const POLL_MS     = 5000;
     const OTS_POLL_MS = 30000;
 
@@ -139,6 +254,11 @@
       "High Point Rockers":           "HP",
       "Charleston Dirty Birds":       "CWV",
     };
+
+    const NORTH_TEAMS = new Set([
+      "Hagerstown Flying Boxcars", "York Revolution", "Lancaster Stormers",
+      "Staten Island Ferry Hawks", "Long Island Ducks",
+    ]);
 
     const MLB_ABBR = {
       "Baltimore Orioles":      "BAL",  "Philadelphia Phillies":  "PHI",
@@ -176,12 +296,14 @@
     let rotateIndex    = 0;
     let rotateInterval = null;
 
-    const lineupEl = document.getElementById("panel-lineup");
-    const scoresEl = document.getElementById("panel-scores");
+    const lineupEl  = document.getElementById("panel-lineup");
+    const scoresEl  = document.getElementById("panel-scores");
+    const leadersEl = document.getElementById("panel-leaders");
 
     function showPanel(name) {
-      lineupEl.style.display = name === "lineup" ? "flex" : "none";
-      scoresEl.style.display = name === "scores" ? "flex" : "none";
+      lineupEl.style.display  = name === "lineup"  ? "flex" : "none";
+      scoresEl.style.display  = name === "scores"  ? "flex" : "none";
+      leadersEl.style.display = (name === "leaders" || name === "standings") ? "flex" : "none";
     }
     showPanel("lineup");
 
@@ -212,12 +334,16 @@
         state.batterId  = batterId;
 
         if (state.mode !== prevMode) {
+          stopOtsPolling();
           if (state.mode === "ots-league") {
             showPanel("scores");
             startOtsPolling();
+          } else if (state.mode.startsWith("leaders/")) {
+            showPanel("leaders");
+          } else if (state.mode === "standings") {
+            showPanel("standings");
           } else {
             showPanel("lineup");
-            stopOtsPolling();
           }
         }
 
@@ -228,6 +354,11 @@
             state.lastGameId = state.gameId;
           }
           renderLineup();
+        } else if (state.mode.startsWith("leaders/") && state.mode !== prevMode) {
+          const parts = state.mode.split("/");
+          fetchLeaders(parts[1], parts[2]);
+        } else if (state.mode === "standings" && state.mode !== prevMode) {
+          fetchStandings();
         }
       } catch (e) {
         console.error("[poll error]", e);
@@ -521,6 +652,161 @@
       }).join("");
 
       scoresEl.innerHTML = `<div class="scores-wrap">${blocks}</div>`;
+    }
+
+    // --- leaders ---
+    const STAT_CONFIG = {
+      H:    { label: "HITS",    rate: false }, HR:   { label: "HR",      rate: false },
+      RBI:  { label: "RBI",     rate: false }, R:    { label: "RUNS",    rate: false },
+      BB:   { label: "WALKS",   rate: false }, SO:   { label: "K",       rate: false },
+      SB:   { label: "SB",      rate: false }, TB:   { label: "TB",      rate: false },
+      AVG:  { label: "AVG",     rate: true  }, OBP:  { label: "OBP",     rate: true  },
+      SLG:  { label: "SLG",     rate: true  }, OPS:  { label: "OPS",     rate: true  },
+      ERA:  { label: "ERA",     rate: true,  asc: true  },
+      WHIP: { label: "WHIP",    rate: true,  asc: true  },
+      W:    { label: "WINS",    rate: false }, SV:   { label: "SAVES",   rate: false },
+      IP:   { label: "IP",      rate: false }, K:    { label: "K",       rate: false },
+    };
+
+    function getStatValue(item, stat) {
+      const s = item.stats;
+      if (!s) return null;
+      const direct = s[stat];
+      if (direct != null) return direct;
+      return s.RATES?.[stat] ?? null;
+    }
+
+    function fmtStat(val, stat) {
+      if (val == null) return "—";
+      const n = typeof val === "number" ? val : parseFloat(val);
+      if (!Number.isFinite(n)) return "—";
+      const cfg = STAT_CONFIG[stat];
+      if (!cfg?.rate) return String(Math.round(n));
+      if (n < 2) {
+        const s = n.toFixed(3);
+        return s.startsWith("0.") ? s.slice(1) : s;
+      }
+      return n.toFixed(2);
+    }
+
+    async function fetchLeaders(type, stat) {
+      if (!type || !stat) return;
+      const endpoint  = type === "p" ? "pitching" : type === "r" ? "running" : "batting";
+      const sortBy    = stat.toUpperCase();
+      const cfg       = STAT_CONFIG[sortBy];
+      const sortDir   = cfg?.asc ? "asc" : "desc";
+      const label     = cfg?.label ?? sortBy;
+
+      const q = new URLSearchParams({
+        seasonId: SEASON_ID,
+        leagueId: LEAGUE_ID,
+        sortBy,
+        sortDir,
+        size: 5,
+        page: 0,
+      });
+
+      try {
+        const data  = await fetchJson(`${API_BASE}/api/api/leaderboard/player/${endpoint}?${q}`);
+        const items = (data.items ?? data ?? []).slice(0, 5);
+        renderLeaders(items, sortBy, label);
+      } catch (e) {
+        console.error("[leaders] fetch failed:", e);
+        leadersEl.innerHTML = `<div class="leaders-wrap"><div class="leaders-header">Failed to load</div></div>`;
+      }
+    }
+
+    function renderLeaders(items, stat, label) {
+      const rows = items.map((item, i) => {
+        const isYork  = item.teamName === "York Revolution";
+        const abbr    = TEAM_SHORT[item.teamName] || item.teamName?.slice(0, 3).toUpperCase() || "";
+        const val     = fmtStat(getStatValue(item, stat), stat);
+        return `
+          <div class="leader-row${isYork ? " leader-row--york" : ""}">
+            <span class="leader-rank">${i + 1}</span>
+            <div class="leader-info">
+              <div class="leader-name">${escapeHtml(item.lastName)}</div>
+              <div class="leader-team">${escapeHtml(abbr)}</div>
+            </div>
+            <span class="leader-val">${escapeHtml(val)}</span>
+          </div>`;
+      }).join("");
+
+      leadersEl.innerHTML = `
+        <div class="leaders-wrap">
+          <div class="leaders-header">${escapeHtml(label)} Leaders</div>
+          <div class="leaders-rows">${rows}</div>
+        </div>`;
+    }
+
+    // --- standings ---
+    function fmtGB(gb) {
+      if (gb === 0) return "—";
+      const whole = Math.floor(gb);
+      const half  = (gb % 1) >= 0.4;
+      if (whole === 0) return "½";
+      return half ? `${whole}½` : String(whole);
+    }
+
+    async function fetchStandings() {
+      try {
+        const data = await fetchJson(`${API_BASE}/api/leagues/standings?seasonId=${SEASON_ID}`);
+        renderStandings(data);
+      } catch (e) {
+        console.error("[standings] fetch failed:", e);
+        leadersEl.innerHTML = `<div class="standings-wrap"><div class="standings-header">Failed to load</div></div>`;
+      }
+    }
+
+    function renderStandings(data) {
+      let teams = Array.isArray(data) ? data
+        : (data?.teams ?? data?.items ?? data?.standings ?? []);
+
+      teams = teams.filter(t => NORTH_TEAMS.has(t.teamName ?? t.name ?? ""));
+
+      if (!teams.length) {
+        leadersEl.innerHTML = `<div class="standings-wrap"><div class="standings-header">No standings data</div></div>`;
+        return;
+      }
+
+      const getW = t => t.W ?? t.wins ?? t.w ?? 0;
+      const getL = t => t.L ?? t.losses ?? t.l ?? 0;
+
+      teams.sort((a, b) => {
+        const wDiff = getW(b) - getW(a);
+        return wDiff !== 0 ? wDiff : getL(a) - getL(b);
+      });
+
+      const leaderW = getW(teams[0]);
+      const leaderL = getL(teams[0]);
+
+      const rows = teams.map((t, i) => {
+        const name   = t.teamName ?? t.name ?? "";
+        const short  = TEAM_SHORT[name] || name.slice(0, 3).toUpperCase();
+        const w      = getW(t);
+        const l      = getL(t);
+        const gb     = i === 0 ? 0 : ((leaderW - w) + (l - leaderL)) / 2;
+        const isYork = name === "York Revolution";
+        return `
+          <div class="standing-row${isYork ? " standing-row--york" : ""}">
+            <span class="standing-team">${escapeHtml(short)}</span>
+            <span class="standing-wl">${w}</span>
+            <span class="standing-wl">${l}</span>
+            <span class="standing-gb">${fmtGB(gb)}</span>
+          </div>`;
+      }).join("");
+
+      leadersEl.innerHTML = `
+        <div class="standings-wrap">
+          <div class="standings-header">North Standings</div>
+          <div class="standings-colheads">
+            <span></span>
+            <span>W</span>
+            <span>L</span>
+            <span>GB</span>
+          </div>
+          <div class="standings-rows">${rows}</div>
+        </div>`;
     }
 
     poll();
