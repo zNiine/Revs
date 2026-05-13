@@ -19,6 +19,15 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    #panel-lineup, #panel-scores {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: none;
+      flex-direction: column;
+    }
+
+    /* --- lineup --- */
     .lineup-card {
       width: 100%; height: 100%;
       display: flex; flex-direction: column;
@@ -26,7 +35,6 @@
       overflow: hidden;
     }
     .lineup-card__rows { flex: 1; min-height: 0; overflow: hidden; }
-
     .lineup-row {
       display: grid;
       grid-template-columns: 1fr 52px;
@@ -56,16 +64,12 @@
       padding-right: 4px;
     }
     .lineup-row--current .lineup-row__name,
-    .lineup-row--current .lineup-row__pos {
-      color: #000;
-    }
-
+    .lineup-row--current .lineup-row__pos { color: #000; }
     .lineup-card__foot {
       flex-shrink: 0; padding: 2px;
       font-size: 11px; color: rgba(255, 200, 120, 0.85);
     }
     .lineup-card__foot:empty { display: none; }
-
     .lineup-card--idle .lineup-card__rows {
       display: flex; align-items: center; justify-content: center;
       color: #F2B233; font-weight: 700; font-size: 13px; text-align: center;
@@ -75,25 +79,111 @@
       padding: 10px; text-align: center;
       color: #F2B233; font-weight: 700; font-size: 13px;
     }
+
+    /* --- scores --- */
+    .scores-wrap {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column;
+    }
+    .game-block {
+      flex: 1;
+      display: flex; flex-direction: column;
+      justify-content: center;
+      padding: 6px 6px 4px 2px;
+    }
+    .game-block + .game-block { border-top: 1px solid rgba(255,255,255,0.1); }
+    .game-block__team { display: flex; align-items: center; gap: 8px; flex: 1; }
+    .game-block__logo { width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }
+    .game-block__abbr {
+      flex: 1; font-size: 28px; font-weight: 800;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .game-block__score {
+      font-size: 40px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+    .game-block__inn {
+      text-align: right;
+      font-size: 22px; font-weight: 700;
+      color: #ffe066;
+      padding-top: 2px;
+    }
+    .scores-empty {
+      display: flex; align-items: center; justify-content: center;
+      flex: 1; color: rgba(255,255,255,0.3);
+      font-size: 14px; text-align: center; padding: 16px;
+    }
   </style>
 </head>
 <body>
   <div id="panel-lineup"></div>
+  <div id="panel-scores"></div>
 
   <script>
-    const FB_BASE    = "https://revs-2c987-default-rtdb.firebaseio.com";
-    const ISCORE_URL = (id) => `https://api.microservices.iscoresports.com/api/public/games/${id}/lineup`;
-    const POLL_MS    = 3000;
+    const FB_BASE     = "https://revs-2c987-default-rtdb.firebaseio.com";
+    const API_BASE    = "https://api.microservices.iscoresports.com";
+    const LEAGUE_ID   = "df9fb9cc-0fdb-4b79-8a3c-ad5d7b415a56";
+    const POLL_MS     = 5000;
+    const OTS_POLL_MS = 30000;
 
-    let state = {
-      gameId:    null,
-      lastGameId: null,
-      batterId:  null,
-      lineup:    { HOME: null, AWAY: null },
-      lastSide:  null
+    const TEAM_SHORT = {
+      "Staten Island Ferry Hawks":    "SI",
+      "York Revolution":              "YRK",
+      "Long Island Ducks":            "LI",
+      "Hagerstown Flying Boxcars":    "HAG",
+      "Lancaster Stormers":           "LAN",
+      "Lexington Legends":            "LEX",
+      "Gastonia Ghost Peppers":       "GAS",
+      "Southern Maryland Blue Crabs": "SMD",
+      "High Point Rockers":           "HP",
+      "Charleston Dirty Birds":       "CWV",
     };
 
+    const MLB_ABBR = {
+      "Baltimore Orioles":      "BAL",  "Philadelphia Phillies":  "PHI",
+      "Pittsburgh Pirates":     "PIT",  "Washington Nationals":   "WSH",
+      "Boston Red Sox":         "BOS",  "New York Yankees":       "NYY",
+      "Cincinnati Reds":        "CIN",  "Los Angeles Dodgers":    "LAD",
+      "New York Mets":          "NYM",  "Atlanta Braves":         "ATL",
+      "Miami Marlins":          "MIA",  "Toronto Blue Jays":      "TOR",
+      "Tampa Bay Rays":         "TB",   "Chicago White Sox":      "CWS",
+      "Chicago Cubs":           "CHC",  "Cleveland Guardians":    "CLE",
+      "Detroit Tigers":         "DET",  "Kansas City Royals":     "KC",
+      "Minnesota Twins":        "MIN",  "Houston Astros":         "HOU",
+      "Los Angeles Angels":     "LAA",  "Oakland Athletics":      "OAK",
+      "Seattle Mariners":       "SEA",  "Texas Rangers":          "TEX",
+      "Arizona Diamondbacks":   "ARI",  "Colorado Rockies":       "COL",
+      "San Diego Padres":       "SD",   "San Francisco Giants":   "SF",
+      "St. Louis Cardinals":    "STL",  "Milwaukee Brewers":      "MIL",
+    };
+
+    let state = {
+      mode:       "lineup",
+      gameId:     null,
+      lastGameId: null,
+      batterId:   null,
+      lineup:     { HOME: null, AWAY: null },
+      lastSide:   null
+    };
+
+    let leagueData   = new Map();
+    let mlbData      = new Map();
+    let ootGameData  = new Map();
+    let ootGameOrder = [];
+    let otsInterval  = null;
+    let mlbInterval  = null;
+    let rotateIndex    = 0;
+    let rotateInterval = null;
+
     const lineupEl = document.getElementById("panel-lineup");
+    const scoresEl = document.getElementById("panel-scores");
+
+    function showPanel(name) {
+      lineupEl.style.display = name === "lineup" ? "flex" : "none";
+      scoresEl.style.display = name === "scores" ? "flex" : "none";
+    }
+    showPanel("lineup");
 
     function escapeHtml(s) {
       return String(s || "")
@@ -107,30 +197,44 @@
       return r.json();
     }
 
+    // --- main poll (5s) ---
     async function poll() {
       try {
-        const [gameId, batterId] = await Promise.all([
+        const [gameId, batterId, mode] = await Promise.all([
           fetchJson(`${FB_BASE}/iscore/gameId.json`),
-          fetchJson(`${FB_BASE}/iscore/batterId.json`)
+          fetchJson(`${FB_BASE}/iscore/batterId.json`),
+          fetchJson(`${FB_BASE}/iscore/mode.json`)
         ]);
 
-        state.gameId   = gameId;
-        state.batterId = batterId;
+        const prevMode  = state.mode;
+        state.mode      = mode || "lineup";
+        state.gameId    = gameId;
+        state.batterId  = batterId;
 
-        if (state.gameId && state.gameId !== state.lastGameId) {
-          const raw = await fetchJson(ISCORE_URL(state.gameId));
-          console.log("[raw lineup]", JSON.stringify(raw).slice(0, 500));
-          state.lineup    = { HOME: raw.HOME ?? null, AWAY: raw.AWAY ?? null };
-          state.lastGameId = state.gameId;
+        if (state.mode !== prevMode) {
+          if (state.mode === "ots-league") {
+            showPanel("scores");
+            startOtsPolling();
+          } else {
+            showPanel("lineup");
+            stopOtsPolling();
+          }
         }
-        console.log("[state]", state.gameId, state.batterId, "HOME slots:", state.lineup.HOME?.payload?.slots?.length, "AWAY slots:", state.lineup.AWAY?.payload?.slots?.length);
+
+        if (state.mode === "lineup") {
+          if (state.gameId && state.gameId !== state.lastGameId) {
+            const raw        = await fetchJson(`${API_BASE}/api/public/games/${state.gameId}/lineup`);
+            state.lineup     = { HOME: raw.HOME ?? null, AWAY: raw.AWAY ?? null };
+            state.lastGameId = state.gameId;
+          }
+          renderLineup();
+        }
       } catch (e) {
         console.error("[poll error]", e);
       }
-
-      renderLineup();
     }
 
+    // --- lineup render ---
     function battingSlots(side) {
       const slots = state.lineup[side]?.payload?.slots ?? [];
       return slots.filter(sl => sl.player && sl.slot >= 1 && sl.slot <= 9);
@@ -147,22 +251,17 @@
         return;
       }
 
-      // Determine which side is batting by finding batterId in each lineup
       let side = state.lastSide;
       if (batterId) {
         for (const s of ["HOME", "AWAY"]) {
           const slots = lineup[s]?.payload?.slots ?? [];
-          if (slots.some(sl => sl.player_id === batterId)) {
-            side = s;
-            break;
-          }
+          if (slots.some(sl => sl.player_id === batterId)) { side = s; break; }
         }
       }
       if (!side) side = "HOME";
       state.lastSide = side;
 
       const slots = battingSlots(side);
-
       if (!slots.length) {
         lineupEl.innerHTML = `
           <div class="lineup-card lineup-card--idle">
@@ -187,6 +286,241 @@
         <div class="lineup-card">
           <div class="lineup-card__rows">${rowsHtml}</div>
         </div>`;
+    }
+
+    // --- OTS polling ---
+    function startOtsPolling() {
+      if (otsInterval) return;
+      refreshOts();
+      refreshMlb();
+      otsInterval    = setInterval(refreshOts, OTS_POLL_MS);
+      mlbInterval    = setInterval(refreshMlb, OTS_POLL_MS);
+      rotateInterval = setInterval(() => {
+        if (ootGameOrder.length > 2) {
+          rotateIndex = (rotateIndex + 2) % ootGameOrder.length;
+          renderScores();
+        }
+      }, 7500);
+    }
+
+    function stopOtsPolling() {
+      if (otsInterval)    { clearInterval(otsInterval);    otsInterval    = null; }
+      if (mlbInterval)    { clearInterval(mlbInterval);    mlbInterval    = null; }
+      if (rotateInterval) { clearInterval(rotateInterval); rotateInterval = null; }
+      leagueData.clear();
+      mlbData.clear();
+      ootGameData.clear();
+      ootGameOrder = [];
+      rotateIndex  = 0;
+    }
+
+    // merge both sources, live first, then scheduled, then final
+    function mergeGames() {
+      const all = [];
+      for (const [, g] of leagueData) all.push(g);
+      for (const [, g] of mlbData)    all.push(g);
+      all.sort((a, b) => ({ 2: 0, 1: 1, 3: 2 }[a.status] ?? 3) - ({ 2: 0, 1: 1, 3: 2 }[b.status] ?? 3));
+      ootGameData.clear();
+      ootGameOrder = all.map(g => g.id);
+      all.forEach(g => ootGameData.set(g.id, g));
+      rotateIndex = 0;
+      renderScores();
+    }
+
+    // --- league games ---
+    async function refreshOts() {
+      const now  = new Date();
+      const from = new Date(now); from.setHours(0, 0, 0, 0);
+      const to   = new Date(now); to.setHours(23, 59, 59, 999);
+      const q = new URLSearchParams({
+        leagueId:      LEAGUE_ID,
+        startDateFrom: from.toISOString(),
+        startDateTo:   to.toISOString(),
+        take:          50,
+      });
+
+      let games;
+      try {
+        const json = await fetchJson(`${API_BASE}/api/public/games?${q}`);
+        games = Array.isArray(json) ? json : (json?.items ?? json?.data ?? []);
+      } catch (e) {
+        console.warn("[ots] fetch failed:", e.message);
+        return;
+      }
+
+      const others = games.filter(g => g.gameGuid !== state.gameId);
+      const toFetch = others.filter(g => g.gameStatusId === 2 || g.gameStatusId === 3);
+      // gameStatusId 0 or 1 = scheduled, 2 = live, 3 = final
+      const results = await Promise.allSettled(
+        toFetch.map(g => fetchJson(`${API_BASE}/api/games/${g.gameGuid}/latest-score/internal`))
+      );
+      const scoreMap = new Map();
+      toFetch.forEach((g, i) => {
+        if (results[i].status === "fulfilled") scoreMap.set(g.gameGuid, results[i].value);
+      });
+
+      leagueData.clear();
+      const short = (apiShort, name) =>
+        apiShort || TEAM_SHORT[name] || name?.slice(0, 3).toUpperCase() || "???";
+
+      for (const g of others) {
+        const id        = g.gameGuid;
+        const awayShort = short(g.awayTeam?.shortName, g.awayTeam?.name);
+        const homeShort = short(g.homeTeam?.shortName, g.homeTeam?.name);
+
+        if (g.gameStatusId === 0 || g.gameStatusId === 1) {
+          const raw = g.scheduledDate ?? g.startDate ?? g.scheduledAt ?? g.gameDate ?? null;
+          leagueData.set(id, { id, source: "league", status: 1, awayShort, homeShort, startTime: raw ? new Date(raw) : null });
+        } else {
+          const score = scoreMap.get(id);
+          const away  = score?.teams?.AWAY;
+          const home  = score?.teams?.HOME;
+          const gs    = score?.gameStatus;
+          leagueData.set(id, {
+            id, source: "league",
+            status:    g.gameStatusId,
+            awayShort: short(away?.shortName, away?.name) || awayShort,
+            homeShort: short(home?.shortName, home?.name) || homeShort,
+            awayRuns:  away?.runs ?? 0,
+            homeRuns:  home?.runs ?? 0,
+            inning:    gs?.currentInning ?? 1,
+            half:      gs?.inningHalf ?? "TOP",
+          });
+        }
+      }
+
+      mergeGames();
+    }
+
+    const MLB_TARGET = new Set([
+      "Baltimore Orioles", "Philadelphia Phillies", "Pittsburgh Pirates",
+      "Washington Nationals", "Boston Red Sox", "New York Yankees",
+      "Cincinnati Reds", "Los Angeles Dodgers",
+    ]);
+
+    // --- MLB games (direct StatsAPI) ---
+    async function refreshMlb() {
+      const today = new Date().toISOString().slice(0, 10);
+      let data;
+      try {
+        data = await fetchJson(`https://statsapi.mlb.com/api/v1/schedule/games?sportId=1&date=${today}`);
+      } catch (e) {
+        console.warn("[mlb] fetch failed:", e.message);
+        return;
+      }
+
+      mlbData.clear();
+
+      for (const dateBlock of data.dates ?? []) {
+        for (const game of dateBlock.games ?? []) {
+          const awayTeam  = game.teams.away;
+          const homeTeam  = game.teams.home;
+          const awayName  = awayTeam.team.name;
+          const homeName  = homeTeam.team.name;
+          const awayScore = awayTeam.score ?? 0;
+          const homeScore = homeTeam.score ?? 0;
+
+          if (!MLB_TARGET.has(awayName) && !MLB_TARGET.has(homeName)) continue;
+
+          // only show Dodgers if winning or tied
+          if (awayName === "Los Angeles Dodgers" && awayScore < homeScore) continue;
+          if (homeName === "Los Angeles Dodgers" && homeScore < awayScore) continue;
+
+          const id        = `mlb-${game.gamePk}`;
+          const awayShort = MLB_ABBR[awayName] || awayName.slice(0, 3).toUpperCase();
+          const homeShort = MLB_ABBR[homeName] || homeName.slice(0, 3).toUpperCase();
+          const awayLogo  = `https://www.mlbstatic.com/team-logos/team-cap-on-dark/${awayTeam.team.id}.svg`;
+          const homeLogo  = `https://www.mlbstatic.com/team-logos/team-cap-on-dark/${homeTeam.team.id}.svg`;
+
+          const rawStatus = game.status.detailedState;
+          let status;
+          if (rawStatus === "In Progress" || rawStatus === "Warmup") {
+            status = 2;
+          } else if (rawStatus === "Final" || rawStatus === "Game Over" || rawStatus === "Completed Early") {
+            status = 3;
+          } else {
+            status = 1;
+          }
+
+          mlbData.set(id, {
+            id, source: "mlb",
+            status,
+            awayShort, homeShort,
+            awayLogo, homeLogo,
+            awayRuns:  awayScore,
+            homeRuns:  homeScore,
+            startTime: status === 1 ? new Date(game.gameDate) : null,
+          });
+        }
+      }
+
+      mergeGames();
+    }
+
+    // --- scores render ---
+    function renderScores() {
+      const pair = [0, 1].map(i => {
+        if (!ootGameOrder.length) return null;
+        const id = ootGameOrder[(rotateIndex + i) % ootGameOrder.length];
+        return ootGameData.get(id) || null;
+      });
+
+      if (!pair.length || pair.every(g => !g)) {
+        scoresEl.innerHTML = `<div class="scores-wrap"><div class="scores-empty">No games today</div></div>`;
+        return;
+      }
+      while (pair.length < 2) pair.push(null);
+
+      const blocks = pair.map(g => {
+        if (!g) return `<div class="game-block"></div>`;
+
+        const awayLogoSrc = g.source === "mlb" ? escapeHtml(g.awayLogo) : `logos/${escapeHtml(g.awayShort)}.png`;
+        const homeLogoSrc = g.source === "mlb" ? escapeHtml(g.homeLogo) : `logos/${escapeHtml(g.homeShort)}.png`;
+
+        if (g.status === 1) {
+          const timeStr = g.startTime instanceof Date
+            ? g.startTime.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true })
+            : escapeHtml(g.startTime || "TBD");
+          return `
+            <div class="game-block">
+              <div class="game-block__team">
+                <img class="game-block__logo" src="${awayLogoSrc}" onerror="this.style.visibility='hidden'">
+                <span class="game-block__abbr">${escapeHtml(g.awayShort)}</span>
+              </div>
+              <div class="game-block__team">
+                <img class="game-block__logo" src="${homeLogoSrc}" onerror="this.style.visibility='hidden'">
+                <span class="game-block__abbr">${escapeHtml(g.homeShort)}</span>
+              </div>
+              <div class="game-block__inn">${timeStr}</div>
+            </div>`;
+        }
+
+        let inningLabel;
+        if (g.status === 3) {
+          inningLabel = "FINAL";
+        } else if (g.source === "mlb") {
+          inningLabel = "LIVE";
+        } else {
+          inningLabel = `${g.half === "TOP" ? "Top" : "Bot"} ${g.inning}`;
+        }
+
+        return `
+          <div class="game-block">
+            <div class="game-block__team">
+              <img class="game-block__logo" src="${awayLogoSrc}" onerror="this.style.visibility='hidden'">
+              <span class="game-block__abbr">${escapeHtml(g.awayShort)}</span>
+              <span class="game-block__score">${g.awayRuns}</span>
+            </div>
+            <div class="game-block__team">
+              <img class="game-block__logo" src="${homeLogoSrc}" onerror="this.style.visibility='hidden'">
+              <span class="game-block__abbr">${escapeHtml(g.homeShort)}</span>
+              <span class="game-block__score">${g.homeRuns}</span>
+            </div>
+            <div class="game-block__inn">${escapeHtml(inningLabel)}</div>
+          </div>`;
+      }).join("");
+
+      scoresEl.innerHTML = `<div class="scores-wrap">${blocks}</div>`;
     }
 
     poll();
