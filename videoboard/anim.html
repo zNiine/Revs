@@ -65,7 +65,7 @@
       leftFoulHeight:10,   leftCenterHeight:10,     centerHeight:10,
       rightCenterHeight:10, rightFoulHeight:37.8
     };
-    const SPEED = 4, PAUSE_MS = 900, G = 32;
+    const SPEED = 4, PAUSE_MS = 900, G = 32, FIELD_SCALE = 1.6;
 
     const T3 = THREE;
 
@@ -137,7 +137,7 @@
 
     function playRow(row) {
       actualD     = +(row.Distance)  || 350;
-      D           = actualD + 20;
+      D           = (actualD + 20) * FIELD_SCALE;
       T           = +(row.HangTime)  || 4;
       ar          = ((+(row.Direction) || 0) * Math.PI / 180) - Math.PI / 2;
       currentDate = fmtDate(row.Date || row.date || row['Game Date'] || '');
@@ -203,11 +203,11 @@
       renderer.setPixelRatio(window.devicePixelRatio);
 
       scene = new T3.Scene();
-      scene.background = new T3.Color(0x87CEEB);
+      scene.background = new T3.Color(0x0a0a0c);
 
-      camera = new T3.PerspectiveCamera(70, W / H, 0.1, 2000);
-      camera.position.set(0, 374, 126);
-      camera.lookAt(0, 0, -160);
+      camera = new T3.PerspectiveCamera(54, W / H, 0.1, 3000);
+      camera.position.set(0, 460, 160);
+      camera.lookAt(0, 0, -230);
 
       scene.add(new T3.AmbientLight(0x999999));
       const dl = new T3.DirectionalLight(0xffffff, 1.2);
@@ -216,7 +216,7 @@
 
       traceMat = new T3.MeshLambertMaterial({ color: 0x7ecfff, depthTest: false });
 
-      const fg = new T3.Group(); fg.rotation.y = Math.PI; scene.add(fg);
+      const fg = new T3.Group(); fg.rotation.y = Math.PI; fg.scale.set(FIELD_SCALE, 1, FIELD_SCALE); scene.add(fg);
       const dR = d => d * Math.PI / 180;
       const rawA = [
         { ang:-45,   d:PARK.leftFoul,    h:PARK.leftFoulHeight },
@@ -291,11 +291,7 @@
       });
 
       // bases
-      const baseMat = new T3.MeshLambertMaterial({ color:0xffffff });
-      const baseGeo = new T3.BoxGeometry(5, 0.8, 5);
-      [[bsq,0.4,bsq],[0,0.4,BASE*Math.SQRT2],[-bsq,0.4,bsq]].forEach(([x,y,z]) => {
-        const m = new T3.Mesh(baseGeo, baseMat); m.position.set(x,y,z); fg.add(m);
-      });
+     
 
       // pitcher's mound
       const mound = new T3.Mesh(
