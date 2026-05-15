@@ -143,7 +143,7 @@ body {
   letter-spacing: .05em;
   margin-bottom: 3px;
 }
-select, input[type=text], input[type=number] {
+select, input[type=text], input[type=number], input[type=date] {
   width: 100%;
   background: var(--bg3);
   border: 1px solid var(--border);
@@ -154,6 +154,7 @@ select, input[type=text], input[type=number] {
   outline: none;
   appearance: none;
 }
+input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
 select:focus, input:focus {
   border-color: var(--accent);
 }
@@ -1644,7 +1645,7 @@ const FILTER_SECTIONS = [
     fields: [
       { key: "search", label: "Search (Pitcher, Batter, PlayID)", type: "text", placeholder: "name or PlayID…" },
       { key: "GameUID", label: "Game", type: "select" },
-      { key: "Date", label: "Date", type: "select" },
+      { key: "Date", label: "Date Range", type: "daterange" },
       { key: "PitcherTeam", label: "Pitcher Team", type: "select" },
       { key: "BatterTeam", label: "Batter Team", type: "select" },
       { key: "Pitcher", label: "Pitcher", type: "autocomplete" },
@@ -1733,6 +1734,19 @@ function buildFieldHTML(f) {
         </div>
       </div>`;
   }
+  if (f.type === "daterange") {
+    return `
+      <div class="filter-group">
+        <label class="filter-label">${f.label}</label>
+        <div class="range-row">
+          <input type="date" data-filter="Date_from" oninput="onFilterChange(this)" onchange="onFilterChange(this)" />
+          <input type="date" data-filter="Date_to" oninput="onFilterChange(this)" onchange="onFilterChange(this)" />
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px;padding:0 2px">
+          <span>From</span><span>To</span>
+        </div>
+      </div>`;
+  }
   if (f.type === "text") {
     return `
       <div class="filter-group">
@@ -1767,7 +1781,7 @@ function wireFilters(containerId) {
 const AUTOCOMPLETE_KEYS = new Set(["Pitcher", "Batter", "Catcher"]);
 
 function populateSelects() {
-  const keys = ["GameUID","Date","Pitcher","PitcherThrows","Batter","BatterSide","Catcher","PitcherTeam","BatterTeam",
+  const keys = ["GameUID","Pitcher","PitcherThrows","Batter","BatterSide","Catcher","PitcherTeam","BatterTeam",
     "TaggedPitchType","AutoPitchType","PitchCall","PlayResult","TaggedHitType",
     "Inning","TopBottom","Outs"];
 
@@ -1869,11 +1883,17 @@ function applyFilters() {
       if (!haystack.includes(search)) return false;
     }
     // Selects
-    const selectKeys = ["GameUID","Date","PitcherThrows","BatterSide","PitcherTeam","BatterTeam",
+    const selectKeys = ["GameUID","PitcherThrows","BatterSide","PitcherTeam","BatterTeam",
       "TaggedPitchType","AutoPitchType","PitchCall","PlayResult","TaggedHitType",
       "Inning","TopBottom","Outs"];
     for (const k of selectKeys) {
       if (f[k] && String(p[k] || "") !== f[k]) return false;
+    }
+    // Date range
+    if (f["Date_from"] || f["Date_to"]) {
+      const d = String(p.Date || "").slice(0, 10);
+      if (f["Date_from"] && d < f["Date_from"]) return false;
+      if (f["Date_to"]   && d > f["Date_to"])   return false;
     }
     // Autocomplete fields — partial case-insensitive match
     for (const k of AUTOCOMPLETE_KEYS) {
