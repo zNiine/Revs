@@ -451,7 +451,7 @@
           rotateIndex = (rotateIndex + 2) % ootGameOrder.length;
           renderScores();
         }
-      }, 7500);
+      }, 12500);
     }
 
     function stopOtsPolling() {
@@ -509,7 +509,7 @@
 
       leagueData.clear();
       const short = (apiShort, name) =>
-        apiShort || TEAM_SHORT[name] || name?.slice(0, 3).toUpperCase() || "???";
+        apiShort || TEAM_SHORT[name] || name?.slice(0, 3).toUpperCase() || null;
 
       for (const g of others) {
         const id        = g.gameGuid;
@@ -527,8 +527,8 @@
           leagueData.set(id, {
             id, source: "league",
             status:    g.gameStatusId,
-            awayShort: short(away?.shortName, away?.name) || awayShort,
-            homeShort: short(home?.shortName, home?.name) || homeShort,
+            awayShort: (away && short(away.shortName, away.name)) || awayShort,
+            homeShort: (home && short(home.shortName, home.name)) || homeShort,
             awayRuns:  away?.runs ?? 0,
             homeRuns:  home?.runs ?? 0,
             inning:    gs?.currentInning ?? 1,
