@@ -72,7 +72,8 @@
       "Baltimore Orioles", "Philadelphia Phillies", "Pittsburgh Pirates",
       "Washington Nationals", "Boston Red Sox", "New York Yankees",
       "Cincinnati Reds", "Los Angeles Dodgers", "Arizona Diamondbacks", "Atlanta Braves",
-      "Chicago Cubs", "Cleveland Guardians"
+      "Chicago Cubs", "Cleveland Guardians", "Tampa Bay Rays", "New York Mets",
+      "Seattle Mariners", "Texas Rangers", "Houston Astros", "Colorado Rockies"
     ]);
 
     const MLB_ABBR = {
@@ -218,7 +219,7 @@
         page = (page + PAGE_SIZE) % games.length;
         render();
       }
-    }, 7500);
+    }, 14000);
 
     poll();
     setInterval(poll, POLL_MS);
