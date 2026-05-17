@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stats Between Dates</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      background: #111;
+      color: #eee;
+      font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
+      padding: 24px;
+      margin: 0;
+    }
+
+    h2 { color: #F2B233; margin: 0 0 20px; font-size: 18px; letter-spacing: .02em; }
+
+    /* ── controls ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #aaa; }
+    input[type="date"] {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #eee;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    input[type="date"]:focus { outline: 1px solid #F2B233; }
+    button#load-btn {
+      background: #F2B233;
+      color: #111;
+      border: none;
+      border-radius: 4px;
+      padding: 7px 20px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .04em;
+    }
+    button#load-btn:hover { background: #ffc84a; }
+    button#load-btn:disabled { opacity: .4; cursor: default; }
+
+    #progress {
+      font-size: 12px;
+      color: #888;
+      min-height: 18px;
+      margin-bottom: 12px;
+    }
+    #progress.err { color: #f44336; }
+
+    /* ── tabs ── */
+    .tabs {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 0;
+      border-bottom: 2px solid #222;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      color: #777;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 18px;
+      cursor: pointer;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      transition: color .15s;
+    }
+    .tab-btn:hover { color: #ccc; }
+    .tab-btn.active {
+      color: #F2B233;
+      border-bottom-color: #F2B233;
+    }
+    .tab-count {
+      font-size: 10px;
+      font-weight: 400;
+      color: #555;
+      margin-left: 4px;
+    }
+    .tab-btn.active .tab-count { color: #a07820; }
+
+    /* ── panels ── */
+    .tab-panel { display: none; padding-top: 16px; }
+    .tab-panel.active { display: block; }
+
+    /* ── tables ── */
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    thead th {
+      background: #1a1a1a;
+      color: #F2B233;
+      padding: 7px 10px;
+      text-align: right;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 2px solid #2a2a2a;
+      position: relative;
+    }
+    thead th:first-child { text-align: left; }
+    thead th:hover { background: #222; }
+    thead th.sorted { background: #1f1a10; }
+    thead th .sort-arrow { color: #F2B233; margin-left: 4px; font-size: 10px; }
+
+    tbody tr:nth-child(odd)  { background: #161616; }
+    tbody tr:nth-child(even) { background: #111; }
+    tbody tr:hover { background: #1e1e1e; }
+
+    td {
+      padding: 5px 10px;
+      text-align: right;
+      white-space: nowrap;
+      border-bottom: 1px solid #1a1a1a;
+      color: #ccc;
+    }
+    td:first-child { text-align: left; color: #fff; font-weight: 600; min-width: 150px; }
+
+    .team-tag {
+      display: inline-block;
+      background: #222;
+      color: #666;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+      font-weight: 400;
+      vertical-align: middle;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .empty { color: #555; font-style: italic; font-size: 13px; padding-top: 8px; }
+  </style>
+</head>
+<body>
+  <h2>Stats Between Dates</h2>
+
+  <div class="controls">
+    <label>From <input type="date" id="from"></label>
+    <label>To   <input type="date" id="to"></label>
+    <button id="load-btn">Load Stats</button>
+  </div>
+
+  <div id="progress"></div>
+
+  <div class="tabs" id="tabs" style="display:none">
+    <button class="tab-btn active" data-tab="batting">Batting <span class="tab-count" id="cnt-batting"></span></button>
+    <button class="tab-btn" data-tab="pitching">Pitching <span class="tab-count" id="cnt-pitching"></span></button>
+    <button class="tab-btn" data-tab="stolen">Stolen Bases <span class="tab-count" id="cnt-stolen"></span></button>
+    <button class="tab-btn" data-tab="fielding">Fielding <span class="tab-count" id="cnt-fielding"></span></button>
+  </div>
+
+  <div class="tab-panel active" id="panel-batting"></div>
+  <div class="tab-panel" id="panel-pitching"></div>
+  <div class="tab-panel" id="panel-stolen"></div>
+  <div class="tab-panel" id="panel-fielding"></div>
+
+  <script>
+    const BASE      = "https://api.microservices.iscoresports.com/api";
+    const LEAGUE_ID = "df9fb9cc-0fdb-4b79-8a3c-ad5d7b415a56";
+
+    // ── tabs ─────────────────────────────────────────────────────────────────
+    document.getElementById("tabs").addEventListener("click", e => {
+      const btn = e.target.closest(".tab-btn");
+      if (!btn) return;
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+    });
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+    function setProgress(msg, cls = "") {
+      const el = document.getElementById("progress");
+      el.textContent = msg;
+      el.className = cls;
+    }
+
+    function fmtAvg(n) {
+      if (!isFinite(n) || isNaN(n)) return ".000";
+      return n.toFixed(3).replace(/^0/, "");
+    }
+
+    function fmtEra(n) {
+      if (!isFinite(n) || isNaN(n)) return "—";
+      return n.toFixed(2);
+    }
+
+    function fmtPct(n) {
+      if (!isFinite(n) || isNaN(n)) return "—";
+      return (n * 100).toFixed(1) + "%";
+    }
+
+    function fmtIp(outs) {
+      const inn = Math.floor(outs / 3);
+      const rem = outs % 3;
+      return `${inn}.${rem}`;
+    }
+
+    function ipToOuts(s) {
+      if (s === "—") return -1;
+      const [a, b] = String(s).split(".");
+      return +a * 3 + (+b || 0);
+    }
+
+    function mergeStats(dest, src) {
+      if (!src) return;
+      for (const [k, v] of Object.entries(src)) {
+        if (typeof v === "number") dest[k] = (dest[k] || 0) + v;
+      }
+    }
+
+    // ── API ───────────────────────────────────────────────────────────────────
+    async function fetchGames(from, to) {
+      const url = `${BASE}/public/games?leagueId=${LEAGUE_ID}&startDateFrom=${from}&startDateTo=${to}&take=200`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`Games: HTTP ${r.status}`);
+      return r.json();
+    }
+
+    async function fetchBoxScore(gameId) {
+      const r = await fetch(`${BASE}/public/games/${gameId}/boxScore/gzip`);
+      if (!r.ok) { console.warn(`BoxScore ${gameId}: HTTP ${r.status}`); return null; }
+      // Content-Type: application/gzip — must manually decompress
+      const ds   = new DecompressionStream("gzip");
+      const text = await new Response(r.body.pipeThrough(ds)).text();
+      return JSON.parse(text);
+    }
+
+    async function fetchEntity(gameId) {
+      const r = await fetch(`${BASE}/games/${gameId}/entity`);
+      if (!r.ok) { console.warn(`Entity ${gameId}: HTTP ${r.status}`); return null; }
+      return r.json();
+    }
+
+    // ── aggregation ───────────────────────────────────────────────────────────
+    function buildRosterMap(entity, game) {
+      const map = {};
+      if (!entity?.roster) return map;
+      const teams = { HOME: game?.homeTeam, AWAY: game?.awayTeam };
+      for (const [side, players] of Object.entries(entity.roster)) {
+        for (const p of players) {
+          map[p.id] = { name: p.name, jersey: p.JerseyNumber, teamName: teams[side]?.name ?? side };
+        }
+      }
+      return map;
+    }
+
+    // ── sortable tables ───────────────────────────────────────────────────────
+    // sortKey: { tableId: { col, dir } }
+    const sortKeys = {};
+
+    function renderTable(panelId, tableId, headers, rawRows, defaultSort = { col: 1, dir: "desc" }) {
+      const panel = document.getElementById(panelId);
+      if (!rawRows.length) {
+        panel.innerHTML = `<p class="empty">No data.</p>`;
+        return;
+      }
+
+      // store rows on the table element so sort can redraw
+      panel.innerHTML = `<div class="table-wrap"><table id="${tableId}"><thead><tr></tr></thead><tbody></tbody></table></div>`;
+      const table = document.getElementById(tableId);
+      table._rows = rawRows.map(r => [...r]); // shallow copy each row
+
+      // initial sort
+      sortKeys[tableId] = defaultSort;
+      applySort(tableId, headers);
+
+      // header click
+      table.querySelector("thead tr").addEventListener("click", e => {
+        const th = e.target.closest("th");
+        if (!th) return;
+        const col = +th.dataset.col;
+        const prev = sortKeys[tableId];
+        sortKeys[tableId] = {
+          col,
+          dir: prev.col === col && prev.dir === "desc" ? "asc" : "desc",
+        };
+        applySort(tableId, headers);
+      });
+    }
+
+    function applySort(tableId, headers) {
+      const table = document.getElementById(tableId);
+      const { col, dir } = sortKeys[tableId];
+      const rows = table._rows;
+
+      rows.sort((a, b) => {
+        let av = a[col], bv = b[col];
+        // strip HTML for player name column
+        if (col === 0) {
+          av = String(av).replace(/<[^>]*>/g, "");
+          bv = String(bv).replace(/<[^>]*>/g, "");
+        }
+        // IP column: convert "X.Y" → outs for numeric sort
+        if (typeof av === "string" && /^\d+\.\d$/.test(av)) { av = ipToOuts(av); bv = ipToOuts(bv); }
+        // percentage: strip %
+        if (typeof av === "string" && av.endsWith("%")) { av = parseFloat(av) || 0; bv = parseFloat(bv) || 0; }
+        // batting avg / era style .xxx or x.xx
+        const na = parseFloat(av), nb = parseFloat(bv);
+        if (!isNaN(na) && !isNaN(nb)) return dir === "desc" ? nb - na : na - nb;
+        return dir === "desc"
+          ? String(bv).localeCompare(String(av))
+          : String(av).localeCompare(String(bv));
+      });
+
+      // rebuild thead
+      const thead = table.querySelector("thead tr");
+      thead.innerHTML = headers.map((h, i) => {
+        const sorted = i === col;
+        const arrow  = sorted ? `<span class="sort-arrow">${dir === "desc" ? "↓" : "↑"}</span>` : "";
+        return `<th data-col="${i}" class="${sorted ? "sorted" : ""}">${h}${arrow}</th>`;
+      }).join("");
+
+      // rebuild tbody
+      table.querySelector("tbody").innerHTML = rows.map(row =>
+        `<tr>${row.map(c => `<td>${c}</td>`).join("")}</tr>`
+      ).join("");
+    }
+
+    // ── player name cell ──────────────────────────────────────────────────────
+    function nameCell(p) {
+      return `${p.name}<span class="team-tag">${p.teamName}</span>`;
+    }
+
+    // ── main load ─────────────────────────────────────────────────────────────
+    document.getElementById("load-btn").addEventListener("click", async () => {
+      const from = document.getElementById("from").value;
+      const to   = document.getElementById("to").value;
+      if (!from || !to)  { setProgress("Please select both dates.", "err"); return; }
+      if (from > to)     { setProgress("From must be before To.", "err"); return; }
+
+      const btn = document.getElementById("load-btn");
+      btn.disabled = true;
+      document.getElementById("tabs").style.display = "none";
+      ["batting","pitching","stolen","fielding"].forEach(t => {
+        document.getElementById("panel-" + t).innerHTML = "";
+      });
+
+      try {
+        setProgress(`Fetching games ${from} → ${to}…`);
+        const games = await fetchGames(from + "T00:00:00Z", to + "T23:59:59Z");
+
+        if (!games.length) { setProgress("No games found in that range."); btn.disabled = false; return; }
+
+        setProgress(`Found ${games.length} game(s) — fetching stats…`);
+        console.log("Games:", games.map(g => ({ id: g.gameGuid, status: g.gameStatusId, date: g.scheduledDate })));
+
+        const allPlayers = {};
+        const BATCH = 6;
+
+        for (let i = 0; i < games.length; i += BATCH) {
+          const batch = games.slice(i, i + BATCH);
+          setProgress(`Loading game stats ${i + 1}–${Math.min(i + BATCH, games.length)} of ${games.length}…`);
+
+          await Promise.all(batch.map(async game => {
+            const gid = game.gameGuid;
+            const [box, entity] = await Promise.all([
+              fetchBoxScore(gid).catch(e => { console.error(gid, e); return null; }),
+              fetchEntity(gid).catch(() => null),
+            ]);
+
+            if (!box) { console.log(gid, "no box score"); return; }
+            const players = box?.gameStatState?.players;
+            if (!players) { console.log(gid, "no gameStatState.players"); return; }
+
+            const count = Object.keys(players).length;
+            console.log(gid, `status=${game.gameStatusId}`, `players=${count}`);
+
+            const rosterMap = buildRosterMap(entity, game);
+
+            for (const [pid, pdata] of Object.entries(players)) {
+              if (!allPlayers[pid]) {
+                const info = rosterMap[pid] ?? {};
+                allPlayers[pid] = {
+                  name:     info.name ?? `(${pid.slice(0,8)}…)`,
+                  teamName: info.teamName ?? "—",
+                  batting:  {}, pitching: {}, fielding: {}, running: {},
+                  gB: 0, gP: 0, gF: 0, gR: 0,
+                };
+              }
+              const ap = allPlayers[pid];
+              const s  = pdata.stats ?? {};
+
+              if (s.batting?.overall  && Object.keys(s.batting.overall).length)  { mergeStats(ap.batting,  s.batting.overall);  ap.gB++; }
+              if (s.pitching?.overall && Object.keys(s.pitching.overall).length) { mergeStats(ap.pitching, s.pitching.overall); ap.gP++; }
+              if (s.fielding?.overall && Object.keys(s.fielding.overall).length) { mergeStats(ap.fielding, s.fielding.overall); ap.gF++; }
+              if (s.running?.overall  && Object.keys(s.running.overall).length)  { mergeStats(ap.running,  s.running.overall);  ap.gR++; }
+            }
+          }));
+        }
+
+        console.log("Total players aggregated:", Object.keys(allPlayers).length);
+
+        // ── batting ──────────────────────────────────────────────────────────
+        const batRows = [];
+        for (const p of Object.values(allPlayers)) {
+          const b = p.batting;
+          if (!b.AB && !b.PA) continue;
+          const ab  = b.AB  || 0, h   = b.H   || 0;
+          const bb  = b.BB  || 0, hbp = b.HBP || 0;
+          const sf  = b.SF  || 0, tb  = b.TB  || 0;
+          const obpD = ab + bb + hbp + sf;
+          const avg  = ab  ? h / ab : 0;
+          const obp  = obpD ? (h + bb + hbp) / obpD : 0;
+          const slg  = ab  ? tb / ab : 0;
+          batRows.push([
+            nameCell(p), p.gB,
+            b.PA||0, ab, h,
+            b["2B"]||0, b["3B"]||0, b.HR||0,
+            b.R||0, b.RBI||0, bb, b.SO||0, hbp, sf,
+            fmtAvg(avg), fmtAvg(obp), fmtAvg(slg), fmtAvg(avg+obp+slg),
+          ]);
+        }
+        renderTable("panel-batting", "tbl-batting",
+          ["Player","G","PA","AB","H","2B","3B","HR","R","RBI","BB","SO","HBP","SF","AVG","OBP","SLG","OPS"],
+          batRows, { col: 3, dir: "desc" });
+        document.getElementById("cnt-batting").textContent = batRows.length;
+
+        // ── pitching ─────────────────────────────────────────────────────────
+        const ptRows = [];
+        for (const p of Object.values(allPlayers)) {
+          const pt = p.pitching;
+          if (!pt.OUTS_PITCHED && !pt.BF) continue;
+          const outs = pt.OUTS_PITCHED || 0;
+          const ip   = outs / 3;
+          const er   = pt.ER || 0;
+          const h    = pt.H  || 0, bb = pt.BB || 0;
+          ptRows.push([
+            nameCell(p), p.gP,
+            fmtIp(outs),
+            h, pt.R||0, er, bb, pt.SO||0, pt.HBP||0,
+            fmtEra(ip ? (er/ip)*9 : NaN),
+            fmtEra(ip ? (bb+h)/ip : NaN),
+            fmtEra(ip ? ((pt.SO||0)/ip)*9 : NaN),
+          ]);
+        }
+        renderTable("panel-pitching", "tbl-pitching",
+          ["Player","G","IP","H","R","ER","BB","SO","HBP","ERA","WHIP","K/9"],
+          ptRows, { col: 2, dir: "desc" });
+        document.getElementById("cnt-pitching").textContent = ptRows.length;
+
+        // ── stolen bases ─────────────────────────────────────────────────────
+        const sbRows = [];
+        for (const p of Object.values(allPlayers)) {
+          const r  = p.running;
+          const sb = r.SB || 0, cs = r.CS || 0;
+          if (!sb && !cs && !r.PO && !r.POA) continue;
+          const att = sb + cs;
+          sbRows.push([
+            nameCell(p), p.gR,
+            sb, cs, att,
+            att ? fmtPct(sb / att) : "—",
+            r.PO  || 0,
+            r.POA || 0,
+          ]);
+        }
+        renderTable("panel-stolen", "tbl-stolen",
+          ["Player","G","SB","CS","ATT","SB%","PO","POA"],
+          sbRows, { col: 2, dir: "desc" });
+        document.getElementById("cnt-stolen").textContent = sbRows.length;
+
+        // ── fielding ─────────────────────────────────────────────────────────
+        const fdRows = [];
+        for (const p of Object.values(allPlayers)) {
+          const f = p.fielding;
+          const po = f.PO||0, a = f.A||0, e = f.E||0;
+          if (!po && !a && !e) continue;
+          const tc  = po + a + e;
+          const fld = tc ? (po + a) / tc : 1;
+          fdRows.push([
+            nameCell(p), p.gF,
+            po, a, e, tc,
+            f.DP || 0, f.PB || 0, f.SB_ALLOWED || 0,
+            tc ? fmtAvg(fld) : "1.000",
+          ]);
+        }
+        renderTable("panel-fielding", "tbl-fielding",
+          ["Player","G","PO","A","E","TC","DP","PB","SBA","FLD%"],
+          fdRows, { col: 2, dir: "desc" });
+        document.getElementById("cnt-fielding").textContent = fdRows.length;
+
+        document.getElementById("tabs").style.display = "flex";
+        setProgress(`Done — ${games.length} game(s), ${Object.keys(allPlayers).length} player(s).`);
+      } catch (err) {
+        setProgress(`Error: ${err.message}`, "err");
+        console.error(err);
+      }
+
+      btn.disabled = false;
+    });
+
+    // ── default date range (last 7 days) ──────────────────────────────────────
+    const today = new Date();
+    const week  = new Date(today);
+    week.setDate(today.getDate() - 7);
+    const d2s = d => d.toISOString().slice(0, 10);
+    document.getElementById("from").value = d2s(week);
+    document.getElementById("to").value   = d2s(today);
+  </script>
+</body>
+</html>
