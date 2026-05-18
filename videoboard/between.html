@@ -141,10 +141,9 @@
     }
 
     /* ── tables ── */
-    .table-wrap { overflow-x: auto; }
-
     table {
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       width: 100%;
       font-size: 12px;
       font-variant-numeric: tabular-nums;
@@ -158,6 +157,9 @@
       cursor: pointer;
       user-select: none;
       border-bottom: 2px solid #2a2a2a;
+      position: sticky;
+      top: 0;
+      z-index: 5;
     }
     thead th:first-child { text-align: left; }
     thead th:hover { background: #202020; }
@@ -312,6 +314,9 @@
         { id: "f-pt-team",  label: "Team",    type: "text", rawKey: "team"  },
         { sep: true },
         { id: "f-pt-g",    label: "Min G",   type: "min",  rawKey: "G"   },
+        { id: "f-pt-w",    label: "Min W",   type: "min",  rawKey: "W"   },
+        { id: "f-pt-l",    label: "Max L",   type: "max",  rawKey: "L"   },
+        { id: "f-pt-sv",   label: "Min SV",  type: "min",  rawKey: "SV"  },
         { id: "f-pt-ip",   label: "Min IP",  type: "min",  rawKey: "IP",  step: ".1", placeholder: "0.0" },
         { id: "f-pt-h",    label: "Max H",   type: "max",  rawKey: "H"   },
         { id: "f-pt-bb",   label: "Max BB",  type: "max",  rawKey: "BB"  },
@@ -565,39 +570,41 @@
               nameCell(p.name, p.teamName), p.gB,
               b.PA||0, ab, h, b["2B"]||0, b["3B"]||0, b.HR||0,
               b.R||0, b.RBI||0, bb, b.SO||0, hbp, sf,
-              fmtAvg(avg), fmtAvg(obp), fmtAvg(slg), fmtAvg(avg+obp+slg),
+              fmtAvg(avg), fmtAvg(obp), fmtAvg(slg), fmtAvg(obp+slg),
             ],
             raw: {
               team: p.teamName, G: p.gB, PA: b.PA||0, AB: ab, H: h,
               HR: b.HR||0, RBI: b.RBI||0, BB: bb, SO: b.SO||0,
-              AVG: avg, OBP: obp, SLG: slg, OPS: avg+obp+slg,
+              AVG: avg, OBP: obp, SLG: slg, OPS: obp+slg,
             },
           });
         }
         initTable("panel-batting", "batting", BAT_HDR, batRows, { col: 3, dir: "desc" });
 
         // ── pitching ─────────────────────────────────────────────────────────
-        const PT_HDR = ["Player","G","IP","H","R","ER","BB","SO","HBP","ERA","WHIP","K/9"];
+        const PT_HDR = ["Player","G","W","L","SV","IP","H","R","ER","BB","SO","HBP","ERA","WHIP","K/9"];
         const ptRows = [];
         for (const p of Object.values(players)) {
           const pt = p.pitching;
           if (!pt.OUTS_PITCHED && !pt.BF) continue;
           const outs = pt.OUTS_PITCHED||0, ip = outs/3;
           const er = pt.ER||0, h = pt.H||0, bb = pt.BB||0, so = pt.SO||0;
+          const w = pt.GS||0, l = pt.GF||0, sv = pt.SV||0;
           const era = ip ? (er/ip)*9 : NaN, whip = ip ? (bb+h)/ip : NaN, k9 = ip ? (so/ip)*9 : NaN;
           ptRows.push({
             display: [
-              nameCell(p.name, p.teamName), p.gP,
+              nameCell(p.name, p.teamName), p.gP, w, l, sv,
               fmtIp(outs), h, pt.R||0, er, bb, so, pt.HBP||0,
               fmtEra(era), fmtEra(whip), fmtEra(k9),
             ],
             raw: {
-              team: p.teamName, G: p.gP, IP: ip, H: h, BB: bb, SO: so, HBP: pt.HBP||0,
+              team: p.teamName, G: p.gP, W: w, L: l, SV: sv,
+              IP: ip, H: h, BB: bb, SO: so, HBP: pt.HBP||0,
               ERA_RAW: isFinite(era) ? era : 99, WHIP_RAW: isFinite(whip) ? whip : 99, K9_RAW: isFinite(k9) ? k9 : 0,
             },
           });
         }
-        initTable("panel-pitching", "pitching", PT_HDR, ptRows, { col: 2, dir: "desc" });
+        initTable("panel-pitching", "pitching", PT_HDR, ptRows, { col: 5, dir: "desc" });
 
         // ── stolen bases ─────────────────────────────────────────────────────
         const SB_HDR = ["Player","G","SB","CS","ATT","SB%","PO","POA"];
