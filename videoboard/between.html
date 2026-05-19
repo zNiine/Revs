@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stats Between Dates</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      background: #111;
+      color: #eee;
+      font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
+      padding: 24px;
+      margin: 0;
+    }
+
+    h2 { color: #F2B233; margin: 0 0 20px; font-size: 18px; letter-spacing: .02em; }
+
+    /* ── top controls ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .controls label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #aaa; }
+
+    input[type="date"] {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #eee;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    input[type="date"]:focus { outline: 1px solid #F2B233; }
+
+    button#load-btn {
+      background: #F2B233;
+      color: #111;
+      border: none;
+      border-radius: 4px;
+      padding: 7px 20px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .04em;
+    }
+    button#load-btn:hover { background: #ffc84a; }
+    button#load-btn:disabled { opacity: .4; cursor: default; }
+
+    #progress { font-size: 12px; color: #888; min-height: 18px; margin-bottom: 12px; }
+    #progress.err { color: #f44336; }
+
+    /* ── tabs ── */
+    .tabs {
+      display: flex;
+      gap: 2px;
+      border-bottom: 2px solid #222;
+      margin-bottom: 0;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      color: #777;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 18px;
+      cursor: pointer;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .tab-btn:hover { color: #ccc; }
+    .tab-btn.active { color: #F2B233; border-bottom-color: #F2B233; }
+    .tab-count { font-size: 10px; font-weight: 400; color: #555; margin-left: 4px; }
+    .tab-btn.active .tab-count { color: #a07820; }
+
+    /* ── panels ── */
+    .tab-panel { display: none; padding-top: 14px; }
+    .tab-panel.active { display: block; }
+
+    /* ── filter bar ── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px 14px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      background: #161616;
+      border: 1px solid #222;
+      border-radius: 5px;
+      margin-bottom: 12px;
+    }
+    .filter-bar label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: #888;
+      white-space: nowrap;
+    }
+    .filter-bar input[type="number"],
+    .filter-bar input[type="text"] {
+      width: 58px;
+      background: #1e1e1e;
+      border: 1px solid #2e2e2e;
+      border-radius: 3px;
+      color: #eee;
+      font-size: 11px;
+      padding: 3px 6px;
+      text-align: center;
+    }
+    .filter-bar input[type="text"] { width: 100px; text-align: left; }
+    .filter-bar input:focus { outline: 1px solid #F2B233; border-color: #F2B233; }
+    .filter-bar input.active-filter { border-color: #F2B233; color: #F2B233; }
+    .filter-sep {
+      width: 1px;
+      height: 18px;
+      background: #2a2a2a;
+      flex-shrink: 0;
+    }
+    .filter-reset {
+      background: none;
+      border: 1px solid #333;
+      border-radius: 3px;
+      color: #666;
+      font-size: 11px;
+      padding: 3px 8px;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    .filter-reset:hover { border-color: #555; color: #aaa; }
+    .filter-info {
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 6px;
+    }
+
+    /* ── tables ── */
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: 100%;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    thead th {
+      background: #1a1a1a;
+      color: #F2B233;
+      padding: 7px 10px;
+      text-align: right;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 2px solid #2a2a2a;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    thead th:first-child { text-align: left; }
+    thead th:hover { background: #202020; }
+    thead th.sorted { background: #1f1a10; }
+    thead th .sort-arrow { color: #F2B233; margin-left: 4px; font-size: 10px; }
+
+    tbody tr:nth-child(odd)  { background: #161616; }
+    tbody tr:nth-child(even) { background: #111; }
+    tbody tr:hover { background: #1e1e1e; }
+
+    td {
+      padding: 5px 10px;
+      text-align: right;
+      white-space: nowrap;
+      border-bottom: 1px solid #1a1a1a;
+      color: #ccc;
+    }
+    td:first-child { text-align: left; color: #fff; font-weight: 600; min-width: 150px; }
+
+    .team-tag {
+      display: inline-block;
+      background: #222;
+      color: #666;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+      font-weight: 400;
+      vertical-align: middle;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .empty { color: #555; font-style: italic; font-size: 13px; padding-top: 8px; }
+  </style>
+</head>
+<body>
+  <h2>Stats Between Dates</h2>
+
+  <div class="controls">
+    <label>From <input type="date" id="from"></label>
+    <label>To   <input type="date" id="to"></label>
+    <button id="load-btn">Load Stats</button>
+  </div>
+
+  <div id="progress"></div>
+
+  <div class="tabs" id="tabs" style="display:none">
+    <button class="tab-btn active" data-tab="batting">Batting   <span class="tab-count" id="cnt-batting"></span></button>
+    <button class="tab-btn"        data-tab="pitching">Pitching  <span class="tab-count" id="cnt-pitching"></span></button>
+    <button class="tab-btn"        data-tab="stolen">Stolen Bases <span class="tab-count" id="cnt-stolen"></span></button>
+    <button class="tab-btn"        data-tab="fielding">Fielding  <span class="tab-count" id="cnt-fielding"></span></button>
+  </div>
+
+  <div class="tab-panel active" id="panel-batting"></div>
+  <div class="tab-panel"        id="panel-pitching"></div>
+  <div class="tab-panel"        id="panel-stolen"></div>
+  <div class="tab-panel"        id="panel-fielding"></div>
+
+  <script>
+    const BASE      = "https://api.microservices.iscoresports.com/api";
+    const LEAGUE_ID = "df9fb9cc-0fdb-4b79-8a3c-ad5d7b415a56";
+
+    // ── tab switching ─────────────────────────────────────────────────────────
+    document.getElementById("tabs").addEventListener("click", e => {
+      const btn = e.target.closest(".tab-btn");
+      if (!btn) return;
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+    });
+
+    // ── formatters ────────────────────────────────────────────────────────────
+    const fmtAvg = n => (!isFinite(n) || isNaN(n)) ? ".000" : n.toFixed(3).replace(/^0/, "");
+    const fmtEra = n => (!isFinite(n) || isNaN(n)) ? "—"    : n.toFixed(2);
+    const fmtPct = n => (!isFinite(n) || isNaN(n)) ? "—"    : (n * 100).toFixed(1) + "%";
+    const fmtIp  = outs => `${Math.floor(outs / 3)}.${outs % 3}`;
+    const ipToOuts = s => { const [a,b] = String(s).split("."); return +a*3 + (+b||0); };
+
+    function mergeStats(dest, src) {
+      if (!src) return;
+      for (const [k, v] of Object.entries(src))
+        if (typeof v === "number") dest[k] = (dest[k] || 0) + v;
+    }
+
+    function nameCell(name, team) {
+      return `${name}<span class="team-tag">${team}</span>`;
+    }
+
+    // ── API ───────────────────────────────────────────────────────────────────
+    async function fetchGames(from, to) {
+      const r = await fetch(`${BASE}/public/games?leagueId=${LEAGUE_ID}&startDateFrom=${from}&startDateTo=${to}&take=200`);
+      if (!r.ok) throw new Error(`Games: HTTP ${r.status}`);
+      return r.json();
+    }
+
+    async function fetchBoxScore(gameId) {
+      const r = await fetch(`${BASE}/public/games/${gameId}/boxScore/gzip`);
+      if (!r.ok) { console.warn(`BoxScore ${gameId}: HTTP ${r.status}`); return null; }
+      const ds = new DecompressionStream("gzip");
+      const text = await new Response(r.body.pipeThrough(ds)).text();
+      return JSON.parse(text);
+    }
+
+    async function fetchEntity(gameId) {
+      const r = await fetch(`${BASE}/games/${gameId}/entity`);
+      if (!r.ok) { console.warn(`Entity ${gameId}: HTTP ${r.status}`); return null; }
+      return r.json();
+    }
+
+    function buildRosterMap(entity, game) {
+      const map = {};
+      if (!entity?.roster) return map;
+      const teams = { HOME: game?.homeTeam, AWAY: game?.awayTeam };
+      for (const [side, players] of Object.entries(entity.roster))
+        for (const p of players)
+          map[p.id] = { name: p.name, teamName: teams[side]?.name ?? side };
+      return map;
+    }
+
+    // ── per-tab data storage ──────────────────────────────────────────────────
+    // allRows[tab] = [{ display: [...], raw: {...} }, ...]
+    const allRows = { batting: [], pitching: [], stolen: [], fielding: [] };
+
+    // ── sort state ────────────────────────────────────────────────────────────
+    const sortState = {};
+
+    // ── filter definitions ────────────────────────────────────────────────────
+    // Each filter: { id, label, type: 'min'|'max'|'text', rawKey }
+    const FILTER_DEFS = {
+      batting: [
+        { id: "f-bat-team",  label: "Team",    type: "text", rawKey: "team"  },
+        { sep: true },
+        { id: "f-bat-g",    label: "Min G",   type: "min",  rawKey: "G"    },
+        { id: "f-bat-pa",   label: "Min PA",  type: "min",  rawKey: "PA"   },
+        { id: "f-bat-ab",   label: "Min AB",  type: "min",  rawKey: "AB"   },
+        { id: "f-bat-h",    label: "Min H",   type: "min",  rawKey: "H"    },
+        { id: "f-bat-hr",   label: "Min HR",  type: "min",  rawKey: "HR"   },
+        { id: "f-bat-rbi",  label: "Min RBI", type: "min",  rawKey: "RBI"  },
+        { id: "f-bat-bb",   label: "Min BB",  type: "min",  rawKey: "BB"   },
+        { id: "f-bat-so",   label: "Max SO",  type: "max",  rawKey: "SO"   },
+        { sep: true },
+        { id: "f-bat-avg",  label: "Min AVG", type: "min",  rawKey: "AVG", step: ".001", placeholder: ".000" },
+        { id: "f-bat-obp",  label: "Min OBP", type: "min",  rawKey: "OBP", step: ".001", placeholder: ".000" },
+        { id: "f-bat-slg",  label: "Min SLG", type: "min",  rawKey: "SLG", step: ".001", placeholder: ".000" },
+        { id: "f-bat-ops",  label: "Min OPS", type: "min",  rawKey: "OPS", step: ".001", placeholder: ".000" },
+      ],
+      pitching: [
+        { id: "f-pt-team",  label: "Team",    type: "text", rawKey: "team"  },
+        { sep: true },
+        { id: "f-pt-g",    label: "Min G",   type: "min",  rawKey: "G"   },
+        { id: "f-pt-w",    label: "Min W",   type: "min",  rawKey: "W"   },
+        { id: "f-pt-l",    label: "Max L",   type: "max",  rawKey: "L"   },
+        { id: "f-pt-sv",   label: "Min SV",  type: "min",  rawKey: "SV"  },
+        { id: "f-pt-ip",   label: "Min IP",  type: "min",  rawKey: "IP",  step: ".1", placeholder: "0.0" },
+        { id: "f-pt-h",    label: "Max H",   type: "max",  rawKey: "H"   },
+        { id: "f-pt-bb",   label: "Max BB",  type: "max",  rawKey: "BB"  },
+        { id: "f-pt-so",   label: "Min SO",  type: "min",  rawKey: "SO"  },
+        { id: "f-pt-hbp",  label: "Max HBP", type: "max",  rawKey: "HBP" },
+        { sep: true },
+        { id: "f-pt-era",  label: "Max ERA", type: "max",  rawKey: "ERA_RAW", step: ".01", placeholder: "99.00" },
+        { id: "f-pt-whip", label: "Max WHIP",type: "max",  rawKey: "WHIP_RAW",step: ".01",placeholder: "99.00" },
+        { id: "f-pt-k9",   label: "Min K/9", type: "min",  rawKey: "K9_RAW",  step: ".01" },
+      ],
+      stolen: [
+        { id: "f-sb-team", label: "Team",    type: "text", rawKey: "team" },
+        { sep: true },
+        { id: "f-sb-g",   label: "Min G",   type: "min",  rawKey: "G"   },
+        { id: "f-sb-sb",  label: "Min SB",  type: "min",  rawKey: "SB"  },
+        { id: "f-sb-cs",  label: "Max CS",  type: "max",  rawKey: "CS"  },
+        { id: "f-sb-att", label: "Min ATT", type: "min",  rawKey: "ATT" },
+        { id: "f-sb-pct", label: "Min SB%", type: "min",  rawKey: "SB_PCT", step: ".1", placeholder: "0.0" },
+      ],
+      fielding: [
+        { id: "f-fd-team", label: "Team",     type: "text", rawKey: "team" },
+        { sep: true },
+        { id: "f-fd-g",    label: "Min G",    type: "min",  rawKey: "G"   },
+        { id: "f-fd-tc",   label: "Min TC",   type: "min",  rawKey: "TC"  },
+        { id: "f-fd-po",   label: "Min PO",   type: "min",  rawKey: "PO"  },
+        { id: "f-fd-a",    label: "Min A",    type: "min",  rawKey: "A"   },
+        { id: "f-fd-e",    label: "Max E",    type: "max",  rawKey: "E"   },
+        { id: "f-fd-fld",  label: "Min FLD%", type: "min",  rawKey: "FLD_RAW", step: ".001", placeholder: ".000" },
+      ],
+    };
+
+    // ── filter bar rendering ──────────────────────────────────────────────────
+    function renderFilterBar(tab) {
+      const defs = FILTER_DEFS[tab];
+      let html = `<div class="filter-bar" id="fbar-${tab}">`;
+      for (const d of defs) {
+        if (d.sep) { html += `<div class="filter-sep"></div>`; continue; }
+        if (d.type === "text") {
+          html += `<label>${d.label} <input type="text" id="${d.id}" placeholder="all" autocomplete="off"></label>`;
+        } else {
+          const step = d.step ?? "1";
+          const ph   = d.placeholder ?? "0";
+          html += `<label>${d.label} <input type="number" id="${d.id}" min="0" step="${step}" placeholder="${ph}"></label>`;
+        }
+      }
+      html += `<button class="filter-reset" data-tab="${tab}">Reset</button></div>`;
+      html += `<div class="filter-info" id="finfo-${tab}"></div>`;
+      return html;
+    }
+
+    function attachFilterListeners(tab, headers) {
+      const bar = document.getElementById(`fbar-${tab}`);
+      bar.addEventListener("input", () => refilter(tab, headers));
+      bar.querySelector(".filter-reset").addEventListener("click", () => {
+        bar.querySelectorAll("input").forEach(i => { i.value = ""; i.classList.remove("active-filter"); });
+        refilter(tab, headers);
+      });
+    }
+
+    function getFilters(tab) {
+      const defs = FILTER_DEFS[tab];
+      const out = {};
+      for (const d of defs) {
+        if (d.sep) continue;
+        const el = document.getElementById(d.id);
+        if (!el || el.value === "") { out[d.rawKey] = null; continue; }
+        out[d.rawKey] = d.type === "text" ? el.value.toLowerCase() : parseFloat(el.value);
+        el.classList.toggle("active-filter", el.value !== "");
+      }
+      return out;
+    }
+
+    function passesFilters(raw, filters, defs) {
+      for (const d of defs) {
+        if (d.sep) continue;
+        const fval = filters[d.rawKey];
+        if (fval === null || fval === undefined) continue;
+        const rval = raw[d.rawKey];
+        if (d.type === "text") {
+          if (!String(rval ?? "").toLowerCase().includes(fval)) return false;
+        } else if (d.type === "min") {
+          if ((rval ?? 0) < fval) return false;
+        } else if (d.type === "max") {
+          if ((rval ?? Infinity) > fval) return false;
+        }
+      }
+      return true;
+    }
+
+    function refilter(tab, headers) {
+      const defs    = FILTER_DEFS[tab];
+      const filters = getFilters(tab);
+      const visible = allRows[tab].filter(r => passesFilters(r.raw, filters, defs));
+      renderTableBody(tab, headers, visible);
+      document.getElementById(`finfo-${tab}`).textContent =
+        visible.length === allRows[tab].length
+          ? `${visible.length} players`
+          : `${visible.length} of ${allRows[tab].length} players`;
+      document.getElementById(`cnt-${tab}`).textContent = visible.length;
+    }
+
+    // ── table rendering ───────────────────────────────────────────────────────
+    function initTable(panelId, tab, headers, rows, defaultSort) {
+      allRows[tab] = rows;
+
+      const panel = document.getElementById(panelId);
+      panel.innerHTML =
+        renderFilterBar(tab) +
+        `<div class="table-wrap"><table id="tbl-${tab}"><thead><tr></tr></thead><tbody></tbody></table></div>`;
+
+      sortState[tab] = defaultSort;
+
+      // apply initial sort then render
+      applySort(tab, headers, rows.map(r => r.display));
+
+      attachFilterListeners(tab, headers);
+
+      document.getElementById(`finfo-${tab}`).textContent = `${rows.length} players`;
+      document.getElementById(`cnt-${tab}`).textContent = rows.length;
+    }
+
+    function renderTableBody(tab, headers, rows) {
+      // sort then draw
+      const sorted = sortRows([...rows], sortState[tab]);
+      const tbody = document.getElementById(`tbl-${tab}`).querySelector("tbody");
+      if (!sorted.length) {
+        tbody.innerHTML = `<tr><td colspan="${headers.length}" class="empty" style="text-align:left">No players match filters.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = sorted.map(r =>
+        `<tr>${r.display.map(c => `<td>${c}</td>`).join("")}</tr>`
+      ).join("");
+    }
+
+    function sortRows(rows, { col, dir }) {
+      return rows.sort((a, b) => {
+        let av = a.display[col], bv = b.display[col];
+        if (col === 0) { av = String(av).replace(/<[^>]*>/g, ""); bv = String(bv).replace(/<[^>]*>/g, ""); }
+        if (typeof av === "string" && /^\d+\.\d$/.test(av)) { av = ipToOuts(av); bv = ipToOuts(bv); }
+        if (typeof av === "string" && av.endsWith("%")) { av = parseFloat(av)||0; bv = parseFloat(bv)||0; }
+        const na = parseFloat(av), nb = parseFloat(bv);
+        if (!isNaN(na) && !isNaN(nb)) return dir === "desc" ? nb - na : na - nb;
+        return dir === "desc" ? String(bv).localeCompare(String(av)) : String(av).localeCompare(String(bv));
+      });
+    }
+
+    function applySort(tab, headers, displayRows) {
+      const { col, dir } = sortState[tab];
+      const table = document.getElementById(`tbl-${tab}`);
+
+      // rebuild header
+      table.querySelector("thead tr").innerHTML = headers.map((h, i) => {
+        const active = i === col;
+        const arrow  = active ? `<span class="sort-arrow">${dir === "desc" ? "↓" : "↑"}</span>` : "";
+        return `<th data-col="${i}" class="${active ? "sorted" : ""}">${h}${arrow}</th>`;
+      }).join("");
+
+      // attach sort click once (use event delegation on thead)
+      table.querySelector("thead").onclick = e => {
+        const th = e.target.closest("th");
+        if (!th) return;
+        const c = +th.dataset.col;
+        const prev = sortState[tab];
+        sortState[tab] = { col: c, dir: prev.col === c && prev.dir === "desc" ? "asc" : "desc" };
+        // get currently visible rows from tbody
+        const curRows = allRows[tab].filter(r => {
+          const defs    = FILTER_DEFS[tab];
+          const filters = getFilters(tab);
+          return passesFilters(r.raw, filters, defs);
+        });
+        applySort(tab, headers, curRows.map(r => r.display));
+        renderTableBody(tab, headers, curRows);
+      };
+
+      if (displayRows !== undefined) renderTableBody(tab, headers, allRows[tab].filter(r => {
+        const defs = FILTER_DEFS[tab]; const filters = getFilters(tab);
+        return passesFilters(r.raw, filters, defs);
+      }));
+    }
+
+    // ── main load ─────────────────────────────────────────────────────────────
+    document.getElementById("load-btn").addEventListener("click", async () => {
+      const from = document.getElementById("from").value;
+      const to   = document.getElementById("to").value;
+      if (!from || !to) { setProgress("Please select both dates.", "err"); return; }
+      if (from > to)    { setProgress("From must be before To.", "err"); return; }
+
+      const btn = document.getElementById("load-btn");
+      btn.disabled = true;
+      document.getElementById("tabs").style.display = "none";
+      ["batting","pitching","stolen","fielding"].forEach(t => {
+        document.getElementById("panel-" + t).innerHTML = "";
+        allRows[t] = [];
+      });
+
+      try {
+        setProgress(`Fetching games ${from} → ${to}…`);
+        const games = await fetchGames(from + "T00:00:00Z", to + "T23:59:59Z");
+        if (!games.length) { setProgress("No games found in that range."); btn.disabled = false; return; }
+
+        setProgress(`Found ${games.length} game(s) — fetching stats…`);
+
+        const players = {};
+        const BATCH = 6;
+
+        for (let i = 0; i < games.length; i += BATCH) {
+          const batch = games.slice(i, i + BATCH);
+          setProgress(`Loading game stats ${i+1}–${Math.min(i+BATCH, games.length)} of ${games.length}…`);
+
+          await Promise.all(batch.map(async game => {
+            const gid = game.gameGuid;
+            const [box, entity] = await Promise.all([
+              fetchBoxScore(gid).catch(e => { console.error(gid, e); return null; }),
+              fetchEntity(gid).catch(() => null),
+            ]);
+
+            if (!box?.gameStatState?.players) return;
+            const rosterMap = buildRosterMap(entity, game);
+
+            for (const [pid, pdata] of Object.entries(box.gameStatState.players)) {
+              if (!players[pid]) {
+                const info = rosterMap[pid] ?? {};
+                players[pid] = {
+                  name: info.name ?? `(${pid.slice(0,8)}…)`,
+                  teamName: info.teamName ?? "—",
+                  batting: {}, pitching: {}, fielding: {}, running: {},
+                  gB: 0, gP: 0, gF: 0, gR: 0,
+                };
+              }
+              const ap = players[pid];
+              const s  = pdata.stats ?? {};
+              if (s.batting?.overall  && Object.keys(s.batting.overall).length)  { mergeStats(ap.batting,  s.batting.overall);  ap.gB++; }
+              if (s.pitching?.overall && Object.keys(s.pitching.overall).length) { mergeStats(ap.pitching, s.pitching.overall); ap.gP++; }
+              if (s.fielding?.overall && Object.keys(s.fielding.overall).length) { mergeStats(ap.fielding, s.fielding.overall); ap.gF++; }
+              if (s.running?.overall  && Object.keys(s.running.overall).length)  { mergeStats(ap.running,  s.running.overall);  ap.gR++; }
+            }
+          }));
+        }
+
+        // ── batting ──────────────────────────────────────────────────────────
+        const BAT_HDR = ["Player","G","PA","AB","H","2B","3B","HR","R","RBI","BB","SO","HBP","SF","AVG","OBP","SLG","OPS"];
+        const batRows = [];
+        for (const p of Object.values(players)) {
+          const b = p.batting;
+          if (!b.AB && !b.PA) continue;
+          const ab = b.AB||0, h = b.H||0, bb = b.BB||0, hbp = b.HBP||0, sf = b.SF||0, tb = b.TB||0;
+          const obpD = ab + bb + hbp + sf;
+          const avg = ab ? h/ab : 0, obp = obpD ? (h+bb+hbp)/obpD : 0, slg = ab ? tb/ab : 0;
+          batRows.push({
+            display: [
+              nameCell(p.name, p.teamName), p.gB,
+              b.PA||0, ab, h, b["2B"]||0, b["3B"]||0, b.HR||0,
+              b.R||0, b.RBI||0, bb, b.SO||0, hbp, sf,
+              fmtAvg(avg), fmtAvg(obp), fmtAvg(slg), fmtAvg(obp+slg),
+            ],
+            raw: {
+              team: p.teamName, G: p.gB, PA: b.PA||0, AB: ab, H: h,
+              HR: b.HR||0, RBI: b.RBI||0, BB: bb, SO: b.SO||0,
+              AVG: avg, OBP: obp, SLG: slg, OPS: obp+slg,
+            },
+          });
+        }
+        initTable("panel-batting", "batting", BAT_HDR, batRows, { col: 3, dir: "desc" });
+
+        // ── pitching ─────────────────────────────────────────────────────────
+        const PT_HDR = ["Player","G","W","L","SV","IP","H","R","ER","BB","SO","HBP","ERA","WHIP","K/9"];
+        const ptRows = [];
+        for (const p of Object.values(players)) {
+          const pt = p.pitching;
+          if (!pt.OUTS_PITCHED && !pt.BF) continue;
+          const outs = pt.OUTS_PITCHED||0, ip = outs/3;
+          const er = pt.ER||0, h = pt.H||0, bb = pt.BB||0, so = pt.SO||0;
+          const w = pt.GS||0, l = pt.GF||0, sv = pt.SV||0;
+          const era = ip ? (er/ip)*9 : NaN, whip = ip ? (bb+h)/ip : NaN, k9 = ip ? (so/ip)*9 : NaN;
+          ptRows.push({
+            display: [
+              nameCell(p.name, p.teamName), p.gP, w, l, sv,
+              fmtIp(outs), h, pt.R||0, er, bb, so, pt.HBP||0,
+              fmtEra(era), fmtEra(whip), fmtEra(k9),
+            ],
+            raw: {
+              team: p.teamName, G: p.gP, W: w, L: l, SV: sv,
+              IP: ip, H: h, BB: bb, SO: so, HBP: pt.HBP||0,
+              ERA_RAW: isFinite(era) ? era : 99, WHIP_RAW: isFinite(whip) ? whip : 99, K9_RAW: isFinite(k9) ? k9 : 0,
+            },
+          });
+        }
+        initTable("panel-pitching", "pitching", PT_HDR, ptRows, { col: 5, dir: "desc" });
+
+        // ── stolen bases ─────────────────────────────────────────────────────
+        const SB_HDR = ["Player","G","SB","CS","ATT","SB%","PO","POA"];
+        const sbRows = [];
+        for (const p of Object.values(players)) {
+          const r = p.running;
+          const sb = r.SB||0, cs = r.CS||0, att = sb+cs;
+          if (!sb && !cs && !r.PO && !r.POA) continue;
+          const pct = att ? sb/att : NaN;
+          sbRows.push({
+            display: [
+              nameCell(p.name, p.teamName), p.gR,
+              sb, cs, att, fmtPct(pct), r.PO||0, r.POA||0,
+            ],
+            raw: { team: p.teamName, G: p.gR, SB: sb, CS: cs, ATT: att, SB_PCT: isFinite(pct) ? pct*100 : 0 },
+          });
+        }
+        initTable("panel-stolen", "stolen", SB_HDR, sbRows, { col: 2, dir: "desc" });
+
+        // ── fielding ─────────────────────────────────────────────────────────
+        const FD_HDR = ["Player","G","PO","A","E","TC","DP","PB","SBA","FLD%"];
+        const fdRows = [];
+        for (const p of Object.values(players)) {
+          const f = p.fielding;
+          const po = f.PO||0, a = f.A||0, e = f.E||0;
+          if (!po && !a && !e) continue;
+          const tc = po+a+e, fld = tc ? (po+a)/tc : 1;
+          fdRows.push({
+            display: [
+              nameCell(p.name, p.teamName), p.gF,
+              po, a, e, tc, f.DP||0, f.PB||0, f.SB_ALLOWED||0,
+              tc ? fmtAvg(fld) : "1.000",
+            ],
+            raw: { team: p.teamName, G: p.gF, PO: po, A: a, E: e, TC: tc, FLD_RAW: fld },
+          });
+        }
+        initTable("panel-fielding", "fielding", FD_HDR, fdRows, { col: 2, dir: "desc" });
+
+        document.getElementById("tabs").style.display = "flex";
+        setProgress(`Done — ${games.length} game(s), ${Object.keys(players).length} player(s).`);
+      } catch (err) {
+        setProgress(`Error: ${err.message}`, "err");
+        console.error(err);
+      }
+
+      btn.disabled = false;
+    });
+
+    function setProgress(msg, cls = "") {
+      const el = document.getElementById("progress");
+      el.textContent = msg;
+      el.className = cls;
+    }
+
+    // ── default dates (last 7 days) ───────────────────────────────────────────
+    const today = new Date();
+    const week  = new Date(today);
+    week.setDate(today.getDate() - 7);
+    const d2s = d => d.toISOString().slice(0, 10);
+    document.getElementById("from").value = d2s(week);
+    document.getElementById("to").value   = d2s(today);
+  </script>
+</body>
+</html>

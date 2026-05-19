@@ -229,12 +229,46 @@
       text-align: right;
     }
     .standing-row--york .standing-gb { color: rgba(126,207,255,0.85); }
+
+    /* --- animate --- */
+    #panel-animate {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: none;
+    }
+    #animate-canvas { display: block; width: 203px; height: 336px; }
+    .anim-name {
+      position: absolute;
+      top: 6px; left: 0; right: 0;
+      text-align: center;
+      font-size: 26px; font-weight: 800;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: rgba(255,255,255,0.92);
+      text-shadow: 0 2px 6px rgba(0,0,0,0.95);
+      pointer-events: none;
+    }
+    .anim-dist {
+      position: absolute;
+      bottom: 8px; left: 0; right: 0;
+      text-align: center;
+      font-size: 32px; font-weight: 800;
+      color: #fff;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.9);
+      pointer-events: none;
+      font-variant-numeric: tabular-nums;
+    }
   </style>
 </head>
 <body>
   <div id="panel-lineup"></div>
   <div id="panel-scores"></div>
   <div id="panel-leaders"></div>
+  <div id="panel-animate">
+    <canvas id="animate-canvas" width="203" height="336"></canvas>
+    <div class="anim-name" id="anim-name-label"></div>
+    <div class="anim-dist" id="anim-dist-label"></div>
+  </div>
 
   <script>
     const FB_BASE     = "https://revs-2c987-default-rtdb.firebaseio.com";
@@ -282,10 +316,13 @@
     const scoresEl  = document.getElementById("panel-scores");
     const leadersEl = document.getElementById("panel-leaders");
 
+    const animateEl = document.getElementById("panel-animate");
+
     function showPanel(name) {
       lineupEl.style.display  = name === "lineup"  ? "flex" : "none";
       scoresEl.style.display  = name === "scores"  ? "flex" : "none";
       leadersEl.style.display = (name === "leaders" || name === "standings") ? "flex" : "none";
+      animateEl.style.display = name === "animate" ? "block" : "none";
     }
     showPanel("lineup");
 
@@ -324,6 +361,9 @@
             showPanel("leaders");
           } else if (state.mode === "standings") {
             showPanel("standings");
+          } else if (state.mode === "animate") {
+            showPanel("animate");
+            startAnimate();
           } else {
             showPanel("lineup");
           }
@@ -411,7 +451,7 @@
           rotateIndex = (rotateIndex + 2) % ootGameOrder.length;
           renderScores();
         }
-      }, 7500);
+      }, 12500);
     }
 
     function stopOtsPolling() {
@@ -469,7 +509,7 @@
 
       leagueData.clear();
       const short = (apiShort, name) =>
-        apiShort || TEAM_SHORT[name] || name?.slice(0, 3).toUpperCase() || "???";
+        apiShort || TEAM_SHORT[name] || name?.slice(0, 3).toUpperCase() || null;
 
       for (const g of others) {
         const id        = g.gameGuid;
@@ -487,8 +527,8 @@
           leagueData.set(id, {
             id, source: "league",
             status:    g.gameStatusId,
-            awayShort: short(away?.shortName, away?.name) || awayShort,
-            homeShort: short(home?.shortName, home?.name) || homeShort,
+            awayShort: (away && short(away.shortName, away.name)) || awayShort,
+            homeShort: (home && short(home.shortName, home.name)) || homeShort,
             awayRuns:  away?.runs ?? 0,
             homeRuns:  home?.runs ?? 0,
             inning:    gs?.currentInning ?? 1,
@@ -719,6 +759,272 @@
           </div>
           <div class="standings-rows">${rows}</div>
         </div>`;
+    }
+
+    // --- animate mode ---
+    const ANIM_PARK = {
+      leftFoul:326, leftCenter:(405+326)/2, center:405,
+      rightCenter:(300+405)/2, rightFoul:300,
+      leftFoulHeight:10, leftCenterHeight:10, centerHeight:10,
+      rightCenterHeight:10, rightFoulHeight:37.8
+    };
+    const ANIM_SPEED = 4, ANIM_PAUSE = 900, ANIM_G = 32;
+
+    let _T = null;
+    let animReady = false;
+    let animRenderer, animScene, animCamera;
+    let animBall;
+    let animTraceLines = [];
+    let animClock = null;
+    let animQueue = [], animIdx = 0;
+    let animD = 0, animActualD = 0, animT = 1, animAr = 0;
+    let animElapsed = 0, animStopped = true, animPauseAt = 0;
+    let animLastBatter = null;
+
+    const animDistEl = document.getElementById('anim-dist-label');
+    const animNameEl = document.getElementById('anim-name-label');
+
+    function animNewTrace() {
+      const geo = new _T.BufferGeometry().setFromPoints([new _T.Vector3()]);
+      const line = new _T.Line(geo, new _T.LineBasicMaterial({ color: 0x7ecfff }));
+      line.frustumCulled = false; line.renderOrder = 2; line.material.depthTest = false;
+      animScene.add(line);
+      animTraceLines.push({ line, geo, pts: [new _T.Vector3()] });
+    }
+
+    function animClearTraces() {
+      for (const t of animTraceLines) animScene.remove(t.line);
+      animTraceLines = [];
+    }
+
+    function animPlayRow(row) {
+      animActualD = +(row.Distance) || 350;
+      animD       = animActualD + 20;
+      animT       = +(row.HangTime) || 4;
+      animAr      = ((+(row.Direction) || 0) * Math.PI / 180) - Math.PI / 2;
+      animElapsed = 0;
+      animStopped = false;
+      animBall.visible = true;
+      animBall.position.set(0, 1, 0);
+      animDistEl.textContent = '';
+      animNewTrace();
+      animClock.start();
+    }
+
+    function animLoop() {
+      requestAnimationFrame(animLoop);
+      if (!animReady) return;
+
+      const now = performance.now();
+
+      if (animPauseAt > 0) {
+        if (now < animPauseAt) { animRenderer.render(animScene, animCamera); return; }
+        animPauseAt = 0;
+        animIdx++;
+        if (animIdx < animQueue.length) {
+          animPlayRow(animQueue[animIdx]);
+        } else {
+          animBall.visible = false;
+        }
+      }
+
+      if (!animStopped && animQueue.length) {
+        const dt = animClock.getDelta() * ANIM_SPEED;
+        animElapsed += dt;
+        const u  = Math.min(animElapsed / animT, 1);
+        const x  = animD * u * Math.cos(animAr);
+        const z  = animD * u * Math.sin(animAr);
+        const vy = ANIM_G * animT / 2;
+        const y  = Math.max(vy * animElapsed - 0.5 * ANIM_G * animElapsed * animElapsed, 0);
+        const pos = new _T.Vector3(x, y, z);
+
+        if (u < 1) {
+          animBall.position.copy(pos);
+          const cur = animTraceLines[animTraceLines.length - 1];
+          if (cur) { cur.pts.push(pos.clone()); cur.geo.setFromPoints(cur.pts); }
+          animDistEl.textContent = Math.round(animActualD * u) + ` ft (${animIdx + 1})`;
+        } else {
+          animDistEl.textContent = Math.round(animActualD) + ` ft (${animIdx + 1})`;
+          animStopped = true;
+          animPauseAt = now + ANIM_PAUSE;
+        }
+      }
+
+      animRenderer.render(animScene, animCamera);
+    }
+
+    async function initAnimScene() {
+      if (animReady) return;
+
+      const loadSrc = src => new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+      if (!window.THREE) await loadSrc('https://unpkg.com/three@0.160.0/build/three.min.js');
+      if (!window.Papa)  await loadSrc('https://unpkg.com/papaparse@5.3.2/papaparse.min.js');
+      _T = window.THREE;
+
+      const canvas = document.getElementById('animate-canvas');
+      animRenderer = new _T.WebGLRenderer({ canvas, antialias: true });
+      animRenderer.setSize(203, 336);
+      animScene = new _T.Scene();
+      animScene.background = new _T.Color(0x87CEEB);
+      animCamera = new _T.PerspectiveCamera(68, 203/336, 0.1, 2000);
+      animCamera.position.set(0, 420, 80);
+      animCamera.lookAt(0, 0, -180);
+      animScene.add(new _T.AmbientLight(0x999999));
+      const dl = new _T.DirectionalLight(0xffffff, 1.2);
+      dl.position.set(-200, 300, 100);
+      animScene.add(dl);
+
+      // field group
+      const fg = new _T.Group(); fg.rotation.y = Math.PI; animScene.add(fg);
+      const cfg = ANIM_PARK;
+      const dR = d => d * Math.PI / 180;
+      const rawA = [
+        { ang:-45,   d:cfg.leftFoul,    h:cfg.leftFoulHeight },
+        { ang:-22.5, d:cfg.leftCenter,  h:cfg.leftCenterHeight },
+        { ang:0,     d:cfg.center,      h:cfg.centerHeight },
+        { ang:22.5,  d:cfg.rightCenter, h:cfg.rightCenterHeight },
+        { ang:45,    d:cfg.rightFoul,   h:cfg.rightFoulHeight }
+      ];
+      const anch = rawA.map(p => {
+        const t = dR(p.ang - 90);
+        return { pos: new _T.Vector3(p.d*Math.cos(t), 0, -p.d*Math.sin(t)), h: p.h };
+      });
+
+      // turf
+      const ts = new _T.Shape(); ts.moveTo(0, 0);
+      anch.forEach(a => ts.lineTo(a.pos.x, -a.pos.z)); ts.closePath();
+      const tg = new _T.ShapeGeometry(ts); tg.rotateX(-Math.PI/2);
+      fg.add(new _T.Mesh(tg, new _T.MeshLambertMaterial({ color:0x33aa33, side:_T.DoubleSide })));
+
+      // infield dirt (arc center offset toward CF for proper baseball D shape)
+      const BASE=90, EXT=55, R=BASE+EXT;
+      const Rh = R/Math.SQRT2, Bh = BASE/Math.SQRT2;
+      const CY = BASE;
+      const dyR = Rh - CY;
+      const r2  = Math.hypot(Rh, dyR);
+      const a1  = Math.atan2(-dyR,  Rh);
+      const a2  = Math.atan2(-dyR, -Rh);
+      const ds = new _T.Shape(); ds.moveTo(0,0);
+      ds.lineTo(Bh,-Bh);
+      ds.lineTo(Rh,-Rh);
+      ds.absarc(0,-CY,r2,a1,a2,true);
+      ds.lineTo(-Bh,-Bh); ds.lineTo(0,0);
+      const dg = new _T.ShapeGeometry(ds); dg.rotateX(-Math.PI/2);
+      const dm = new _T.Mesh(dg, new _T.MeshLambertMaterial({ color:0x6B3A1F }));
+      dm.renderOrder=1; dm.material.depthTest=false; fg.add(dm);
+
+      // outfield walls + collision boxes
+      for (let i = 0; i < 4; i++) {
+        const A = anch[i], B = anch[i+1];
+        const dir  = B.pos.clone().sub(A.pos).normalize();
+        const perp = new _T.Vector3(-dir.z, 0, dir.x);
+        const p = [
+          A.pos.clone().add(perp.clone().multiplyScalar(0.5)),
+          A.pos.clone().add(perp.clone().multiplyScalar(-0.5)),
+          B.pos.clone().add(perp.clone().multiplyScalar(-0.5)),
+          B.pos.clone().add(perp.clone().multiplyScalar(0.5))
+        ];
+        const h = (A.h + B.h) / 2;
+        const top = p.map(v => v.clone().setY(h));
+        const verts = [...p, ...top].flatMap(v => [v.x, v.y, v.z]);
+        const idx = [0,1,2,2,3,0, 4,7,6,6,5,4, 0,4,5,5,1,0, 1,5,6,6,2,1, 2,6,7,7,3,2, 3,7,4,4,0,3];
+        const geo = new _T.BufferGeometry();
+        geo.setAttribute('position', new _T.Float32BufferAttribute(verts, 3));
+        geo.setIndex(idx); geo.computeVertexNormals();
+        const wall = new _T.Mesh(geo, new _T.MeshLambertMaterial({ color:0xff7f00 }));
+        fg.add(wall);
+      }
+
+      // ball
+      animBall = new _T.Mesh(
+        new _T.SphereGeometry(3, 16, 16),
+        new _T.MeshStandardMaterial({ color:0xffffff })
+      );
+      animBall.frustumCulled=false; animBall.renderOrder=2; animBall.material.depthTest=false;
+      animScene.add(animBall);
+
+      // foul lines
+      const flMat = new _T.LineBasicMaterial({ color: 0xffffff });
+      [anch[0], anch[4]].forEach(a => {
+        const g = new _T.BufferGeometry().setFromPoints([
+          new _T.Vector3(0, 0.5, 0), a.pos.clone().setY(0.5)
+        ]);
+        const fl = new _T.Line(g, flMat);
+        fl.renderOrder = 3; fl.material.depthTest = false; fg.add(fl);
+      });
+
+      // infield grass diamond (inside the base paths)
+      const bsq = BASE / Math.SQRT2;
+      const igs = new _T.Shape();
+      igs.moveTo(0, 0);
+      igs.lineTo(bsq, -bsq);
+      igs.lineTo(0, -BASE * Math.SQRT2);
+      igs.lineTo(-bsq, -bsq);
+      igs.closePath();
+      const igg = new _T.ShapeGeometry(igs); igg.rotateX(-Math.PI / 2);
+      const igm = new _T.Mesh(igg, new _T.MeshLambertMaterial({ color: 0x2d8a2d }));
+      igm.renderOrder = 2; igm.material.depthTest = false; fg.add(igm);
+
+      // bases
+      const baseMat = new _T.MeshLambertMaterial({ color: 0xffffff });
+      const baseGeo = new _T.BoxGeometry(5, 0.8, 5);
+      [
+        [bsq, 0.4, bsq], [0, 0.4, BASE * Math.SQRT2], [-bsq, 0.4, bsq]
+      ].forEach(([x, y, z]) => {
+        const m = new _T.Mesh(baseGeo, baseMat); m.position.set(x, y, z); fg.add(m);
+      });
+
+      // pitcher's mound
+      const mound = new _T.Mesh(
+        new _T.CylinderGeometry(9, 10, 1.5, 16),
+        new _T.MeshLambertMaterial({ color: 0x5C3011 })
+      );
+      mound.position.set(0, 0.75, 60.5); fg.add(mound);
+
+      animClock = new _T.Clock();
+      animReady = true;
+      requestAnimationFrame(animLoop);
+    }
+
+    function loadAnimHRs(name) {
+      animClearTraces();
+      const nameParts = name.trim().toLowerCase().split(/[\s,]+/).filter(p => p.length > 2);
+      Papa.parse('../data.csv', {
+        download: true, header: true, dynamicTyping: true,
+        complete(res) {
+          const hrs = res.data.filter(r => {
+            if (r.PlayResult !== 'HomeRun' || !(r.Distance > 0) || !(r.HangTime > 0)) return false;
+            const csvParts = String(r.Batter || '').toLowerCase().split(/[\s,]+/).filter(p => p.length > 2);
+            return nameParts.every(np => csvParts.includes(np));
+          });
+          if (!hrs.length) { animDistEl.textContent = 'No HRs'; return; }
+          animQueue = hrs; animIdx = 0;
+          animPlayRow(animQueue[0]);
+        }
+      });
+    }
+
+    async function startAnimate() {
+      await initAnimScene();
+      try {
+        const [playerOverride, batter] = await Promise.all([
+          fetchJson(`${FB_BASE}/iscore/player.json`).catch(() => null),
+          fetchJson(`${FB_BASE}/scoreboard/score_batter.json`).catch(() => null),
+        ]);
+        const name = (typeof playerOverride === 'string' ? playerOverride : null) || batter?.name || '';
+        if (typeof name !== 'string' || !name) return;
+        animNameEl.textContent = name;
+        if (name !== animLastBatter || !animQueue.length) {
+          animLastBatter = name;
+          loadAnimHRs(name);
+        }
+      } catch(e) {
+        console.warn('[animate]', e.message);
+      }
     }
 
     poll();

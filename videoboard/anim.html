@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HR Animation</title>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #0a0a0c;
+      display: flex; flex-direction: column;
+    }
+    #anim-name {
+      flex: 0 0 auto;
+      padding: 14px 12px 8px;
+      text-align: center;
+      font-size: clamp(24px, 4.5vw, 64px); font-weight: 800;
+      font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: rgba(255,255,255,0.92);
+      text-shadow: 0 2px 10px rgba(0,0,0,0.95);
+      pointer-events: none;
+      line-height: 1;
+    }
+    #canvas-wrap {
+      flex: 1 1 0;
+      min-height: 0;
+      position: relative;
+    }
+    #anim-canvas { display: block; }
+    #anim-dist {
+      flex: 0 0 auto;
+      position: relative;
+      z-index: 10;
+      background: #0a0a0c;
+      padding: 6px 12px 14px;
+      text-align: center;
+      font-size: clamp(36px, 7vw, 96px); font-weight: 800;
+      font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
+      color: #fff;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.95);
+      pointer-events: none;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <div id="anim-name"></div>
+  <div id="canvas-wrap">
+    <canvas id="anim-canvas"></canvas>
+  </div>
+  <div id="anim-dist">&nbsp;</div>
+
+  <script>
+    const FB_BASE = "https://revs-2c987-default-rtdb.firebaseio.com";
+    const POLL_MS = 5000;
+
+    const PARK = {
+      leftFoul:326,        leftCenter:(405+326)/2,  center:405,
+      rightCenter:(300+405)/2, rightFoul:300,
+      leftFoulHeight:10,   leftCenterHeight:10,     centerHeight:10,
+      rightCenterHeight:10, rightFoulHeight:37.8
+    };
+    const SPEED = 4, PAUSE_MS = 900, G = 32, FIELD_SCALE = 1.6;
+
+    const T3 = THREE;
+
+    let renderer, scene, camera, clock;
+    let ball, ballGeo, ballMat;
+    let balls = [];
+    let completedTubes = [];
+    let activeTube = null;   // { mesh, pts[] }
+    let queue = [], idx = 0;
+    let D = 0, actualD = 0, T = 1, ar = 0, currentDate = '';
+    let elapsed = 0, stopped = true, pauseAt = 0;
+    let lastBatter = null;
+    let traceMat;
+
+    const nameEl = document.getElementById('anim-name');
+    const distEl = document.getElementById('anim-dist');
+
+    async function fetchJson(url) {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    }
+
+    // --- trace helpers ---
+    function newTrace() {
+      activeTube = { mesh: null, pts: [] };
+    }
+
+    function clearTraces() {
+      for (const m of completedTubes) { scene.remove(m); m.geometry.dispose(); }
+      completedTubes = [];
+      if (activeTube?.mesh) { scene.remove(activeTube.mesh); activeTube.mesh.geometry.dispose(); }
+      activeTube = null;
+      for (const b of balls) scene.remove(b);
+      balls = [];
+    }
+
+    function updateActiveTube(x, y, z) {
+      if (!activeTube) return;
+      activeTube.pts.push(new T3.Vector3(x, y, z));
+      if (activeTube.pts.length < 2) return;
+
+      if (activeTube.mesh) {
+        scene.remove(activeTube.mesh);
+        activeTube.mesh.geometry.dispose();
+      }
+      const curve = new T3.CatmullRomCurve3(activeTube.pts);
+      const segs  = Math.max(activeTube.pts.length - 1, 2);
+      const geo   = new T3.TubeGeometry(curve, segs, 2, 5, false);
+      const mesh  = new T3.Mesh(geo, traceMat);
+      mesh.frustumCulled = false;
+      mesh.renderOrder   = 5;
+      scene.add(mesh);
+      activeTube.mesh = mesh;
+    }
+
+    function finalizeActiveTube() {
+      if (activeTube?.mesh) completedTubes.push(activeTube.mesh);
+      activeTube = null;
+    }
+
+    // --- animation ---
+    function fmtDate(raw) {
+      if (!raw) return '';
+      const d = new Date(raw);
+      if (isNaN(d)) return String(raw).slice(0, 10);
+      return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+    }
+
+    function playRow(row) {
+      actualD     = +(row.Distance)  || 350;
+      D           = (actualD + 20) * FIELD_SCALE;
+      T           = +(row.HangTime)  || 4;
+      ar          = ((+(row.Direction) || 0) * Math.PI / 180) - Math.PI / 2;
+      currentDate = fmtDate(row.Date || row.date || row['Game Date'] || '');
+      elapsed  = 0;
+      stopped  = false;
+      ball = new T3.Mesh(ballGeo, ballMat);
+      ball.frustumCulled = false;
+      ball.renderOrder = 6;
+      ball.material.depthTest = false;
+      ball.position.set(0, 1, 0);
+      scene.add(ball);
+      balls.push(ball);
+      newTrace();
+      clock.start();
+    }
+
+    function animLoop() {
+      requestAnimationFrame(animLoop);
+
+      const now = performance.now();
+
+      if (pauseAt > 0) {
+        if (now < pauseAt) { renderer.render(scene, camera); return; }
+        pauseAt = 0;
+        idx++;
+        if (idx < queue.length) {
+          playRow(queue[idx]);
+        }
+      }
+
+      if (!stopped && queue.length) {
+        const dt = clock.getDelta() * SPEED;
+        elapsed += dt;
+        const u  = Math.min(elapsed / T, 1);
+        const x  = D * u * Math.cos(ar);
+        const z  = D * u * Math.sin(ar);
+        const vy = G * T / 2;
+        const y  = Math.max(vy * elapsed - 0.5 * G * elapsed * elapsed, 0);
+
+        if (u < 1) {
+          ball.position.set(x, y, z);
+          updateActiveTube(x, y, z);
+          distEl.textContent = Math.round(actualD * u) + ` ft (#${idx + 1} · ${currentDate})`;
+        } else {
+          distEl.textContent = Math.round(actualD) + ` ft (#${idx + 1} · ${currentDate})`;
+          finalizeActiveTube();
+          stopped  = true;
+          pauseAt  = now + PAUSE_MS;
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // --- scene ---
+    function initScene() {
+      const canvas = document.getElementById('anim-canvas');
+      const wrap = document.getElementById('canvas-wrap');
+      const W = wrap.clientWidth, H = wrap.clientHeight;
+
+      renderer = new T3.WebGLRenderer({ canvas, antialias: true });
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(window.devicePixelRatio);
+
+      scene = new T3.Scene();
+      scene.background = new T3.Color(0x0a0a0c);
+
+      camera = new T3.PerspectiveCamera(54, W / H, 0.1, 3000);
+      camera.position.set(0, 460, 160);
+      camera.lookAt(0, 0, -230);
+
+      scene.add(new T3.AmbientLight(0x999999));
+      const dl = new T3.DirectionalLight(0xffffff, 1.2);
+      dl.position.set(-200, 300, 100);
+      scene.add(dl);
+
+      traceMat = new T3.MeshLambertMaterial({ color: 0x7ecfff, depthTest: false });
+
+      const fg = new T3.Group(); fg.rotation.y = Math.PI; fg.scale.set(FIELD_SCALE, 1, FIELD_SCALE); scene.add(fg);
+      const dR = d => d * Math.PI / 180;
+      const rawA = [
+        { ang:-45,   d:PARK.leftFoul,    h:PARK.leftFoulHeight },
+        { ang:-22.5, d:PARK.leftCenter,  h:PARK.leftCenterHeight },
+        { ang:0,     d:PARK.center,      h:PARK.centerHeight },
+        { ang:22.5,  d:PARK.rightCenter, h:PARK.rightCenterHeight },
+        { ang:45,    d:PARK.rightFoul,   h:PARK.rightFoulHeight }
+      ];
+      const anch = rawA.map(p => {
+        const t = dR(p.ang - 90);
+        return { pos: new T3.Vector3(p.d*Math.cos(t), 0, -p.d*Math.sin(t)), h: p.h };
+      });
+
+      // outfield turf
+      const ts = new T3.Shape(); ts.moveTo(0, 0);
+      anch.forEach(a => ts.lineTo(a.pos.x, -a.pos.z)); ts.closePath();
+      const tg = new T3.ShapeGeometry(ts); tg.rotateX(-Math.PI/2);
+      fg.add(new T3.Mesh(tg, new T3.MeshLambertMaterial({ color:0x33aa33, side:T3.DoubleSide })));
+
+      // infield dirt
+      const BASE=90, EXT=55, R=BASE+EXT;
+      const Rh = R/Math.SQRT2, Bh = BASE/Math.SQRT2;
+      const CY = BASE, dyR = Rh - CY;
+      const r2 = Math.hypot(Rh, dyR);
+      const da1 = Math.atan2(-dyR, Rh), da2 = Math.atan2(-dyR, -Rh);
+      const ds = new T3.Shape(); ds.moveTo(0,0);
+      ds.lineTo(Bh,-Bh); ds.lineTo(Rh,-Rh);
+      ds.absarc(0,-CY,r2,da1,da2,true);
+      ds.lineTo(-Bh,-Bh); ds.lineTo(0,0);
+      const dg = new T3.ShapeGeometry(ds); dg.rotateX(-Math.PI/2);
+      const dm = new T3.Mesh(dg, new T3.MeshLambertMaterial({ color:0x6B3A1F }));
+      dm.renderOrder=1; dm.material.depthTest=false; fg.add(dm);
+
+      // infield grass diamond
+      const bsq = BASE/Math.SQRT2;
+      const igs = new T3.Shape();
+      igs.moveTo(0,0); igs.lineTo(bsq,-bsq);
+      igs.lineTo(0,-BASE*Math.SQRT2); igs.lineTo(-bsq,-bsq); igs.closePath();
+      const igg = new T3.ShapeGeometry(igs); igg.rotateX(-Math.PI/2);
+      const igm = new T3.Mesh(igg, new T3.MeshLambertMaterial({ color:0x2d8a2d }));
+      igm.renderOrder=2; igm.material.depthTest=false; fg.add(igm);
+
+      // outfield walls
+      for (let i = 0; i < 4; i++) {
+        const A = anch[i], B = anch[i+1];
+        const dir  = B.pos.clone().sub(A.pos).normalize();
+        const perp = new T3.Vector3(-dir.z, 0, dir.x);
+        const corners = [
+          A.pos.clone().add(perp.clone().multiplyScalar( 0.5)),
+          A.pos.clone().add(perp.clone().multiplyScalar(-0.5)),
+          B.pos.clone().add(perp.clone().multiplyScalar(-0.5)),
+          B.pos.clone().add(perp.clone().multiplyScalar( 0.5))
+        ];
+        const h = (A.h + B.h) / 2;
+        const top = corners.map(v => v.clone().setY(h));
+        const verts = [...corners, ...top].flatMap(v => [v.x, v.y, v.z]);
+        const faces = [0,1,2,2,3,0, 4,7,6,6,5,4, 0,4,5,5,1,0, 1,5,6,6,2,1, 2,6,7,7,3,2, 3,7,4,4,0,3];
+        const wg = new T3.BufferGeometry();
+        wg.setAttribute('position', new T3.Float32BufferAttribute(verts, 3));
+        wg.setIndex(faces); wg.computeVertexNormals();
+        fg.add(new T3.Mesh(wg, new T3.MeshLambertMaterial({ color:0xff7f00 })));
+      }
+
+      // foul lines
+      const flMat = new T3.LineBasicMaterial({ color:0xffffff });
+      [anch[0], anch[4]].forEach(a => {
+        const g = new T3.BufferGeometry().setFromPoints([
+          new T3.Vector3(0,0.5,0), a.pos.clone().setY(0.5)
+        ]);
+        const fl = new T3.Line(g, flMat);
+        fl.renderOrder=3; fl.material.depthTest=false; fg.add(fl);
+      });
+
+      // bases
+     
+
+      // pitcher's mound
+      const mound = new T3.Mesh(
+        new T3.CylinderGeometry(9, 10, 1.5, 16),
+        new T3.MeshLambertMaterial({ color:0x5C3011 })
+      );
+      mound.position.set(0, 0.75, 60.5); fg.add(mound);
+
+      // shared ball geometry/material — instances created per HR in playRow
+      ballGeo = new T3.SphereGeometry(4, 16, 16);
+      ballMat = new T3.MeshStandardMaterial({ color:0xffffff });
+
+      clock = new T3.Clock();
+      requestAnimationFrame(animLoop);
+    }
+
+    // --- data ---
+    function loadHRs(name) {
+      clearTraces();
+      queue = []; idx = 0; stopped = true; pauseAt = 0;
+      const nameParts = name.trim().toLowerCase().split(/[\s,]+/).filter(p => p.length > 2);
+      Papa.parse('../data.csv', {
+        download: true, header: true, dynamicTyping: true,
+        complete(res) {
+          const hrs = res.data.filter(r => {
+            if (r.PlayResult !== 'HomeRun' || !(r.Distance > 0) || !(r.HangTime > 0)) return false;
+            const csvParts = String(r.Batter || '').toLowerCase().split(/[\s,]+/).filter(p => p.length > 2);
+            return nameParts.every(np => csvParts.includes(np));
+          });
+          if (!hrs.length) { distEl.textContent = 'No HRs'; return; }
+          hrs.sort((a, b) => new Date(a.Date) - new Date(b.Date));
+          queue = hrs; idx = 0;
+          playRow(queue[0]);
+        }
+      });
+    }
+
+    // --- Firebase polling ---
+    async function poll() {
+      try {
+        const [override, batter] = await Promise.all([
+          fetchJson(`${FB_BASE}/iscore/player.json`).catch(() => null),
+          fetchJson(`${FB_BASE}/scoreboard/score_batter.json`).catch(() => null),
+        ]);
+        const name = (typeof override === 'string' ? override : null) || batter?.name || '';
+        if (!name) return;
+        nameEl.textContent = name;
+        if (name !== lastBatter) {
+          lastBatter = name;
+          loadHRs(name);
+        }
+      } catch(e) {
+        console.warn('[anim]', e.message);
+      }
+    }
+
+    // --- resize ---
+    window.addEventListener('resize', () => {
+      const wrap = document.getElementById('canvas-wrap');
+      const W = wrap.clientWidth, H = wrap.clientHeight;
+      renderer.setSize(W, H);
+      camera.aspect = W / H;
+      camera.updateProjectionMatrix();
+    });
+
+    initScene();
+    poll();
+    setInterval(poll, POLL_MS);
+  </script>
+</body>
+</html>
