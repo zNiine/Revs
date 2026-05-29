@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Videoboard – Live (Polling)</title>
+  <title>Videoboard – Live</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -259,6 +259,8 @@
       font-variant-numeric: tabular-nums;
     }
   </style>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
 <body>
   <div id="panel-lineup"></div>
@@ -271,11 +273,17 @@
   </div>
 
   <script>
-    const FB_BASE     = "https://revs-2c987-default-rtdb.firebaseio.com";
+    firebase.initializeApp({
+      apiKey:      "AIzaSyBgBqrrRBB1vvAnQ9mNBt9Vq6p2NWeKYZw",
+      authDomain:  "revs-2c987.firebaseapp.com",
+      databaseURL: "https://revs-2c987-default-rtdb.firebaseio.com",
+      projectId:   "revs-2c987"
+    });
+    const db = firebase.database();
+
     const API_BASE    = "https://api.microservices.iscoresports.com";
     const LEAGUE_ID   = "df9fb9cc-0fdb-4b79-8a3c-ad5d7b415a56";
     const SEASON_ID   = "9843025b-3dd7-4b1b-8776-a6b53a3bdb7a";
-    const POLL_MS     = 5000;
     const OTS_POLL_MS = 30000;
 
     const TEAM_SHORT = {
@@ -338,52 +346,61 @@
       return r.json();
     }
 
-    // --- main poll (5s) ---
-    async function poll() {
-      try {
-        const [gameId, batterId, mode] = await Promise.all([
-          fetchJson(`${FB_BASE}/iscore/gameId.json`),
-          fetchJson(`${FB_BASE}/iscore/batterId.json`),
-          fetchJson(`${FB_BASE}/iscore/mode.json`)
-        ]);
+    // --- Firebase listeners (replaces REST polling) ---
+    let lastBatterData     = null;
+    let lastPlayerOverride = null;
 
-        const prevMode  = state.mode;
-        state.mode      = mode || "lineup";
-        state.gameId    = gameId;
-        state.batterId  = batterId;
+    function handleIscore(mode, gameId, batterId, player) {
+      lastPlayerOverride = player;
+      const prevMode  = state.mode;
+      state.mode      = mode;
+      state.gameId    = gameId;
+      state.batterId  = batterId;
 
-        if (state.mode !== prevMode) {
-          stopOtsPolling();
-          if (state.mode === "ots-league") {
-            showPanel("scores");
-            startOtsPolling();
-          } else if (state.mode.startsWith("leaders/")) {
-            showPanel("leaders");
-          } else if (state.mode === "standings") {
-            showPanel("standings");
-          } else if (state.mode === "animate") {
-            showPanel("animate");
-            startAnimate();
-          } else {
-            showPanel("lineup");
-          }
+      if (mode !== prevMode) {
+        stopOtsPolling();
+        if (mode === "ots-league") {
+          showPanel("scores");
+          startOtsPolling();
+        } else if (mode.startsWith("leaders/")) {
+          showPanel("leaders");
+        } else if (mode === "standings") {
+          showPanel("standings");
+        } else if (mode === "animate") {
+          showPanel("animate");
+          startAnimate();
+        } else {
+          showPanel("lineup");
         }
+      }
 
-        if (state.mode === "lineup") {
-          if (state.gameId && state.gameId !== state.lastGameId) {
-            const raw        = await fetchJson(`${API_BASE}/api/public/games/${state.gameId}/lineup`);
-            state.lineup     = { HOME: raw.HOME ?? null, AWAY: raw.AWAY ?? null };
-            state.lastGameId = state.gameId;
-          }
+      if (mode === "lineup") {
+        if (gameId && gameId !== state.lastGameId) {
+          fetchJson(`${API_BASE}/api/public/games/${gameId}/lineup`)
+            .then(raw => {
+              state.lineup     = { HOME: raw.HOME ?? null, AWAY: raw.AWAY ?? null };
+              state.lastGameId = gameId;
+              renderLineup();
+            })
+            .catch(e => console.error("[lineup] fetch failed:", e));
+        } else {
           renderLineup();
-        } else if (state.mode.startsWith("leaders/") && state.mode !== prevMode) {
-          const parts = state.mode.split("/");
-          fetchLeaders(parts[1], parts[2]);
-        } else if (state.mode === "standings" && state.mode !== prevMode) {
-          fetchStandings();
         }
-      } catch (e) {
-        console.error("[poll error]", e);
+      } else if (mode.startsWith("leaders/") && mode !== prevMode) {
+        const parts = mode.split("/");
+        fetchLeaders(parts[1], parts[2]);
+      } else if (mode === "standings" && mode !== prevMode) {
+        fetchStandings();
+      }
+    }
+
+    function updateAnimateBatter() {
+      const name = lastPlayerOverride || lastBatterData?.name || '';
+      if (!name) return;
+      animNameEl.textContent = name;
+      if (name !== animLastBatter || !animQueue.length) {
+        animLastBatter = name;
+        loadAnimHRs(name);
       }
     }
 
@@ -1010,25 +1027,23 @@
 
     async function startAnimate() {
       await initAnimScene();
-      try {
-        const [playerOverride, batter] = await Promise.all([
-          fetchJson(`${FB_BASE}/iscore/player.json`).catch(() => null),
-          fetchJson(`${FB_BASE}/scoreboard/score_batter.json`).catch(() => null),
-        ]);
-        const name = (typeof playerOverride === 'string' ? playerOverride : null) || batter?.name || '';
-        if (typeof name !== 'string' || !name) return;
-        animNameEl.textContent = name;
-        if (name !== animLastBatter || !animQueue.length) {
-          animLastBatter = name;
-          loadAnimHRs(name);
-        }
-      } catch(e) {
-        console.warn('[animate]', e.message);
-      }
+      updateAnimateBatter();
     }
 
-    poll();
-    setInterval(poll, POLL_MS);
+    db.ref('/iscore').on('value', snap => {
+      const v = snap.val() || {};
+      handleIscore(
+        v.mode    || 'lineup',
+        v.gameId  || null,
+        v.batterId || null,
+        typeof v.player === 'string' ? v.player : null
+      );
+    });
+
+    db.ref('/scoreboard/score_batter').on('value', snap => {
+      lastBatterData = snap.val();
+      if (state.mode === 'animate') updateAnimateBatter();
+    });
   </script>
 </body>
 </html>
