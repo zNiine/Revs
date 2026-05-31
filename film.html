@@ -1520,9 +1520,24 @@ window.addEventListener("DOMContentLoaded", () => {
       setLoading("Loading data.csv…");
       const res = await fetch("./data.csv");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
-      setLoading("Parsing…");
-      allPitches = parseCSV(text);
+
+      // Stream-parse the CSV instead of buffering the whole 50 MB file as one
+      // string + a full 2D token array. On iOS Safari the buffered approach
+      // peaks at 250–400 MB and the WebContent process is killed
+      // ("A problem repeatedly occurred"). Streaming keeps only one row alive
+      // at a time and only the ~37 columns we actually use.
+      const total = parseInt(res.headers.get("Content-Length") || "0", 10);
+      if (res.body && typeof res.body.getReader === "function") {
+        allPitches = await streamParseCSV(res, bytes => {
+          const mb = (bytes / 1e6).toFixed(0);
+          setLoading(total
+            ? `Parsing… ${Math.min(100, Math.round((bytes / total) * 100))}%`
+            : `Parsing… ${mb} MB`);
+        });
+      } else {
+        // Fallback for browsers without a streaming body
+        allPitches = parseCSV(await res.text());
+      }
       setLoading("Building UI…");
       buildFilterUI();
       applyFilters();
@@ -1627,6 +1642,85 @@ function parseCSV(text) {
       return obj;
     })
     .filter(p => p.PlayID || p.GameUID);
+}
+
+/* Streaming CSV parser — low peak memory.
+   Reads the response body chunk-by-chunk and runs the same character state
+   machine as parseCSV, but it NEVER buffers the whole file or a full 2D token
+   array. Only the current row is held in memory, and only KEEP_COLS fields are
+   materialized (chars for unused columns are skipped entirely). This is what
+   keeps film.html alive on iPhone Safari. `onProgress(bytesRead)` is optional. */
+async function streamParseCSV(response, onProgress) {
+  const reader  = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  const out = [];
+
+  let headers   = null;   // string[] once the header row is parsed
+  let keepIdx   = null;   // Map<colIndex, headerName> for kept columns only
+  let field     = "";
+  let col       = 0;
+  let inQuote   = false;
+  let keep      = true;   // capture chars for the current column?
+  let obj       = null;   // current data-row object
+  let headerRow = null;   // current header-row array (only while headers === null)
+  let bytesRead = 0;
+
+  function beginRow() {
+    field = ""; col = 0;
+    if (headers) { obj = {}; keep = keepIdx.has(0); }
+    else         { headerRow = []; keep = true; }
+  }
+  function endField() {
+    if (headers) { if (keep) obj[keepIdx.get(col)] = field.trim(); }
+    else         { headerRow.push(field); }
+    field = ""; col++;
+    keep = headers ? keepIdx.has(col) : true;
+  }
+  function endRow() {
+    endField();
+    if (!headers) {
+      headers = headerRow.map(h => { h = h.trim(); return h === "Top/Bottom" ? "TopBottom" : h; });
+      keepIdx = new Map();
+      headers.forEach((h, i) => { if (KEEP_COLS.has(h)) keepIdx.set(i, h); });
+      headerRow = null;
+    } else {
+      if (obj.PlayID || obj.GameUID) out.push(obj);
+      obj = null;
+    }
+    beginRow();
+  }
+
+  function feed(text) {
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQuote) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { if (keep) field += '"'; i++; }
+          else inQuote = false;
+        } else if (keep) { field += ch; }
+      } else {
+        if (ch === '"') inQuote = true;
+        else if (ch === ',') endField();
+        else if (ch === '\n') endRow();
+        else if (ch === '\r') { /* swallow; \n terminates the row (handles \r\n) */ }
+        else if (keep) { field += ch; }
+      }
+    }
+  }
+
+  beginRow();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytesRead += value.length;
+    feed(decoder.decode(value, { stream: true }));
+    if (onProgress) onProgress(bytesRead);
+  }
+  feed(decoder.decode()); // flush any trailing multibyte sequence
+  // Finalize a last row that wasn't terminated by a newline
+  if (field !== "" || col > 0) endRow();
+
+  return out;
 }
 
 function hideLoading() {
