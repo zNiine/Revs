@@ -236,6 +236,9 @@
         </div>
       </div>
 
+  <h3>Statcast Summary</h3>
+  <div id="batterSummary" class="card" style="padding:0.9rem 0.75rem; margin-bottom:1rem;"></div>
+
   <h3> Game-by-Game Trends</h3>
   <div id="gameTrends" style="width:700px;height:400px;margin:auto;"></div>
  <div class="row">
@@ -368,6 +371,35 @@
     <script>
         let allData = [], playerName = '';
         let data = []
+        // Per-batter aggregates for league percentile calcs (filled during CSV streaming).
+        // We don't store rows for every batter (memory), just rolling counters.
+        let LEAGUE_AGG = {};
+        function _league(b) {
+          return LEAGUE_AGG[b] || (LEAGUE_AGG[b] = {
+            bipN:0, ozN:0, evN:0, evSum:0, evMax:-Infinity,
+            hard:0, brl:0, swt:0, ozSw:0
+          });
+        }
+        function _accumLeague(r) {
+          const b = r && r.Batter; if (!b) return;
+          const pc = r.PitchCall;
+          const h  = parseFloat(r.PlateLocHeight), s = parseFloat(r.PlateLocSide);
+          const ev = parseFloat(r.ExitSpeed), la = parseFloat(r.Angle);
+          const inZ = !isNaN(h) && !isNaN(s) && h>=1.5 && h<=3.5 && s>=-0.708 && s<=0.708;
+          const oz  = !isNaN(h) && !isNaN(s) && !inZ;
+          const swung = pc && pc !== 'BallCalled' && pc !== 'StrikeCalled';
+          const m = _league(b);
+          if (oz) { m.ozN++; if (swung) m.ozSw++; }
+          if (pc === 'InPlay') {
+            m.bipN++;
+            if (!isNaN(ev)) {
+              m.evN++; m.evSum += ev; if (ev > m.evMax) m.evMax = ev;
+              if (ev >= 95) m.hard++;
+              if (ev >= 90 && ev < 98) m.swt++;
+              if (!isNaN(la) && ev >= 98 && la >= 26 && la <= 32) m.brl++;
+            }
+          }
+        }
 
         function parseNum(s) { const n = parseFloat(s); return isNaN(n) ? null : n; }
 
@@ -378,28 +410,39 @@
     return;
   }
   allData = [];
-  Papa.parse('./data.csv', {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    step: function(results) {
-      var r = results.data;
-      if (r && r.Batter === player) allData.push(r);
-    },
-    complete: function() {
-      allData = allData.map(function(r) {
-        var d = r.Date;
-        return Object.assign({}, r, { Date: d ? new Date(d) : d });
-      });
-      data = allData;
-      initSearchHandler();
-      populateSuggestions(null);
-      initDashboard();
-    },
-    error: function() {
-      document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">Failed to load data.csv.</p>');
-    }
-  });
+  LEAGUE_AGG = {};
+  let pending = 2;
+  function _done() {
+    if (--pending !== 0) return;
+    allData = allData.map(function(r) {
+      var d = r.Date;
+      return Object.assign({}, r, { Date: d ? new Date(d) : d });
+    });
+    data = allData;
+    initSearchHandler();
+    populateSuggestions(null);
+    initDashboard();
+  }
+  function _stream(path) {
+    Papa.parse(path, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      step: function(results) {
+        var r = results.data;
+        if (!r) return;
+        _accumLeague(r);                       // every row contributes to league aggregates
+        if (r.Batter === player) allData.push(r); // only this player's rows kept in allData
+      },
+      complete: _done,
+      error: function() {
+        console.warn('Could not load', path);
+        _done();
+      }
+    });
+  }
+  _stream('./data.csv');
+  _stream('./data25.csv');
 }
 
         // helper to bin into 9 strike-zone cells
@@ -672,6 +715,101 @@ function plotBBTypes(rows){
     values: Object.values(cnt),
     type: 'pie'
   }]);
+}
+
+// Statcast summary cards — Avg EV, Max EV, Hard Hit %, Barrel %, Sweet Spot %, Chase %
+// Player value comes from the filtered `rows`; league percentile comes from LEAGUE_AGG
+// (per-batter rolling counters built during CSV streaming, so we don't store every batter's rows).
+function plotBatterSummary(rows) {
+  const el = document.getElementById('batterSummary');
+  if (!el) return;
+
+  function statsFromAgg(m) {
+    return {
+      avgEV:   m.evN  >= 5  ? m.evSum / m.evN              : null,
+      maxEV:   m.evN  >= 1  && isFinite(m.evMax) ? m.evMax : null,
+      chase:   m.ozN  >= 10 ? m.ozSw / m.ozN * 100         : null,
+      hardHit: m.bipN >= 5  ? m.hard / m.bipN * 100        : null,
+      barrel:  m.bipN >= 5  ? m.brl  / m.bipN * 100        : null,
+      sweet:   m.bipN >= 5  ? m.swt  / m.bipN * 100        : null,
+    };
+  }
+
+  // Player value: compute from the currently filtered `rows` (respects date-range etc.)
+  const playerAgg = {
+    bipN:0, ozN:0, evN:0, evSum:0, evMax:-Infinity,
+    hard:0, brl:0, swt:0, ozSw:0
+  };
+  for (const r of rows) {
+    const pc = r.PitchCall;
+    const h = parseFloat(r.PlateLocHeight), s = parseFloat(r.PlateLocSide);
+    const ev = parseFloat(r.ExitSpeed), la = parseFloat(r.Angle);
+    const inZ = !isNaN(h) && !isNaN(s) && h>=1.5 && h<=3.5 && s>=-0.708 && s<=0.708;
+    const oz  = !isNaN(h) && !isNaN(s) && !inZ;
+    const swung = pc && pc !== 'BallCalled' && pc !== 'StrikeCalled';
+    if (oz) { playerAgg.ozN++; if (swung) playerAgg.ozSw++; }
+    if (pc === 'InPlay') {
+      playerAgg.bipN++;
+      if (!isNaN(ev)) {
+        playerAgg.evN++; playerAgg.evSum += ev; if (ev > playerAgg.evMax) playerAgg.evMax = ev;
+        if (ev >= 95) playerAgg.hard++;
+        if (ev >= 90 && ev < 98) playerAgg.swt++;
+        if (!isNaN(la) && ev >= 98 && la >= 26 && la <= 32) playerAgg.brl++;
+      }
+    }
+  }
+  const me = statsFromAgg(playerAgg);
+
+  // League stats per batter from the streaming aggregates
+  const leagueStats = {};
+  for (const b in LEAGUE_AGG) leagueStats[b] = statsFromAgg(LEAGUE_AGG[b]);
+
+  function percentile(metric, lowerBetter=false) {
+    if (me[metric] === null || !isFinite(me[metric])) return null;
+    const vals = [];
+    for (const b in leagueStats) {
+      const v = leagueStats[b][metric];
+      if (v !== null && isFinite(v)) vals.push({ b, v });
+    }
+    if (vals.length < 2) return null;
+    vals.sort((a,b) => lowerBetter ? a.v - b.v : b.v - a.v);
+    // Match by playerName, but the filtered `rows` may not equal the league entry, so
+    // tie-break to the player's filtered value if their name isn't found.
+    let rank = vals.findIndex(x => x.b === playerName) + 1;
+    if (rank === 0) {
+      const mine = me[metric];
+      const idx = vals.findIndex(x => lowerBetter ? x.v >= mine : x.v <= mine);
+      rank = idx === -1 ? vals.length : Math.max(1, idx);
+    }
+    return { rank, n: vals.length, pct: (1 - (rank-1)/(vals.length-1)) * 100 };
+  }
+
+  const colorFor = p => p >= 80 ? '#16a34a' : p >= 60 ? '#84cc16' : p >= 40 ? '#facc15' : p >= 20 ? '#f97316' : '#dc2626';
+
+  const cards = [
+    { label: 'Avg EV',       value: me.avgEV,   suffix: ' mph', pct: percentile('avgEV')   },
+    { label: 'Max EV',       value: me.maxEV,   suffix: ' mph', pct: percentile('maxEV')   },
+    { label: 'Hard Hit %',   value: me.hardHit, suffix: '%',    pct: percentile('hardHit') },
+    { label: 'Barrel %',     value: me.barrel,  suffix: '%',    pct: percentile('barrel')  },
+    { label: 'Sweet Spot %', value: me.sweet,   suffix: '%',    pct: percentile('sweet')   },
+    { label: 'Chase %',      value: me.chase,   suffix: '%',    pct: percentile('chase', true) },
+  ];
+
+  el.innerHTML = `
+    <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:0.5rem;">
+      ${cards.map(c => {
+        const valStr  = (c.value === null || !isFinite(c.value)) ? '–' : c.value.toFixed(1) + c.suffix;
+        const pctStr  = c.pct ? `${c.pct.pct.toFixed(0)}<sup>th</sup> pct` : '—';
+        const pctColor= c.pct ? colorFor(c.pct.pct) : '#9ca3af';
+        const rankStr = c.pct ? `Rank ${c.pct.rank}/${c.pct.n}` : '';
+        return `<div style="text-align:center; padding:0.55rem 0.4rem; border:1px solid #e5e7eb; border-radius:6px; background:#f9fafb;">
+          <div style="font-size:0.7rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${c.label}</div>
+          <div style="font-size:1.35rem; font-weight:700; color:#111827; margin:0.2rem 0;">${valStr}</div>
+          <div style="font-size:0.75rem; color:${pctColor}; font-weight:700;">${pctStr}</div>
+          <div style="font-size:0.65rem; color:#9ca3af;">${rankStr}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 function plotStatcast(rows) {
@@ -1408,6 +1546,7 @@ function plotRadarMetrics(rows){
     }, 200);
     setTimeout(() => {
 
+  plotBatterSummary(f);
   plotDiscipline(f);
   plotGameTrends(f);
   plotBBTypes(f);
