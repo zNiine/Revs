@@ -11,6 +11,7 @@
     <!-- Libraries -->
     <script src="libs/plotly.min.js"></script>
     <script src="libs/papaparse.min.js"></script>
+    <script src="csv-stream.js"></script>
     <style>
 
               /* Modal uses .modal-overlay from style.css */
@@ -409,11 +410,36 @@
     document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">No player specified. Use ?player=Name</p>');
     return;
   }
+  // Stream-load data.csv + data25.csv (iOS-safe — fixes Safari OOM crash).
+  // Only the columns this page reads are materialized.
+  const _BP_KEEP = new Set([
+    'Date','PAofInning','Pitcher','PitcherThrows','Batter','BatterSide',
+    'Inning','Balls','Strikes',
+    'AutoPitchType','PitchCall','KorBB','TaggedHitType','PlayResult',
+    'RelSpeed','SpinRate','InducedVertBreak','HorzBreak',
+    'PlateLocHeight','PlateLocSide',
+    'ExitSpeed','Angle','Direction','HitSpinRate',
+    'PositionAt110X','PositionAt110Y','Distance',
+    'PitchUID','SpeedDrop','GameUID','PlayID',
+    'HomeNameFull','AwayNameFull','Umpire'
+  ]);
   allData = [];
   LEAGUE_AGG = {};
-  let pending = 2;
-  function _done() {
-    if (--pending !== 0) return;
+  Promise.allSettled(['./data.csv','./data25.csv'].map(function(path) {
+    // We stream each file twice-effectively: streamParseCSV returns the full
+    // (column-filtered) row set, then we walk it once to feed LEAGUE_AGG and
+    // keep only this player's rows in allData. Memory peak is the per-file
+    // row set, not the whole concatenation.
+    return streamParseCSV(path, _BP_KEEP).then(function(rows) {
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        _accumLeague(r);
+        if (r.Batter === player) allData.push(r);
+      }
+    }).catch(function(err) {
+      console.warn('Could not load', path, err);
+    });
+  })).then(function() {
     allData = allData.map(function(r) {
       var d = r.Date;
       return Object.assign({}, r, { Date: d ? new Date(d) : d });
@@ -422,27 +448,7 @@
     initSearchHandler();
     populateSuggestions(null);
     initDashboard();
-  }
-  function _stream(path) {
-    Papa.parse(path, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      step: function(results) {
-        var r = results.data;
-        if (!r) return;
-        _accumLeague(r);                       // every row contributes to league aggregates
-        if (r.Batter === player) allData.push(r); // only this player's rows kept in allData
-      },
-      complete: _done,
-      error: function() {
-        console.warn('Could not load', path);
-        _done();
-      }
-    });
-  }
-  _stream('./data.csv');
-  _stream('./data25.csv');
+  });
 }
 
         // helper to bin into 9 strike-zone cells

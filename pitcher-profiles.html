@@ -12,6 +12,7 @@
     <!-- Libraries -->
     <script src="libs/plotly.min.js"></script>
     <script src="libs/papaparse.min.js"></script>
+    <script src="csv-stream.js"></script>
     <style>
       /* ── Pitcher Profile Overrides ── */
       body { margin: 0; }
@@ -2645,28 +2646,30 @@ function renderPitchStatsByCount(data) {
     document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">No pitcher specified. Use ?player=Name</p>');
     return;
   }
+  // Stream data.csv + data25.csv (iOS-safe — fixes Safari OOM crash).
+  // Only the columns this page reads are kept in memory.
+  const _PP_KEEP = new Set([
+    'Date','PAofInning','PitchofPA','Pitcher','PitcherThrows','Batter','BatterSide',
+    'Inning','Balls','Strikes',
+    'AutoPitchType','PitchCall','KorBB','TaggedHitType','PlayResult','RunsScored',
+    'RelSpeed','SpinRate','SpinAxis','RelHeight','RelSide','Extension',
+    'InducedVertBreak','HorzBreak','PlateLocHeight','PlateLocSide',
+    'ExitSpeed','Angle','Direction','PositionAt110X','PositionAt110Y','Distance',
+    'PitchUID','SpeedDrop','LocalDateTime','GameUID','PlayID',
+    'HomeNameFull','AwayNameFull','Umpire'
+  ]);
   allData = [];
-  Papa.parse('./data.csv', {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    step: function(results) {
-      var r = results.data;
-      if (r) allData.push(r);
-    },
-    complete: function() {
-      allData = allData.map(function(r) {
-        var d = r.Date;
-        return Object.assign({}, r, { Date: d ? new Date(d) : d });
-      });
-      data = allData;
-      initDashboard();
-      initSearchHandler();
-      populateSuggestions();
-    },
-    error: function() {
-      document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">Failed to load data.csv.</p>');
-    }
+  streamLoadAllCSVs(_PP_KEEP).then(function(rows) {
+    allData = rows.map(function(r) {
+      var d = r.Date;
+      return Object.assign({}, r, { Date: d ? new Date(d) : d });
+    });
+    data = allData;
+    initDashboard();
+    initSearchHandler();
+    populateSuggestions();
+  }).catch(function(err) {
+    document.body.insertAdjacentHTML('afterbegin', '<p class="error-msg">Failed to load data.csv: ' + (err.message || err) + '</p>');
   });
 }
 function drawLocationHeatmap() {

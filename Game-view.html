@@ -187,6 +187,7 @@
 </body>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="csv-stream.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   <script>
         var $ = id => document.getElementById(id);
@@ -335,51 +336,53 @@ function rowToPitch(r) {
     Outs: r.Outs
   };
 }
+// iOS-safe: stream data.csv + data25.csv via fetch+ReadableStream (no 50MB
+// string buffer). Only the columns rowToPitch reads are materialized.
+var _GV_KEEP = new Set([
+  'GameUID','PitchUID','Inning','Top/Bottom','PAofInning','PitchNo',
+  'Batter','Pitcher','AwayNameFull','HomeNameFull','Date','LocalDate',
+  'RunsScored','PlayResult','PitchCall','KorBB',
+  'ExitSpeed','Angle','Distance','RelSpeed','AutoPitchType',
+  'PlateLocSide','PlateLocHeight','PlayID',
+  'PopTime','ExchangeTime','ThrowSpeed','BatterSide',
+  'SpinRate','InducedVertBreak','HorzBreak','SpeedDrop',
+  'VertRelAngle','Extension','HorzRelAngle',
+  'HomeTeam','AwayTeam','Direction','BatSpeed','Bearing',
+  'Balls','Strikes','Outs'
+]);
+function _gv_loadAll() {
+  return Promise.allSettled(['./data.csv','./data25.csv'].map(function(p) {
+    return streamParseCSV(p, _GV_KEEP).catch(function(err) {
+      console.warn('Could not load', p, err);
+      return [];
+    });
+  })).then(function(results) {
+    var rows = [];
+    for (var i = 0; i < results.length; i++) {
+      if (results[i].status === 'fulfilled') {
+        var arr = results[i].value;
+        for (var j = 0; j < arr.length; j++) rows.push(arr[j]);
+      }
+    }
+    return rows;
+  });
+}
 function loadGameData() {
   allPitches = [];
   function finish() { init(); }
-  if (gameUID) {
-    Papa.parse('data.csv', {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      step: function(results) {
-        var r = results.data;
-        if (r && r.GameUID === gameUID) allPitches.push(rowToPitch(r));
-      },
-      complete: finish,
-      error: function() { $('title').innerText = 'Failed to load data.csv'; }
-    });
-    return;
-  }
-  if (startPID) {
-    Papa.parse('data.csv', {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      step: function(results) {
-        var r = results.data;
-        if (r && r.PitchUID === startPID) { gameUID = r.GameUID; }
-      },
-      complete: function() {
-        if (!gameUID) { $('title').innerText = 'Pitch not found'; return; }
-        Papa.parse('data.csv', {
-          download: true,
-          header: true,
-          skipEmptyLines: true,
-          step: function(res) {
-            var r = res.data;
-            if (r && r.GameUID === gameUID) allPitches.push(rowToPitch(r));
-          },
-          complete: finish,
-          error: function() { $('title').innerText = 'Failed to load data.csv'; }
-        });
-      },
-      error: function() { $('title').innerText = 'Failed to load data.csv'; }
-    });
-    return;
-  }
-  $('title').innerText = 'Provide ?gameUID= or ?pitchUID=';
+  _gv_loadAll().then(function(rows) {
+    if (!gameUID && startPID) {
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].PitchUID === startPID) { gameUID = rows[i].GameUID; break; }
+      }
+      if (!gameUID) { $('title').innerText = 'Pitch not found'; return; }
+    }
+    if (!gameUID) { $('title').innerText = 'Provide ?gameUID= or ?pitchUID='; return; }
+    for (var k = 0; k < rows.length; k++) {
+      if (rows[k].GameUID === gameUID) allPitches.push(rowToPitch(rows[k]));
+    }
+    finish();
+  }).catch(function() { $('title').innerText = 'Failed to load data.csv'; });
 }
 loadGameData();
 

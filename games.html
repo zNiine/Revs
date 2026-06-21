@@ -81,6 +81,7 @@
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="csv-stream.js"></script>
   <script>
     (function() {
       var gamesMap = {};  // gameUID -> { date, away, home, awayRuns, homeRuns, leaders }
@@ -162,13 +163,18 @@
 
       document.getElementById('loading').style.display = 'block';
       document.getElementById('content').style.display = 'none';
-      Papa.parse('./data.csv', {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        step: function(results) {
-          var r = results.data;
-          if (!r || !r.GameUID) return;
+
+      // Stream data.csv + data25.csv (iOS-safe); fold each row into gamesMap
+      // as it arrives, then drop the row set. Peak memory stays small.
+      var _G_KEEP = new Set([
+        'GameUID','LocalDateTime','Date','AwayNameFull','HomeNameFull',
+        'Top/Bottom','RunsScored','RelSpeed','Pitcher','ExitSpeed','Batter',
+        'PlayResult','Distance'
+      ]);
+      function _foldRows(rows) {
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          if (!r || !r.GameUID) continue;
           var id = r.GameUID;
           if (!gamesMap[id]) {
             gamesMap[id] = {
@@ -196,26 +202,30 @@
             var dist = num(r, 'Distance');
             g.leaders.homeRuns.push({ Batter: r.Batter, Distance: isNaN(dist) ? 0 : dist });
           }
-        },
-        complete: function() {
-          Object.keys(gamesMap).forEach(function(id) {
-            var hrs = gamesMap[id].leaders.homeRuns;
-            hrs.sort(function(a, b) { return b.Distance - a.Distance; });
-          });
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('content').style.display = 'block';
-          populateTeamFilter();
-          buildGames(
-            document.getElementById('filter-date').value,
-            document.getElementById('filter-team').value,
-            document.getElementById('toggle-leaders').checked
-          );
-        },
-        error: function(err) {
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('error').textContent = err.message || 'Failed to load data.csv.';
-          document.getElementById('error').style.display = 'block';
         }
+      }
+
+      Promise.allSettled(['./data.csv','./data25.csv'].map(function(path) {
+        return streamParseCSV(path, _G_KEEP).then(_foldRows).catch(function(err) {
+          console.warn('Could not load', path, err);
+        });
+      })).then(function() {
+        Object.keys(gamesMap).forEach(function(id) {
+          var hrs = gamesMap[id].leaders.homeRuns;
+          hrs.sort(function(a, b) { return b.Distance - a.Distance; });
+        });
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+        populateTeamFilter();
+        buildGames(
+          document.getElementById('filter-date').value,
+          document.getElementById('filter-team').value,
+          document.getElementById('toggle-leaders').checked
+        );
+      }).catch(function(err) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').textContent = (err && err.message) || 'Failed to load CSVs.';
+        document.getElementById('error').style.display = 'block';
       });
 
       var hamburger = document.getElementById('hamburger-btn');
