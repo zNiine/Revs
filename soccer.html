@@ -7,8 +7,8 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      width: 290px;
-      height: 80px;
+      width: 250px;
+      height: 65px;
       overflow: hidden;
       background: transparent;
       color: #f2f2f4;
@@ -22,8 +22,8 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 5px 5px 5px;
-      background: linear-gradient(135deg, #0d1240 0%, #010d2e 100%);
+      padding: 2px 2px 2px;
+      background: linear-gradient(135deg, #000000 0%, #000000 100%);
 
       gap: 0;
     }
@@ -31,21 +31,21 @@
     /* ── score row: flag | score | clock | score | flag ── */
     .scoreboard {
       display: grid;
-      grid-template-columns: 80px 1fr 72px 1fr 80px;
+      grid-template-columns: auto auto 1fr auto auto;
       align-items: center;
     }
 
     .logo {
-      width: 75px; height: 65px;
+      width: 60px; height: 55px;
       object-fit: contain;
       /* glow applied dynamically per team */
     }
-    #logoHome { justify-self: start; }
-    #logoAway { justify-self: end; }
+    #logoHome { justify-self: start; margin-right: 4px; }
+    #logoAway { justify-self: end; margin-left: 4px; }
 
     .score {
       font-family: Impact, "Arial Narrow", "Franklin Gothic Heavy", sans-serif;
-      font-size: 58px;
+      font-size: 45px;
       line-height: 1;
       letter-spacing: -1px;
       text-align: center;
@@ -53,13 +53,13 @@
 
     .clock {
       text-align: center;
-      font-size: 30px;
+      font-size: 25px;
       font-weight: 1000;
       color: #ffe066;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 2px;
     }
     .clock.live { color: #ffe066; }
     .clock.pre  { color: #888; font-size: 18px; }
@@ -210,7 +210,12 @@
     } catch(e) { console.error('Poll error:', e); }
   }
 
-  poll();
+  poll().then(() => {
+    // Simulate 88' for preview
+    const clockEl = $('clock');
+    clockEl.className = 'clock live';
+    clockEl.innerHTML = `<span class="dot"></span>88'`;
+  });
   setInterval(poll, POLL_MS);
 </script>
 </body>
