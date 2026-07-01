@@ -21,34 +21,46 @@
       height: 100%;
       display: flex;
       flex-direction: column;
-      padding: 9px 12px 8px;
+      justify-content: center;
+      padding: 10px 14px 10px;
       gap: 0;
     }
 
-    /* ── top bar ── */
-    .topbar {
-      display: flex;
+    /* ── score row: flag | score | clock | score | flag ── */
+    .scoreboard {
+      display: grid;
+      grid-template-columns: 80px 1fr 72px 1fr 80px;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 6px;
     }
-    .competition {
-      font-size: 13px;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+
+    .logo {
+      width: 76px; height: 76px;
+      object-fit: contain;
+    }
+    #logoHome { justify-self: start; }
+    #logoAway { justify-self: end; }
+
+    .score {
+      font-family: Impact, "Arial Narrow", "Franklin Gothic Heavy", sans-serif;
+      font-size: 58px;
+      line-height: 1;
+      letter-spacing: -1px;
+      text-align: center;
+    }
+
+    .clock {
+      text-align: center;
+      font-size: 26px;
+      font-weight: 900;
       color: #ffe066;
-    }
-    .status-badge {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
-      font-size: 20px;
-      font-weight: 800;
-      color: #ffe066;
     }
-    .status-badge.live { color: #22c55e; }
-    .status-badge.pre  { color: #888; font-size: 16px; }
+    .clock.live { color: #22c55e; }
+    .clock.pre  { color: #888; font-size: 18px; }
+
     .dot {
       width: 7px; height: 7px;
       border-radius: 50%;
@@ -58,110 +70,19 @@
     }
     @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.25} }
 
-    /* ── score row ── */
-    .scoreboard {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 0 8px;
-      margin-bottom: 6px;
-    }
-
-    .team { display: flex; align-items: center; gap: 8px; }
-    .team.away { flex-direction: row-reverse; }
-
-    .logo {
-      width: 38px; height: 38px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-    .team-info { display: flex; flex-direction: column; }
-    .team-info.away { align-items: flex-end; }
-    .team-abbr {
-      font-size: 22px;
-      font-weight: 800;
-      line-height: 1;
-    }
-    .team-name {
-      font-size: 10px;
-      font-weight: 700;
-      color: #5a6480;
-      letter-spacing: 0.03em;
-      line-height: 1;
-      margin-top: 2px;
-    }
-
-    .scores {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .score {
-      font-family: Impact, "Arial Narrow", "Franklin Gothic Heavy", sans-serif;
-      font-size: 50px;
-      line-height: 1;
-      min-width: 30px;
-      text-align: center;
-      letter-spacing: -1px;
-    }
-    .sep {
-      font-family: Impact, "Arial Narrow", sans-serif;
-      font-size: 30px;
-      color: #222;
-      line-height: 1;
-    }
-
-    /* ── bottom: scorers full width ── */
-    .bottom {
-      border-top: 1px solid rgba(255,255,255,0.07);
-      padding-top: 5px;
-    }
-    .scorers {
-      font-size: 15px;
-      font-weight: 700;
-      color: #c8d0e8;
-      line-height: 1.5;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
   </style>
 </head>
 <body>
 <div class="card">
 
-  <div class="topbar">
-    <span class="competition" id="competition">FIFA World Cup 2026</span>
-    <span class="status-badge" id="statusBadge">…</span>
-  </div>
-
   <div class="scoreboard">
-    <div class="team">
-      <img class="logo" id="logoHome" src="" alt="" />
-      <div class="team-info">
-        <span class="team-abbr" id="abbrHome">—</span>
-        <span class="team-name" id="nameHome"></span>
-      </div>
-    </div>
-
-    <div class="scores">
-      <span class="score" id="scoreHome">-</span>
-      <span class="sep">:</span>
-      <span class="score" id="scoreAway">-</span>
-    </div>
-
-    <div class="team away">
-      <img class="logo" id="logoAway" src="" alt="" />
-      <div class="team-info away">
-        <span class="team-abbr" id="abbrAway">—</span>
-        <span class="team-name" id="nameAway"></span>
-      </div>
-    </div>
+    <img class="logo" id="logoHome" src="" alt="" />
+    <span class="score" id="scoreHome">-</span>
+    <div class="clock" id="clock">…</div>
+    <span class="score" id="scoreAway">-</span>
+    <img class="logo" id="logoAway" src="" alt="" />
   </div>
 
-  <div class="bottom">
-    <div class="scorers" id="scorers"></div>
-  </div>
 
 </div>
 
@@ -174,16 +95,6 @@
 
   const $ = id => document.getElementById(id);
 
-  const SLUG_LABEL = {
-    'group-stage':       'Group Stage',
-    'round-of-32':       'Round of 32',
-    'round-of-16':       'Round of 16',
-    'quarterfinals':     'Quarterfinals',
-    'semifinals':        'Semifinals',
-    'third-place':       '3rd Place',
-    'final':             'Final',
-  };
-
   function findGame(events, home, away) {
     const h = home.toLowerCase(), a = away.toLowerCase();
     return events.find(e => {
@@ -195,15 +106,17 @@
 
   function buildScorers(details, homeId, awayId) {
     const goals = (details || []).filter(d => d.scoringPlay && !d.ownGoal);
-    const homeGoals = [], awayGoals = [];
+    const home = [], away = [];
     goals.forEach(d => {
-      const scorer = d.athletesInvolved?.[0]?.shortName || '?';
-      const min    = d.clock?.displayValue || '';
-      const entry  = `${scorer} ${min}`;
-      if (String(d.team?.id) === String(homeId)) homeGoals.push(entry);
-      else awayGoals.push(entry);
+      const name = d.athletesInvolved?.[0]?.shortName || '?';
+      const min  = d.clock?.displayValue || '';
+      (String(d.team?.id) === String(homeId) ? home : away).push(`${name} ${min}`);
     });
-    return { homeGoals, awayGoals };
+    // interleave: home goals left, away goals right, separated by dash
+    const parts = [];
+    if (home.length) parts.push(home.join(', '));
+    if (away.length) parts.push(away.join(', '));
+    return parts.join('  ·  ');
   }
 
   function render(event) {
@@ -212,64 +125,45 @@
     const status      = comp.status;
     const state       = status.type.state;
     const detail      = status.type.shortDetail;
-    const slug        = event.season?.slug || '';
 
     const home = competitors.find(c => c.homeAway === 'home') || competitors[0];
     const away = competitors.find(c => c.homeAway === 'away') || competitors[1];
 
-    $('competition').textContent = 'FIFA World Cup 2026';
+    $('logoHome').src = home.team.logo || '';
+    $('logoAway').src = away.team.logo || '';
 
-    // teams
-    $('logoHome').src         = home.team.logo || '';
-    $('logoAway').src         = away.team.logo || '';
-    $('abbrHome').textContent = home.team.abbreviation;
-    $('abbrAway').textContent = away.team.abbreviation;
-    $('nameHome').textContent = home.team.shortDisplayName || home.team.displayName;
-    $('nameAway').textContent = away.team.shortDisplayName || away.team.displayName;
 
-    // scores
     $('scoreHome').textContent = state === 'pre' ? '-' : (home.score ?? '-');
     $('scoreAway').textContent = state === 'pre' ? '-' : (away.score ?? '-');
 
-    // status badge
-    const badge = $('statusBadge');
+    const clockEl = $('clock');
     if (state === 'in') {
-      badge.className   = 'status-badge live';
-      badge.innerHTML   = `<span class="dot"></span>${detail}`;
+      clockEl.className = 'clock live';
+      clockEl.innerHTML = `<span class="dot"></span>${detail}`;
     } else if (state === 'post') {
-      badge.className   = 'status-badge';
-      badge.textContent = detail || 'FT';
+      clockEl.className = 'clock';
+      clockEl.textContent = detail || 'FT';
     } else {
-      badge.className   = 'status-badge pre';
-      badge.textContent = status.type.detail?.match(/\d+:\d+ [AP]M/)?.[0] || detail;
+      clockEl.className = 'clock pre';
+      clockEl.textContent = status.type.detail?.match(/\d+:\d+ [AP]M/)?.[0] || detail;
     }
-
-    // scorers
-    const { homeGoals, awayGoals } = buildScorers(comp.details, home.team.id, away.team.id);
-    const allGoals = [
-      ...homeGoals.map(g => ({ text: g, cls: 'scorer-goal' })),
-      ...awayGoals.map(g => ({ text: g, cls: 'scorer-goal' })),
-    ];
-    $('scorers').innerHTML = allGoals.length
-      ? allGoals.map(g => `<span class="${g.cls}">${g.text}</span>`).join('<br>')
-      : '';
 
   }
 
   async function poll() {
-    const today  = new Date();
-    const pad    = n => String(n).padStart(2,'0');
+    const today   = new Date();
+    const pad     = n => String(n).padStart(2, '0');
     const todayStr = `${today.getFullYear()}${pad(today.getMonth()+1)}${pad(today.getDate())}`;
     const gameDay  = '20260701';
 
     try {
       for (const dates of [todayStr, gameDay]) {
-        const res    = await fetch(`${BASE}?dates=${dates}`);
-        const data   = await res.json();
-        const game   = findGame(data.events || [], HOME_TEAM, AWAY_TEAM);
+        const res  = await fetch(`${BASE}?dates=${dates}`);
+        const data = await res.json();
+        const game = findGame(data.events || [], HOME_TEAM, AWAY_TEAM);
         if (game) { render(game); return; }
       }
-      $('statusBadge').textContent = 'Not found';
+      $('clock').textContent = 'Not found';
     } catch(e) { console.error('Poll error:', e); }
   }
 
