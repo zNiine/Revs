@@ -91,8 +91,8 @@
 </div>
 
 <script>
-  const HOME_TEAM = 'Belgium';   // live game for score/clock
-  const AWAY_TEAM = 'Senegal';
+  const HOME_TEAM = 'United States';
+  const AWAY_TEAM = 'Bosnia';
 
   // Always show these logos regardless of which game we're pulling score from
   const LOGO_HOME = 'https://a.espncdn.com/i/teamlogos/countries/500/usa.png';
@@ -211,12 +211,7 @@
     } catch(e) { console.error('Poll error:', e); }
   }
 
-  poll().then(() => {
-    // Simulate 88' for preview
-    const clockEl = $('clock');
-    clockEl.className = 'clock live';
-    clockEl.innerHTML = `88'`;
-  });
+  poll();
   setInterval(poll, POLL_MS);
 </script>
 </body>
