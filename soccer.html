@@ -22,7 +22,7 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 2px 2px 2px;
+      padding: 5px 8px;
       background: linear-gradient(135deg, #000000 0%, #000000 100%);
 
       gap: 0;
@@ -65,7 +65,7 @@
     .clock.pre  { color: #888; font-size: 18px; }
 
     .dot {
-      width: 7px; height: 7px;
+      width: 0px; height: 0px;
       border-radius: 50%;
       background: #22c55e;
       flex-shrink: 0;
@@ -179,9 +179,9 @@
       clockEl.className = 'clock live';
       const match = detail.match(/^(\d+'\s*)\+(\d+')$/);
       if (match) {
-        clockEl.innerHTML = `<span class="dot"></span><span style="display:flex;flex-direction:column;align-items:center;line-height:1"><span>${match[1]}</span><span style="font-size:0.55em;opacity:0.85">+${match[2]}</span></span>`;
+        clockEl.innerHTML = `<span style="display:flex;flex-direction:column;align-items:center;line-height:1"><span>${match[1]}</span><span style="font-size:0.55em;opacity:0.85">+${match[2]}</span></span>`;
       } else {
-        clockEl.innerHTML = `<span class="dot"></span>${detail}`;
+        clockEl.innerHTML = `${detail}`;
       }
     } else if (state === 'post') {
       clockEl.className = 'clock';
@@ -214,7 +214,7 @@
     // Simulate 88' for preview
     const clockEl = $('clock');
     clockEl.className = 'clock live';
-    clockEl.innerHTML = `<span class="dot"></span>88'`;
+    clockEl.innerHTML = `88'`;
   });
   setInterval(poll, POLL_MS);
 </script>
