@@ -7,10 +7,10 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      width: 326px;
+      width: 290px;
       height: 80px;
       overflow: hidden;
-      background: #0a0a0c;
+      background: transparent;
       color: #f2f2f4;
       font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
       -webkit-font-smoothing: antialiased;
@@ -23,7 +23,7 @@
       flex-direction: column;
       justify-content: center;
       padding: 5px 5px 5px;
-      background: darkblue;
+      background: linear-gradient(135deg, #0d1240 0%, #010d2e 100%);
 
       gap: 0;
     }
@@ -36,8 +36,9 @@
     }
 
     .logo {
-      width: 76px; height: 76px;
+      width: 75px; height: 65px;
       object-fit: contain;
+      /* glow applied dynamically per team */
     }
     #logoHome { justify-self: start; }
     #logoAway { justify-self: end; }
@@ -89,13 +90,46 @@
 </div>
 
 <script>
-  const HOME_TEAM = 'Belgium';
+  const HOME_TEAM = 'Belgium';   // live game for score/clock
   const AWAY_TEAM = 'Senegal';
+
+  // Always show these logos regardless of which game we're pulling score from
+  const LOGO_HOME = 'https://a.espncdn.com/i/teamlogos/countries/500/usa.png';
+  const LOGO_AWAY = 'https://a.espncdn.com/i/teamlogos/countries/500/bih.png';
+  const GLOW_HOME = 'United States';
+  const GLOW_AWAY = 'Bosnia-Herzegovina';
 
   const POLL_MS = 30_000;
   const BASE    = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
 
   const $ = id => document.getElementById(id);
+
+  // Flag glow colors per team [color1, color2]
+  const FLAG_GLOW = {
+    'united states':          ['#B22234', '#ffffff'],
+    'bosnia-herzegovina':     ['#002395', '#FFCC00'],
+    'france':                 ['#002395', '#ffffff'],
+    'sweden':                 ['#006AA7', '#FECC02'],
+    'belgium':                ['#EF3340', '#F8D800'],
+    'senegal':                ['#00853F', '#FDEF42'],
+    'england':                ['#CF111A', '#ffffff'],
+    'brazil':                 ['#009C3B', '#FFDF00'],
+    'argentina':              ['#74ACDF', '#ffffff'],
+    'germany':                ['#DD0000', '#FFCE00'],
+    'spain':                  ['#AA151B', '#F1BF00'],
+    'portugal':               ['#006600', '#FF0000'],
+    'netherlands':            ['#AE1C28', '#21468B'],
+    'mexico':                 ['#006847', '#CE1126'],
+    'canada':                 ['#FF0000', '#ffffff'],
+    'japan':                  ['#BC002D', '#ffffff'],
+  };
+
+  function teamGlow(displayName) {
+    const key = (displayName || '').toLowerCase();
+    const colors = FLAG_GLOW[key] || ['#ffffff', '#cccccc'];
+    const [c1, c2] = colors;
+    return `drop-shadow(0 0 2px ${c1}) drop-shadow(0 0 5px ${c1}) drop-shadow(0 0 2px ${c2}) drop-shadow(0 0 6px ${c2})`;
+  }
 
   function findGame(events, home, away) {
     const h = home.toLowerCase(), a = away.toLowerCase();
@@ -131,8 +165,10 @@
     const home = competitors.find(c => c.homeAway === 'home') || competitors[0];
     const away = competitors.find(c => c.homeAway === 'away') || competitors[1];
 
-    $('logoHome').src = home.team.logo || '';
-    $('logoAway').src = away.team.logo || '';
+    $('logoHome').src = LOGO_HOME;
+    $('logoAway').src = LOGO_AWAY;
+    $('logoHome').style.filter = teamGlow(GLOW_HOME);
+    $('logoAway').style.filter = teamGlow(GLOW_AWAY);
 
 
     $('scoreHome').textContent = state === 'pre' ? '-' : (home.score ?? '-');
@@ -141,7 +177,12 @@
     const clockEl = $('clock');
     if (state === 'in') {
       clockEl.className = 'clock live';
-      clockEl.innerHTML = `<span class="dot"></span>${detail}`;
+      const match = detail.match(/^(\d+'\s*)\+(\d+')$/);
+      if (match) {
+        clockEl.innerHTML = `<span class="dot"></span><span style="display:flex;flex-direction:column;align-items:center;line-height:1"><span>${match[1]}</span><span style="font-size:0.55em;opacity:0.85">+${match[2]}</span></span>`;
+      } else {
+        clockEl.innerHTML = `<span class="dot"></span>${detail}`;
+      }
     } else if (state === 'post') {
       clockEl.className = 'clock';
       clockEl.textContent = detail || 'FT';
