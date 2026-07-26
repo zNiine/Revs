@@ -1222,8 +1222,9 @@ select option { background: var(--bg3); }
     <div id="mob-header-cam">
       <button class="cam-btn active" data-cam="broadcast" onclick="switchAngle('broadcast')">Broadcast</button>
       <button class="cam-btn" data-cam="trackman" onclick="switchAngle('trackman')">TrackMan</button>
-      <button class="cam-btn" data-cam="1b" id="mob-cam-btn-1b" onclick="switchAngle('1b')" disabled title="Coming soon">1B</button>
       <button class="cam-btn" data-cam="3b" id="mob-cam-btn-3b" onclick="switchAngle('3b')" disabled title="Coming soon">3B</button>
+      <button class="cam-btn" data-cam="hh" id="mob-cam-btn-hh" onclick="switchAngle('hh')" disabled title="Coming soon">HH</button>
+      <button class="cam-btn" data-cam="be" id="mob-cam-btn-be" onclick="switchAngle('be')" disabled title="Coming soon">BE</button>
     </div>
   </div>
 
@@ -1315,8 +1316,9 @@ select option { background: var(--bg3); }
       <div id="cam-switcher">
         <button class="cam-btn active" data-cam="broadcast" onclick="switchAngle('broadcast')">Broadcast</button>
         <button class="cam-btn" data-cam="trackman" onclick="switchAngle('trackman')">TrackMan</button>
-        <button class="cam-btn" data-cam="1b" id="cam-btn-1b" onclick="switchAngle('1b')" disabled title="Coming soon">1B Cam</button>
         <button class="cam-btn" data-cam="3b" id="cam-btn-3b" onclick="switchAngle('3b')" disabled title="Coming soon">3B Cam</button>
+        <button class="cam-btn" data-cam="hh" id="cam-btn-hh" onclick="switchAngle('hh')" disabled title="Coming soon">HH Cam</button>
+        <button class="cam-btn" data-cam="be" id="cam-btn-be" onclick="switchAngle('be')" disabled title="Coming soon">BE Cam</button>
       </div>
 
       <div id="video-overlay">
@@ -1445,8 +1447,9 @@ const TRACKMAN_WORKER = "https://helloworld.idkconflict1.workers.dev/stream_vide
 
 // Additional camera angles — set base URL when feeds go live (same R2 pattern: {base}/{GameUID}/{PlayID}.mp4)
 // Leave empty string to keep the button disabled until ready.
-const CAM_1B_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev/1b";
 const CAM_3B_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev/3b";
+const CAM_HH_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev/hh";
+const CAM_BE_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev/be";
 
 // Backend endpoint for FFmpeg concat merge.
 // See comments at bottom of file for expected backend implementation.
@@ -1462,7 +1465,7 @@ let editClips = [];         // clips in editor
 let reelPlaying = false;
 let reelIdx = 0;
 let dragSrcIdx = null;
-let currentAngle = 'broadcast'; // active camera angle: broadcast | trackman | 1b | 3b
+let currentAngle = 'broadcast'; // active camera angle: broadcast | trackman | 3b | hh | be
 
 
 /* ════════════════════════════════════════════════════════════════════
@@ -2203,10 +2206,12 @@ function getViewUrl(p) {
   switch (currentAngle) {
     case 'trackman':
       return `${TRACKMAN_WORKER}?session_id=${encodeURIComponent(p.GameUID)}&track_id=${encodeURIComponent(p.PlayID)}`;
-    case '1b':
-      return CAM_1B_BASE_URL ? `${CAM_1B_BASE_URL}/${p.GameUID}/${p.PlayID}.mp4` : getVideoUrl(p);
     case '3b':
       return CAM_3B_BASE_URL ? `${CAM_3B_BASE_URL}/${p.GameUID}/${p.PlayID}.mp4` : getVideoUrl(p);
+    case 'hh':
+      return CAM_HH_BASE_URL ? `${CAM_HH_BASE_URL}/${p.GameUID}/${p.PlayID}.mp4` : getVideoUrl(p);
+    case 'be':
+      return CAM_BE_BASE_URL ? `${CAM_BE_BASE_URL}/${p.GameUID}/${p.PlayID}.mp4` : getVideoUrl(p);
     default:
       return getVideoUrl(p);
   }
@@ -2223,25 +2228,33 @@ function loadVideo(p) {
 }
 
 function initCamSwitcher() {
-  ['cam-btn-1b', 'mob-cam-btn-1b'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.disabled = !CAM_1B_BASE_URL;
-  });
   ['cam-btn-3b', 'mob-cam-btn-3b'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !CAM_3B_BASE_URL;
   });
+  ['cam-btn-hh', 'mob-cam-btn-hh'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !CAM_HH_BASE_URL;
+  });
+  ['cam-btn-be', 'mob-cam-btn-be'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !CAM_BE_BASE_URL;
+  });
 }
 
 function switchAngle(angle) {
-  // Enable/disable 1B and 3B buttons based on config
-  const btn1b = document.getElementById('cam-btn-1b');
+  // Enable/disable extra-angle buttons based on config
   const btn3b = document.getElementById('cam-btn-3b');
-  if (btn1b) btn1b.disabled = !CAM_1B_BASE_URL;
+  const btnHh = document.getElementById('cam-btn-hh');
+  const btnBe = document.getElementById('cam-btn-be');
   if (btn3b) btn3b.disabled = !CAM_3B_BASE_URL;
+  if (btnHh) btnHh.disabled = !CAM_HH_BASE_URL;
+  if (btnBe) btnBe.disabled = !CAM_BE_BASE_URL;
 
   // Bail if button is disabled (e.g. called before config is set)
-  if ((angle === '1b' && !CAM_1B_BASE_URL) || (angle === '3b' && !CAM_3B_BASE_URL)) return;
+  if ((angle === '3b' && !CAM_3B_BASE_URL) ||
+      (angle === 'hh' && !CAM_HH_BASE_URL) ||
+      (angle === 'be' && !CAM_BE_BASE_URL)) return;
 
   currentAngle = angle;
 
