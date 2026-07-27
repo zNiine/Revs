@@ -1448,8 +1448,9 @@ const TRACKMAN_WORKER = "https://helloworld.idkconflict1.workers.dev/stream_vide
 // Additional camera angles — set base URL when feeds go live (same R2 pattern: {base}/{GameUID}/{PlayID}.mp4)
 // Leave empty string to keep the button disabled until ready.
 const CAM_3B_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev/3b";
-const CAM_HH_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev/hh";
-const CAM_BE_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev/be";
+// NOTE: R2 keys are case-sensitive. These live under the baseball-video-clips/ prefix with UPPERCASE folder names.
+const CAM_HH_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev/baseball-video-clips/HH";
+const CAM_BE_BASE_URL = "https://pub-807b7eaaec9e4442a59badae57ad6307.r2.dev/baseball-video-clips/BE";
 
 // Backend endpoint for FFmpeg concat merge.
 // See comments at bottom of file for expected backend implementation.
