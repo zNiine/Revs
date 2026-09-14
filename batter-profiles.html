@@ -378,8 +378,17 @@
         function _league(b) {
           return LEAGUE_AGG[b] || (LEAGUE_AGG[b] = {
             bipN:0, ozN:0, evN:0, evSum:0, evMax:-Infinity,
-            hard:0, brl:0, swt:0, ozSw:0
+            hard:0, brl:0, swt:0, ozSw:0, evs:[]
           });
+        }
+        // Linear-interpolated percentile of a numeric array (e.g. 90th-pct exit velo).
+        function _pctileOf(arr, p) {
+          if (!arr || !arr.length) return null;
+          const a = arr.slice().sort((x,y) => x - y);
+          if (a.length === 1) return a[0];
+          const idx = (p/100) * (a.length - 1);
+          const lo = Math.floor(idx), hi = Math.ceil(idx);
+          return lo === hi ? a[lo] : a[lo] + (a[hi] - a[lo]) * (idx - lo);
         }
         function _accumLeague(r) {
           const b = r && r.Batter; if (!b) return;
@@ -395,6 +404,7 @@
             m.bipN++;
             if (!isNaN(ev)) {
               m.evN++; m.evSum += ev; if (ev > m.evMax) m.evMax = ev;
+              m.evs.push(ev);
               if (ev >= 95) m.hard++;
               if (ev >= 90 && ev < 98) m.swt++;
               if (!isNaN(la) && ev >= 98 && la >= 26 && la <= 32) m.brl++;
@@ -734,6 +744,7 @@ function plotBatterSummary(rows) {
     return {
       avgEV:   m.evN  >= 5  ? m.evSum / m.evN              : null,
       maxEV:   m.evN  >= 1  && isFinite(m.evMax) ? m.evMax : null,
+      ev90:    m.evs && m.evs.length >= 10 ? _pctileOf(m.evs, 90)  : null,
       chase:   m.ozN  >= 10 ? m.ozSw / m.ozN * 100         : null,
       hardHit: m.bipN >= 5  ? m.hard / m.bipN * 100        : null,
       barrel:  m.bipN >= 5  ? m.brl  / m.bipN * 100        : null,
@@ -744,7 +755,7 @@ function plotBatterSummary(rows) {
   // Player value: compute from the currently filtered `rows` (respects date-range etc.)
   const playerAgg = {
     bipN:0, ozN:0, evN:0, evSum:0, evMax:-Infinity,
-    hard:0, brl:0, swt:0, ozSw:0
+    hard:0, brl:0, swt:0, ozSw:0, evs:[]
   };
   for (const r of rows) {
     const pc = r.PitchCall;
@@ -758,6 +769,7 @@ function plotBatterSummary(rows) {
       playerAgg.bipN++;
       if (!isNaN(ev)) {
         playerAgg.evN++; playerAgg.evSum += ev; if (ev > playerAgg.evMax) playerAgg.evMax = ev;
+        playerAgg.evs.push(ev);
         if (ev >= 95) playerAgg.hard++;
         if (ev >= 90 && ev < 98) playerAgg.swt++;
         if (!isNaN(la) && ev >= 98 && la >= 26 && la <= 32) playerAgg.brl++;
@@ -795,6 +807,7 @@ function plotBatterSummary(rows) {
   const cards = [
     { label: 'Avg EV',       value: me.avgEV,   suffix: ' mph', pct: percentile('avgEV')   },
     { label: 'Max EV',       value: me.maxEV,   suffix: ' mph', pct: percentile('maxEV')   },
+    { label: 'EV 90th',      value: me.ev90,    suffix: ' mph', pct: percentile('ev90')    },
     { label: 'Hard Hit %',   value: me.hardHit, suffix: '%',    pct: percentile('hardHit') },
     { label: 'Barrel %',     value: me.barrel,  suffix: '%',    pct: percentile('barrel')  },
     { label: 'Sweet Spot %', value: me.sweet,   suffix: '%',    pct: percentile('sweet')   },
@@ -802,7 +815,7 @@ function plotBatterSummary(rows) {
   ];
 
   el.innerHTML = `
-    <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:0.5rem;">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap:0.5rem;">
       ${cards.map(c => {
         const valStr  = (c.value === null || !isFinite(c.value)) ? '–' : c.value.toFixed(1) + c.suffix;
         const pctStr  = c.pct ? `${c.pct.pct.toFixed(0)}<sup>th</sup> pct` : '—';
